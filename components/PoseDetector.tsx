@@ -17,13 +17,7 @@ export const PoseDetector = () => {
   const [settings, setSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
   const [selectedKeypoint, setSelectedKeypoint] = useState('right_elbow');
 
-  const [referenceLength, setReferenceLength] = useState(200);
-  const [distanceInMeters, setDistanceInMeters] = useState(1); 
-  const [pixelsPerMeter, setPixelsPerMeter] = useState<number | null>(null); 
-
-  const referenceLengthRef = useRef(referenceLength);
   const selectedKeypointRef = useRef(selectedKeypoint);
-  const pixelsPerMeterRef = useRef(pixelsPerMeter);
 
   const keypointDataRef = useRef<{
     position: { x: number; y: number };
@@ -72,19 +66,10 @@ export const PoseDetector = () => {
     }
   };
 
-  const handleConfirmReference = () => {
-    if (distanceInMeters > 0) {
-      console.log('referenceLength / distanceInMeters', referenceLength / distanceInMeters);
-      setPixelsPerMeter(referenceLength / distanceInMeters); // Calcula los píxeles por metro
-    }
-  };
-
   // Sincronizar los valores en los refs
   useEffect(() => {
-    referenceLengthRef.current = referenceLength;
     selectedKeypointRef.current = selectedKeypoint;
-    pixelsPerMeterRef.current = pixelsPerMeter;
-  }, [referenceLength, selectedKeypoint, pixelsPerMeter]);
+  }, [selectedKeypoint]);
 
   useEffect(() => {
     const initializeDetector = async () => {
@@ -134,22 +119,7 @@ export const PoseDetector = () => {
               );
 
               // Obtener los valores actualizados desde las referencias
-              const currentReferenceLength = referenceLengthRef.current;
               const currentSelectedKeypoint = selectedKeypointRef.current;
-              const currentPixelsPerMeter = pixelsPerMeterRef.current;
-
-              // Dibujar la referencia visual
-              ctx.beginPath();
-              ctx.moveTo(0, canvasRef.current.height - 6);
-              ctx.lineTo(0 + currentReferenceLength, canvasRef.current.height - 6);
-              ctx.strokeStyle = 'green';
-              ctx.lineWidth = 6;
-              ctx.stroke();
-
-              ctx.font = '14px Arial';
-              ctx.fillStyle = 'white';
-              ctx.fillText('Adjust the reference length and distance', 20, canvasRef.current.height - 40);
-
 
               // Filtrar keypoints con score mayor a scoreThreshold
               const keypoints = poses[0].keypoints.filter(
@@ -176,6 +146,7 @@ export const PoseDetector = () => {
               let velocity = 0;
               let smoothedVelocity = 0;
               const keypoint = keypoints.find(kp => kp.name === currentSelectedKeypoint);
+
               if (keypoint) {
                 const currentPosition = { x: keypoint.x, y: keypoint.y };
                 const currentTimestamp = performance.now();
@@ -219,16 +190,11 @@ export const PoseDetector = () => {
                   velocityHistoryRef.current.reduce((sum, v) => sum + v, 0) /
                   velocityHistoryRef.current.length;
 
-                  // Si ya se ha calibrado la escala, convertimos la velocidad a m/s
-                  const velocityInMetersPerSecond = currentPixelsPerMeter
-                  ? smoothedVelocity / currentPixelsPerMeter
-                  : smoothedVelocity;
-
                   // Actualizar el estado
                   keypointDataRef.current = {
                     position: currentPosition,
                     lastTimestamp: currentTimestamp,
-                    velocity: velocityInMetersPerSecond,
+                    velocity: smoothedVelocity,
                   };
                 }
               }
@@ -296,38 +262,6 @@ export const PoseDetector = () => {
           />
         </svg>
       </button>
-
-      <div className="absolute bottom-10 right-4 flex items-center">
-        <label htmlFor="reference-length" className="text-white text-sm font-medium mr-2">
-          Ref. Length (px):
-        </label>
-        <input
-          id="reference-length"
-          type="range"
-          min="0"
-          max="1000"
-          value={referenceLength}
-          onChange={e => setReferenceLength(Number(e.target.value))}
-          className="w-40"
-        />
-
-        <label htmlFor="distance-meters" className="text-white text-sm font-medium ml-6">
-          Distance (m):
-        </label>
-        <input
-          id="distance-meters"
-          type="number"
-          step="0.01"
-          min="0.1"
-          value={distanceInMeters}
-          onChange={e => setDistanceInMeters(Number(e.target.value))}
-          className="w-16 border rounded p-1 ml-1 text-center"
-        />
-
-        <button onClick={handleConfirmReference} className="ml-4 p-2 bg-blue-500 text-white rounded">
-          Confirm
-        </button>
-      </div>
 
       {/* {model ? <p>Modelo cargado ✅</p> : <p>Cargando modelo...</p>} */}
     </div>
