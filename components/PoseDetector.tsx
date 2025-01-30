@@ -15,9 +15,9 @@ export const PoseDetector = () => {
 
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [settings, setSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
-  const [selectedKeypoint, setSelectedKeypoint] = useState('right_elbow');
+  const [selectedKeypointInPixels, setSelectedKeypointInPixels] = useState('right_elbow');
 
-  const selectedKeypointRef = useRef(selectedKeypoint);
+  const selectedKeypointInPixelsRef = useRef(selectedKeypointInPixels);
 
   const keypointDataRef = useRef<{
     position: { x: number; y: number };
@@ -68,8 +68,8 @@ export const PoseDetector = () => {
 
   // Sincronizar los valores en los refs
   useEffect(() => {
-    selectedKeypointRef.current = selectedKeypoint;
-  }, [selectedKeypoint]);
+    selectedKeypointInPixelsRef.current = selectedKeypointInPixels;
+  }, [selectedKeypointInPixels]);
 
   useEffect(() => {
     const initializeDetector = async () => {
@@ -119,7 +119,7 @@ export const PoseDetector = () => {
               );
 
               // Obtener los valores actualizados desde las referencias
-              const currentSelectedKeypoint = selectedKeypointRef.current;
+              const currentSelectedKeypointInPixels = selectedKeypointInPixelsRef.current;
 
               // Filtrar keypoints con score mayor a scoreThreshold
               const keypoints = poses[0].keypoints.filter(
@@ -145,10 +145,10 @@ export const PoseDetector = () => {
               // Mostrar velocidad del keypoint seleccionado
               let velocity = 0;
               let smoothedVelocity = 0;
-              const keypoint = keypoints.find(kp => kp.name === currentSelectedKeypoint);
+              const keypointInPixels  = keypoints.find(kp => kp.name === currentSelectedKeypointInPixels);
 
-              if (keypoint) {
-                const currentPosition = { x: keypoint.x, y: keypoint.y };
+              if (keypointInPixels ) {
+                const currentPosition = { x: keypointInPixels .x, y: keypointInPixels .y };
                 const currentTimestamp = performance.now();
 
                 if (!keypointDataRef.current) {
@@ -201,7 +201,7 @@ export const PoseDetector = () => {
 
               // Dibujar keypoints en el canvas
               keypoints.forEach((kp) => {
-                if (kp.name === selectedKeypoint) {
+                if (kp.name === currentSelectedKeypointInPixels) {
                   ctx.font = '16px Arial';
                   ctx.fillText(`Velocity: ${smoothedVelocity.toFixed(0)} px/s`, kp.x + 10, kp.y);
                 }
