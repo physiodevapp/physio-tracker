@@ -15,14 +15,14 @@ export const PoseDetector = () => {
 
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [settings, setSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
-  const [selectedKeypoint, setSelectedKeypoint] = useState('right_elbow');
+  const [selectedKeypoint, setSelectedKeypoint] = useState(null);
 
   const selectedKeypointRef = useRef(selectedKeypoint);
 
   const keypointDataRef = useRef<{
     position: { x: number; y: number };
     lastTimestamp: number;
-    velocity: number;
+    velocityInPixels: number;
   } | null>(null);
   const velocityHistoryRef = useRef<number[]>([]);
 
@@ -47,6 +47,34 @@ export const PoseDetector = () => {
     ['right_knee', 'right_ankle'],
   ];
   
+  const calculateAngleDegrees = (A: poseDetection.Keypoint, B: poseDetection.Keypoint, C: poseDetection.Keypoint, invert = false) => {
+    // Vectores BA y BC
+    const BA = { x: A.x - B.x, y: A.y - B.y };
+    const BC = { x: C.x - B.x, y: C.y - B.y };
+  
+    // Producto punto BA · BC
+    const dot = BA.x * BC.x + BA.y * BC.y;
+  
+    // Magnitudes de BA y BC
+    const magBA = Math.sqrt(BA.x ** 2 + BA.y ** 2);
+    const magBC = Math.sqrt(BC.x ** 2 + BC.y ** 2);
+  
+    // Evitar división por cero
+    if (magBA === 0 || magBC === 0) {
+      return 0;
+    }
+  
+    // Ángulo en radianes
+    const angleRad = Math.acos(dot / (magBA * magBC));
+    // Convertir a grados
+    let angleDeg = (angleRad * 180) / Math.PI;
+
+    if (invert) {
+      angleDeg = 180 - angleDeg;
+    }
+  
+    return angleDeg;
+  }
 
 
   const toggleCamera = useCallback(() => {
@@ -142,13 +170,62 @@ export const PoseDetector = () => {
                 }
               });
 
-              // Mostrar velocidad del keypoint seleccionado
+              // Calcular ángulo entre tres keypoints
+              const rShoulder = keypoints.find((kp) => kp.name === "right_shoulder");
+              const rElbow   = keypoints.find((kp) => kp.name === "right_elbow");
+              const rWrist   = keypoints.find((kp) => kp.name === "right_wrist");
+              const rHip     = keypoints.find((kp) => kp.name === "right_hip");
+              const rKnee    = keypoints.find((kp) => kp.name === "right_knee");
+              const rAnkle   = keypoints.find((kp) => kp.name === "right_ankle");
+
+              //-> Ángulo del hombro (Shoulder)
+              let shoulderAngle = 0;
+              if (rShoulder && rElbow && rHip) {
+                shoulderAngle = calculateAngleDegrees(rElbow, rShoulder, rHip);
+              }
+
+              //-> Ángulo del codo (Elbow)
+              let elbowAngle = 0;
+              if (rShoulder && rElbow && rWrist) {
+                elbowAngle = calculateAngleDegrees(rShoulder, rElbow, rWrist, true);
+              }
+
+              //-> Ángulo de la cadera (Hip)
+              let hipAngle = 0;
+              if (rShoulder && rHip && rKnee) {
+                hipAngle = calculateAngleDegrees(rShoulder, rHip, rKnee);
+              }
+
+              //-> Ángulo de la rodilla (Knee)
+              let kneeAngle = 0;
+              if (rHip && rKnee && rAnkle) {
+                kneeAngle = calculateAngleDegrees(rHip, rKnee, rAnkle,true);
+              }
+
+              // Dibujar texto con los ángulos en el canvas
+              ctx.font = "18px Arial";
+              ctx.fillStyle = "yellow";
+
+              if (rShoulder) {
+                ctx.fillText(`${shoulderAngle.toFixed(1)}°`, rShoulder.x + 10, rShoulder.y - 10);
+              }
+              if (rElbow) {
+                ctx.fillText(`${elbowAngle.toFixed(1)}°`, rElbow.x + 10, rElbow.y - 10);
+              }
+              if (rHip) {
+                ctx.fillText(`${hipAngle.toFixed(1)}°`, rHip.x + 10, rHip.y - 10);
+              }
+              if (rKnee) {
+                ctx.fillText(`${kneeAngle.toFixed(1)}°`, rKnee.x + 10, rKnee.y - 10);
+              }
+
+              // Mostrar velocidad en píxeles de un keypoint seleccionado (virtual)
               let velocity = 0;
               let smoothedVelocity = 0;
-              const keypoint = keypoints.find(kp => kp.name === currentSelectedKeypoint);
+              const keypointInPixels = keypoints.find(kp => kp.name === currentSelectedKeypoint);
 
-              if (keypoint) {
-                const currentPosition = { x: keypoint.x, y: keypoint.y };
+              if (keypointInPixels) {
+                const currentPosition = { x: keypointInPixels.x, y: keypointInPixels.y };
                 const currentTimestamp = performance.now();
 
                 if (!keypointDataRef.current) {
@@ -156,7 +233,7 @@ export const PoseDetector = () => {
                   keypointDataRef.current = {
                     position: currentPosition,
                     lastTimestamp: currentTimestamp,
-                    velocity: 0,
+                    velocityInPixels: 0,
                   };
                 } else {
                   // Utiliza valores locales para el cálculo
@@ -194,7 +271,7 @@ export const PoseDetector = () => {
                   keypointDataRef.current = {
                     position: currentPosition,
                     lastTimestamp: currentTimestamp,
-                    velocity: smoothedVelocity,
+                    velocityInPixels: smoothedVelocity,
                   };
                 }
               }
