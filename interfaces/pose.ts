@@ -11,7 +11,7 @@ export interface KeypointData {
   velocityInPixelsHistory: number[];
 }
 
-export interface JointAngleData {
+export interface JointData {
   angle: number;
   lastTimestamp: number;
   angularVelocity: number;
@@ -19,7 +19,7 @@ export interface JointAngleData {
   angleHistory: number[];
 }
 
-export type JointAngleDataMap = Partial<{ [K in Keypoint]: JointAngleData }>;
+export type JointDataMap = Partial<{ [K in Keypoint]: JointData }>;
 
 export enum Keypoint {
   LEFT_SHOULDER = "left_shoulder",
@@ -39,7 +39,7 @@ export enum Keypoint {
 export interface UpdateJointParams {
   ctx: CanvasRenderingContext2D;
   keypoints: poseDetection.Keypoint[];
-  jointAngleData: JointAngleData | null;
+  jointData: JointData | null;
   jointName: Keypoint;
   invert?: boolean; // Opción con valor por defecto
   velocityHistorySize?: number; // Parámetro opcional para ajustar el tamaño del historial

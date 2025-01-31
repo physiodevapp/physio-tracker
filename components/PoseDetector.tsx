@@ -4,13 +4,12 @@ import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam"; // Importación del convertidor de modelos
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { useTensorFlow } from "../hooks/useTensorFlow";
-import { JointAngleDataMap, JointConfigMap, Keypoint, KeypointData, PoseSettings } from "@/interfaces/pose";
+import { JointDataMap, JointConfigMap, Keypoint, KeypointData, PoseSettings } from "@/interfaces/pose";
 import { drawKeypointConnections, drawKeypoints } from "@/utils/drawUtils";
 import { updateKeypointVelocity } from "@/utils/keypointUtils";
 import { updateJoint } from "@/utils/jointUtils";
 import { JointSelector } from "./JointSelector";
 import { ThresholdSelector } from "./ThresholdSelector";
-// import { load as cocoSSDLoad } from '@tensorflow-models/coco-ssd'
 
 interface VideoConstraints {
   facingMode: "user" | "environment";
@@ -34,7 +33,7 @@ export const PoseDetector = () => {
   const jointAngleHistorySizeRef = useRef(jointAngleHistorySize);
   
   const selectedKeypointRef = useRef(selectedKeypoint);
-  const jointAngleDataRef = useRef<JointAngleDataMap>({});
+  const jointDataRef = useRef<JointDataMap>({});
   const keypointDataRef = useRef<KeypointData | null>(null);
 
   const visibleJointsRef = useRef(visibleJoints);
@@ -103,18 +102,18 @@ export const PoseDetector = () => {
     ctx: CanvasRenderingContext2D,
     keypoints: poseDetection.Keypoint[],
     jointNames: Keypoint[],
-    jointAngleDataRef: RefObject<JointAngleDataMap>,
+    jointAngleDataRef: RefObject<JointDataMap>,
     jointConfigMap: JointConfigMap
   ) => {
     jointNames.forEach((jointName) => {
       const jointConfig = jointConfigMap[jointName] ?? { invert: false };
 
-      const jointAngleData = jointAngleDataRef.current[jointName] ?? null;
+      const jointData = jointAngleDataRef.current[jointName] ?? null;
 
       jointAngleDataRef.current[jointName] = updateJoint({
         ctx,
         keypoints,
-        jointAngleData,
+        jointData,
         jointName,
         invert: jointConfig.invert,
         velocityHistorySize: jointVelocityHistorySizeRef.current,
@@ -205,7 +204,7 @@ export const PoseDetector = () => {
               drawKeypointConnections(ctx, keypoints, keypointPairs);
 
               // Calcular ángulo entre tres keypoints
-              updateMultipleJoints(ctx, keypoints, visibleJointsRef.current, jointAngleDataRef, jointConfigMap);
+              updateMultipleJoints(ctx, keypoints, visibleJointsRef.current, jointDataRef, jointConfigMap);
             }
           }
         }

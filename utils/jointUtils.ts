@@ -1,6 +1,6 @@
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { drawAngleAndVelocity } from "./drawUtils";
-import { JointAngleData, Keypoint, UpdateJointParams } from '../interfaces/pose';
+import { JointData, Keypoint, UpdateJointParams } from '../interfaces/pose';
 
 const calculateJointAngleDegrees = (A: poseDetection.Keypoint, B: poseDetection.Keypoint, C: poseDetection.Keypoint, invert = false) => {
   // Vectores BA y BC
@@ -74,13 +74,13 @@ const getJointKeypoints = (
   return [kpA, kpB, kpC];
 };
 
-export const updateJoint = ({ctx, keypoints, jointAngleData, jointName, invert = false, velocityHistorySize = 5, angleHistorySize = 5,}: UpdateJointParams): JointAngleData => {
+export const updateJoint = ({ctx, keypoints, jointData, jointName, invert = false, velocityHistorySize = 5, angleHistorySize = 5,}: UpdateJointParams): JointData => {
   // Buscar los keypoints en la lista
   const jointKeypoints = getJointKeypoints(jointName, keypoints);
 
   if (!jointKeypoints) {
     return (
-      jointAngleData ?? {
+      jointData ?? {
         angle: 0,
         lastTimestamp: performance.now(),
         angularVelocity: 0,
@@ -97,9 +97,9 @@ export const updateJoint = ({ctx, keypoints, jointAngleData, jointName, invert =
   let smoothedAngle = angleNow;
 
   // Manejar referencia al estado previo de la articulación
-  if (!jointAngleData) {
+  if (!jointData) {
     // Inicializar con valores por defecto
-    jointAngleData = {
+    jointData = {
       angle: angleNow,
       lastTimestamp: performance.now(),
       angularVelocity: 0,
@@ -108,7 +108,7 @@ export const updateJoint = ({ctx, keypoints, jointAngleData, jointName, invert =
     };
   } else {
     // Calcular velocidad angular
-    const prevData = jointAngleData;
+    const prevData = jointData;
     const anglePrev = prevData.angle;
     const timePrev = prevData.lastTimestamp;
 
@@ -142,7 +142,7 @@ export const updateJoint = ({ctx, keypoints, jointAngleData, jointName, invert =
     prevData.angleHistory.reduce((sum, a) => sum + a, 0) / prevData.angleHistory.length;
 
     // Guardar el nuevo estado
-    jointAngleData = {
+    jointData = {
       angle: angleNow,
       lastTimestamp: timeNow,
       angularVelocity: smoothedAngularVelocity,
@@ -152,10 +152,10 @@ export const updateJoint = ({ctx, keypoints, jointAngleData, jointName, invert =
   }
 
   // Recuperar la velocidad angular calculada
-  const { angularVelocity: smoothedAngularVelocity } = jointAngleData;
+  const { angularVelocity: smoothedAngularVelocity } = jointData;
 
   // Dibujar en el canvas (ángulo y velocidad angular)
   drawAngleAndVelocity(ctx, kpB, smoothedAngle, smoothedAngularVelocity);
 
-  return jointAngleData;
+  return jointData;
 }
