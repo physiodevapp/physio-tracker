@@ -9,12 +9,19 @@ import { drawKeypointConnections, drawKeypoints } from "@/utils/drawUtils";
 import { updateKeypointVelocity } from "@/utils/keypointUtils";
 import { updateJoint } from "@/utils/jointUtils";
 import { JointSelector } from "./JointSelector";
+import { ThresholdSelector } from "./ThresholdSelector";
 // import { load as cocoSSDLoad } from '@tensorflow-models/coco-ssd'
+
+interface VideoConstraints {
+  facingMode: "user" | "environment";
+}
 
 export const PoseDetector = () => {
   const [detector, setDetector] = useState<poseDetection.PoseDetector | null>( null);
 
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
+    facingMode: "user",
+  });
 
   const [settings, setSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
   const [selectedKeypoint, setSelectedKeypoint] = useState<Keypoint | null>(null);
@@ -36,9 +43,6 @@ export const PoseDetector = () => {
   const webcamRef = useRef<Webcam>(null);
 
   const isTfReady = useTensorFlow();
-  const videoConstraints = {
-    facingMode: facingMode,
-  };
 
   const keypointPairs: [Keypoint, Keypoint][] = [
     [Keypoint.LEFT_SHOULDER, Keypoint.RIGHT_SHOULDER],
@@ -77,7 +81,9 @@ export const PoseDetector = () => {
   };
 
   const toggleCamera = useCallback(() => {
-    setFacingMode((prevMode) => (prevMode === "user" ? "environment" : "user"));
+    setVideoConstraints((prev) => ({
+      facingMode: prev.facingMode === "user" ? "environment" : "user",
+    }));
   }, []);
 
   const showMyWebcam = () => {
@@ -159,7 +165,11 @@ export const PoseDetector = () => {
         // Captura el fotograma actual de la webcam
         const videoElement = webcamRef.current.video;
         
-        if (videoElement && videoElement.readyState === 4) {
+        if (videoElement &&
+            videoElement.readyState === 4 &&
+            videoElement.videoWidth > 0 &&
+            videoElement.videoHeight > 0
+        ) {
           const poses = await detector.estimatePoses(videoElement, {
             maxPoses: 1,
             flipHorizontal: false,
@@ -250,47 +260,19 @@ export const PoseDetector = () => {
         </svg>
       </button>
 
-      <label className="absolute bottom-8 ml-[10rem] text-lg font-medium text-gray-700">
-        Angle
-        <select
-          className="
-            mt-2 block w-16 p-2 text-lg font-medium text-gray-700
-            bg-white border border-gray-300 rounded-md shadow-sm
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-            hover:bg-gray-50
-          "
-          value={jointAngleHistorySize}
-          onChange={(e) => handleAngularHistorySizeChange(Number(e.target.value))}
-          >
-          {/* Opciones del 5 al 20 */}
-          {Array.from({ length: 12 }, (_, i) => i + 5).map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-      </label>
-      
-      <label className="absolute bottom-8 ml-[19rem] text-lg font-medium text-gray-700">
-        Velocity
-        <select
-          className="
-            mt-2 block w-16 p-2 text-lg font-medium text-gray-700
-            bg-white border border-gray-300 rounded-md shadow-sm
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-            hover:bg-gray-50
-          "
-          value={jointVelocityHistorySize}
-          onChange={(e) => handleVelocityHistorySizeChange(Number(e.target.value))}
-          >
-          {/* Opciones del 5 al 20 */}
-          {Array.from({ length: 12 }, (_, i) => i + 5).map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-      </label>
+      <ThresholdSelector
+        title="Angle"
+        value={jointAngleHistorySize}
+        onChange={(value) => handleAngularHistorySizeChange(value)}
+        parentStyles="absolute bottom-8 ml-[10rem] text-lg font-medium text-gray-700"
+      />
+
+      <ThresholdSelector
+        title="Velocity"
+        value={jointVelocityHistorySize}
+        onChange={(value) => handleVelocityHistorySizeChange(value)}
+        parentStyles="absolute bottom-8 ml-[19rem] text-lg font-medium text-gray-700"
+      />
 
       <div className="absolute bottom-8 -ml-36 mt-2 text-lg font-medium text-gray-700"><p>Model</p><p className="p-[0.4rem] pl-0 text-[1.4em] mt-[0.3em]">{detector ? "✅" : "⏳"}</p></div>
 

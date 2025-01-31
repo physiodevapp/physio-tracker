@@ -42,7 +42,7 @@ export const JointSelector = ({
       {/* Botón del desplegable */}
       <button
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="inline-flex justify-center w-full px-2 py-[0.4rem] text-[1.2em] font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-[0.4rem]"
+        className="inline-flex justify-center w-full px-2 py-[0.5rem] text-[1.2em] font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-[0.3rem]"
       >
         Joints
         <svg className="w-5 h-5 ml-2 -mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -63,11 +63,11 @@ export const JointSelector = ({
             {joints.map((joint) => (
               <label
                 key={joint.value}
-                className="flex items-center px-4 py-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-100"
+                className="flex items-center px-4 py-2 text-[1.2em] text-gray-700 cursor-pointer hover:bg-gray-100"
               >
                 <input
                   type="checkbox"
-                  className="form-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="form-checkbox h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   value={joint.value}
                   checked={selectedJoints.includes(joint.value)}
                   onChange={() => handleCheckboxChange(joint.value)}
