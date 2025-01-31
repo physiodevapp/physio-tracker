@@ -23,7 +23,7 @@ export const PoseDetector = () => {
     facingMode: "user",
   });
 
-  const [settings, setSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
+  const [poseSettings, setPoseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
   const [selectedKeypoint, setSelectedKeypoint] = useState<Keypoint | null>(null);
   const [jointVelocityHistorySize, setJointVelocityHistorySize] = useState(5);
   const [jointAngleHistorySize, setJointAngleHistorySize] = useState(5);
@@ -186,7 +186,7 @@ export const PoseDetector = () => {
 
               // Filtrar keypoints con score mayor a scoreThreshold
               const keypoints = poses[0].keypoints.filter(
-                (kp) => kp.score && kp.score > settings.scoreThreshold
+                (kp) => kp.score && kp.score > poseSettings.scoreThreshold
               );
 
               // Mostrar velocidad en píxeles de un keypoint seleccionado (virtual)

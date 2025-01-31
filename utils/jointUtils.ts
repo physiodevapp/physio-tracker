@@ -152,10 +152,10 @@ export const updateJoint = ({ctx, keypoints, jointAngleData, jointName, invert =
   }
 
   // Recuperar la velocidad angular calculada
-  const { angularVelocity } = jointAngleData;
+  const { angularVelocity: smoothedAngularVelocity } = jointAngleData;
 
   // Dibujar en el canvas (ángulo y velocidad angular)
-  drawAngleAndVelocity(ctx, kpB, smoothedAngle, angularVelocity);
+  drawAngleAndVelocity(ctx, kpB, smoothedAngle, smoothedAngularVelocity);
 
   return jointAngleData;
 }

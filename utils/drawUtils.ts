@@ -53,12 +53,12 @@ export const drawAngleAndVelocity = (
   ctx: CanvasRenderingContext2D,
   kp: { x: number; y: number },
   smoothedAngle: number,
-  angularVelocity: number,
+  smoothedAngularVelocity: number,
   padding: number = 8
 ) => {
   // Preparar los textos
-  const textAngle = `${smoothedAngle.toFixed(1)}°`;
-  const textVelocity = `ω: ${angularVelocity.toFixed(1)} °/s`;
+  const textAngle = `${smoothedAngle.toFixed(0)}°`;
+  const textVelocity = `ω: ${smoothedAngularVelocity.toFixed(0)} °/s`;
 
   // Configurar fuente y medir el texto
   ctx.font = "16px Arial";
