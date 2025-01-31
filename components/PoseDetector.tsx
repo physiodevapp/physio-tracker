@@ -1,30 +1,36 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam"; // Importación del convertidor de modelos
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { useTensorFlow } from "../hooks/useTensorFlow";
+import { JointAngleDataMap, JointConfigMap, Keypoint, KeypointData, PoseSettings } from "@/interfaces/pose";
+import { drawKeypointConnections, drawKeypoints } from "@/utils/drawUtils";
+import { updateKeypointVelocity } from "@/utils/keypointUtils";
+import { updateJoint } from "@/utils/jointUtils";
+import { JointSelector } from "./JointSelector";
 // import { load as cocoSSDLoad } from '@tensorflow-models/coco-ssd'
-
-interface PoseSettings {
-  scoreThreshold: number;
-}
 
 export const PoseDetector = () => {
   const [detector, setDetector] = useState<poseDetection.PoseDetector | null>( null);
 
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+
   const [settings, setSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
-  const [selectedKeypoint, setSelectedKeypoint] = useState(null);
+  const [selectedKeypoint, setSelectedKeypoint] = useState<Keypoint | null>(null);
+  const [jointVelocityHistorySize, setJointVelocityHistorySize] = useState(5);
+  const [jointAngleHistorySize, setJointAngleHistorySize] = useState(5);
 
+  const [visibleJoints, setVisibleJoints] = useState<Keypoint[]>([]);
+
+  const jointVelocityHistorySizeRef = useRef(jointVelocityHistorySize);
+  const jointAngleHistorySizeRef = useRef(jointAngleHistorySize);
+  
   const selectedKeypointRef = useRef(selectedKeypoint);
+  const jointAngleDataRef = useRef<JointAngleDataMap>({});
+  const keypointDataRef = useRef<KeypointData | null>(null);
 
-  const keypointDataRef = useRef<{
-    position: { x: number; y: number };
-    lastTimestamp: number;
-    velocityInPixels: number;
-  } | null>(null);
-  const velocityHistoryRef = useRef<number[]>([]);
+  const visibleJointsRef = useRef(visibleJoints);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webcamRef = useRef<Webcam>(null);
@@ -34,48 +40,41 @@ export const PoseDetector = () => {
     facingMode: facingMode,
   };
 
-  const keypointPairs: [string, string][] = [
-    ['left_shoulder', 'right_shoulder'],
-    ['left_shoulder', 'left_elbow'],
-    ['left_elbow', 'left_wrist'],
-    ['right_shoulder', 'right_elbow'],
-    ['right_elbow', 'right_wrist'],
-    ['left_hip', 'right_hip'],
-    ['left_hip', 'left_knee'],
-    ['left_knee', 'left_ankle'],
-    ['right_hip', 'right_knee'],
-    ['right_knee', 'right_ankle'],
+  const keypointPairs: [Keypoint, Keypoint][] = [
+    [Keypoint.LEFT_SHOULDER, Keypoint.RIGHT_SHOULDER],
+    [Keypoint.LEFT_SHOULDER, Keypoint.LEFT_ELBOW],
+    [Keypoint.LEFT_ELBOW, Keypoint.LEFT_WRIST],
+    [Keypoint.RIGHT_SHOULDER, Keypoint.RIGHT_ELBOW],
+    [Keypoint.RIGHT_ELBOW, Keypoint.RIGHT_WRIST],
+    [Keypoint.LEFT_HIP, Keypoint.RIGHT_HIP],
+    [Keypoint.LEFT_HIP, Keypoint.LEFT_KNEE],
+    [Keypoint.LEFT_KNEE, Keypoint.LEFT_ANKLE],
+    [Keypoint.RIGHT_HIP, Keypoint.RIGHT_KNEE],
+    [Keypoint.RIGHT_KNEE, Keypoint.RIGHT_ANKLE],
   ];
-  
-  const calculateAngleDegrees = (A: poseDetection.Keypoint, B: poseDetection.Keypoint, C: poseDetection.Keypoint, invert = false) => {
-    // Vectores BA y BC
-    const BA = { x: A.x - B.x, y: A.y - B.y };
-    const BC = { x: C.x - B.x, y: C.y - B.y };
-  
-    // Producto punto BA · BC
-    const dot = BA.x * BC.x + BA.y * BC.y;
-  
-    // Magnitudes de BA y BC
-    const magBA = Math.sqrt(BA.x ** 2 + BA.y ** 2);
-    const magBC = Math.sqrt(BC.x ** 2 + BC.y ** 2);
-  
-    // Evitar división por cero
-    if (magBA === 0 || magBC === 0) {
-      return 0;
-    }
-  
-    // Ángulo en radianes
-    const angleRad = Math.acos(dot / (magBA * magBC));
-    // Convertir a grados
-    let angleDeg = (angleRad * 180) / Math.PI;
 
-    if (invert) {
-      angleDeg = 180 - angleDeg;
-    }
-  
-    return angleDeg;
-  }
+  const jointConfigMap: JointConfigMap = {
+    [Keypoint.RIGHT_ELBOW]: { invert: true },
+    [Keypoint.RIGHT_SHOULDER]: { invert: false },
+    [Keypoint.RIGHT_HIP]: { invert: false },
+    [Keypoint.RIGHT_KNEE]: { invert: true },
+    [Keypoint.LEFT_ELBOW]: { invert: true },
+    [Keypoint.LEFT_SHOULDER]: { invert: false },
+    [Keypoint.LEFT_HIP]: { invert: false },
+    [Keypoint.LEFT_KNEE]: { invert: true },
+  };
 
+  const handleAngularHistorySizeChange = (newSize: number) => {
+    if (newSize >= 1 && newSize <= 20) {
+      setJointAngleHistorySize(newSize);
+    }
+  };
+  
+  const handleVelocityHistorySizeChange = (newSize: number) => {
+    if (newSize >= 1 && newSize <= 20) {
+      setJointVelocityHistorySize(newSize);
+    }
+  };
 
   const toggleCamera = useCallback(() => {
     setFacingMode((prevMode) => (prevMode === "user" ? "environment" : "user"));
@@ -94,10 +93,44 @@ export const PoseDetector = () => {
     }
   };
 
+  const updateMultipleJoints = (
+    ctx: CanvasRenderingContext2D,
+    keypoints: poseDetection.Keypoint[],
+    jointNames: Keypoint[],
+    jointAngleDataRef: RefObject<JointAngleDataMap>,
+    jointConfigMap: JointConfigMap
+  ) => {
+    jointNames.forEach((jointName) => {
+      const jointConfig = jointConfigMap[jointName] ?? { invert: false };
+
+      const jointAngleData = jointAngleDataRef.current[jointName] ?? null;
+
+      jointAngleDataRef.current[jointName] = updateJoint({
+        ctx,
+        keypoints,
+        jointAngleData,
+        jointName,
+        invert: jointConfig.invert,
+        velocityHistorySize: jointVelocityHistorySizeRef.current,
+        angleHistorySize: jointAngleHistorySizeRef.current,
+      });
+    });
+  };
+
+  const handleJointSelection = (selectedJoints: string[]) => {
+    setVisibleJoints(selectedJoints as Keypoint[]);
+  };
+
   // Sincronizar los valores en los refs
   useEffect(() => {
     selectedKeypointRef.current = selectedKeypoint;
-  }, [selectedKeypoint]);
+    jointVelocityHistorySizeRef.current = jointVelocityHistorySize;
+    jointAngleHistorySizeRef.current = jointAngleHistorySize;
+  }, [selectedKeypoint, jointVelocityHistorySize, jointAngleHistorySize]);
+
+  useEffect(() => {
+    visibleJointsRef.current = visibleJoints;
+  }, [visibleJoints])
 
   useEffect(() => {
     const initializeDetector = async () => {
@@ -139,154 +172,30 @@ export const PoseDetector = () => {
             const ctx = canvasRef.current.getContext("2d");
 
             if (ctx) {
-              ctx.clearRect(
-                0,
-                0,
-                canvasRef.current.width,
-                canvasRef.current.height
-              );
-
-              // Obtener los valores actualizados desde las referencias
-              const currentSelectedKeypoint = selectedKeypointRef.current;
+              ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
               // Filtrar keypoints con score mayor a scoreThreshold
               const keypoints = poses[0].keypoints.filter(
                 (kp) => kp.score && kp.score > settings.scoreThreshold
               );
 
-              // Dibujar conexiones entre puntos clave
-              ctx.strokeStyle = "white";
-              ctx.lineWidth = 2;
-
-              keypointPairs.forEach(([pointA, pointB]) => {
-                const kpA = keypoints.find((kp) => kp.name === pointA);
-                const kpB = keypoints.find((kp) => kp.name === pointB);
-
-                if (kpA && kpB) {
-                  ctx.beginPath();
-                  ctx.moveTo(kpA.x, kpA.y);
-                  ctx.lineTo(kpB.x, kpB.y);
-                  ctx.stroke();
-                }
-              });
-
-              // Calcular ángulo entre tres keypoints
-              const rShoulder = keypoints.find((kp) => kp.name === "right_shoulder");
-              const rElbow   = keypoints.find((kp) => kp.name === "right_elbow");
-              const rWrist   = keypoints.find((kp) => kp.name === "right_wrist");
-              const rHip     = keypoints.find((kp) => kp.name === "right_hip");
-              const rKnee    = keypoints.find((kp) => kp.name === "right_knee");
-              const rAnkle   = keypoints.find((kp) => kp.name === "right_ankle");
-
-              //-> Ángulo del hombro (Shoulder)
-              let shoulderAngle = 0;
-              if (rShoulder && rElbow && rHip) {
-                shoulderAngle = calculateAngleDegrees(rElbow, rShoulder, rHip);
-              }
-
-              //-> Ángulo del codo (Elbow)
-              let elbowAngle = 0;
-              if (rShoulder && rElbow && rWrist) {
-                elbowAngle = calculateAngleDegrees(rShoulder, rElbow, rWrist, true);
-              }
-
-              //-> Ángulo de la cadera (Hip)
-              let hipAngle = 0;
-              if (rShoulder && rHip && rKnee) {
-                hipAngle = calculateAngleDegrees(rShoulder, rHip, rKnee);
-              }
-
-              //-> Ángulo de la rodilla (Knee)
-              let kneeAngle = 0;
-              if (rHip && rKnee && rAnkle) {
-                kneeAngle = calculateAngleDegrees(rHip, rKnee, rAnkle,true);
-              }
-
-              // Dibujar texto con los ángulos en el canvas
-              ctx.font = "18px Arial";
-              ctx.fillStyle = "yellow";
-
-              if (rShoulder) {
-                ctx.fillText(`${shoulderAngle.toFixed(1)}°`, rShoulder.x + 10, rShoulder.y - 10);
-              }
-              if (rElbow) {
-                ctx.fillText(`${elbowAngle.toFixed(1)}°`, rElbow.x + 10, rElbow.y - 10);
-              }
-              if (rHip) {
-                ctx.fillText(`${hipAngle.toFixed(1)}°`, rHip.x + 10, rHip.y - 10);
-              }
-              if (rKnee) {
-                ctx.fillText(`${kneeAngle.toFixed(1)}°`, rKnee.x + 10, rKnee.y - 10);
-              }
-
               // Mostrar velocidad en píxeles de un keypoint seleccionado (virtual)
-              let velocity = 0;
-              let smoothedVelocity = 0;
-              const keypointInPixels = keypoints.find(kp => kp.name === currentSelectedKeypoint);
-
-              if (keypointInPixels) {
-                const currentPosition = { x: keypointInPixels.x, y: keypointInPixels.y };
-                const currentTimestamp = performance.now();
-
-                if (!keypointDataRef.current) {
-                  // Inicializar el estado
-                  keypointDataRef.current = {
-                    position: currentPosition,
-                    lastTimestamp: currentTimestamp,
-                    velocityInPixels: 0,
-                  };
-                } else {
-                  // Utiliza valores locales para el cálculo
-                  const lastPosition = keypointDataRef.current.position;
-                  const lastTimestamp = keypointDataRef.current.lastTimestamp;
-
-                  // Calcular la distancia recorrida desde el último frame
-                  const dx = currentPosition.x - lastPosition.x;
-                  const dy = currentPosition.y - lastPosition.y;
-                  const distance = Math.sqrt(dx * dx + dy * dy);
-
-                  // Umbral para ignorar fluctuaciones pequeñas
-                  const movementThreshold = 2; // en píxeles
-
-                  // Calcular el tiempo transcurrido entre frames
-                  const deltaTime = (currentTimestamp - lastTimestamp) / 1000;
-
-                  // Calcular la velocidad
-                  if (distance > movementThreshold && deltaTime > 0) {
-                    velocity = distance / deltaTime;
-                  }
-
-                  // Actualizar el historial de velocidades
-                  velocityHistoryRef.current.push(velocity);
-                  if (velocityHistoryRef.current.length > 5) {
-                    velocityHistoryRef.current.shift(); // Mantener las últimas 5 velocidades
-                  }
-
-                  // Calcular la media móvil de las últimas velocidades
-                  smoothedVelocity =
-                  velocityHistoryRef.current.reduce((sum, v) => sum + v, 0) /
-                  velocityHistoryRef.current.length;
-
-                  // Actualizar el estado
-                  keypointDataRef.current = {
-                    position: currentPosition,
-                    lastTimestamp: currentTimestamp,
-                    velocityInPixels: smoothedVelocity,
-                  };
-                }
-              }
+              keypointDataRef.current = updateKeypointVelocity(
+                keypoints,
+                selectedKeypointRef.current,
+                keypointDataRef.current,
+                jointVelocityHistorySizeRef.current,
+                2 // Umbral opcional para ignorar fluctuaciones pequeñas
+              );
 
               // Dibujar keypoints en el canvas
-              keypoints.forEach((kp) => {
-                if (kp.name === selectedKeypoint) {
-                  ctx.font = '16px Arial';
-                  ctx.fillText(`Velocity: ${smoothedVelocity.toFixed(0)} px/s`, kp.x + 10, kp.y);
-                }
-                ctx.beginPath();
-                ctx.arc(kp.x, kp.y, 5, 0, 2 * Math.PI);
-                ctx.fillStyle = "white";
-                ctx.fill();
-              });
+              drawKeypoints(ctx, keypoints, selectedKeypoint, keypointDataRef.current);
+
+              // Dibujar conexiones entre puntos clave
+              drawKeypointConnections(ctx, keypoints, keypointPairs);
+
+              // Calcular ángulo entre tres keypoints
+              updateMultipleJoints(ctx, keypoints, visibleJointsRef.current, jointAngleDataRef, jointConfigMap);
             }
           }
         }
@@ -315,6 +224,7 @@ export const PoseDetector = () => {
         muted
       />
       <canvas ref={canvasRef} className="absolute w-full" />
+
       <button
         className="absolute bottom-8 w-16 aspect-square bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 active:bg-red-700 transition"
         onClick={toggleCamera}
@@ -340,7 +250,51 @@ export const PoseDetector = () => {
         </svg>
       </button>
 
-      {/* {model ? <p>Modelo cargado ✅</p> : <p>Cargando modelo...</p>} */}
+      <label className="absolute bottom-8 ml-[10rem] text-lg font-medium text-gray-700">
+        Angle
+        <select
+          className="
+            mt-2 block w-16 p-2 text-lg font-medium text-gray-700
+            bg-white border border-gray-300 rounded-md shadow-sm
+            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+            hover:bg-gray-50
+          "
+          value={jointAngleHistorySize}
+          onChange={(e) => handleAngularHistorySizeChange(Number(e.target.value))}
+          >
+          {/* Opciones del 5 al 20 */}
+          {Array.from({ length: 12 }, (_, i) => i + 5).map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+      </label>
+      
+      <label className="absolute bottom-8 ml-[19rem] text-lg font-medium text-gray-700">
+        Velocity
+        <select
+          className="
+            mt-2 block w-16 p-2 text-lg font-medium text-gray-700
+            bg-white border border-gray-300 rounded-md shadow-sm
+            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+            hover:bg-gray-50
+          "
+          value={jointVelocityHistorySize}
+          onChange={(e) => handleVelocityHistorySizeChange(Number(e.target.value))}
+          >
+          {/* Opciones del 5 al 20 */}
+          {Array.from({ length: 12 }, (_, i) => i + 5).map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="absolute bottom-8 -ml-36 mt-2 text-lg font-medium text-gray-700"><p>Model</p><p className="p-[0.4rem] pl-0 text-[1.4em] mt-[0.3em]">{detector ? "✅" : "⏳"}</p></div>
+
+      <JointSelector parentStyles="absolute bottom-8 -ml-[19rem]" onSelectionChange={handleJointSelection} />
     </div>
   );
 };
