@@ -41,9 +41,15 @@ export interface UpdateJointParams {
   keypoints: poseDetection.Keypoint[];
   jointData: JointData | null;
   jointName: Keypoint;
-  invert?: boolean; // Opción con valor por defecto
-  velocityHistorySize?: number; // Parámetro opcional para ajustar el tamaño del historial
-  angleHistorySize?: number; // Otro ejemplo de opción configurable
+  invert?: boolean;
+  velocityHistorySize?: number;
+  angleHistorySize?: number;
+  withVelocity?: boolean; // Nuevo parámetro: si es true, se calcula y dibuja la velocidad
 }
 
 export type JointConfigMap = Partial<{ [key in Keypoint]: { invert: boolean } }>;
+
+export enum Kinematics {
+  ANGLE = "angle",
+  ANGULAR_VELOCITY = "angularVelocity",
+}

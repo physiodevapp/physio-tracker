@@ -1,8 +1,13 @@
 import * as poseDetection from "@tensorflow-models/pose-detection";
-import { drawAngleAndVelocity } from "./drawUtils";
-import { JointData, Keypoint, UpdateJointParams } from '../interfaces/pose';
+import { drawAngle, drawAngularVelocity } from "./drawUtils";
+import { JointData, Keypoint, UpdateJointParams } from "../interfaces/pose";
 
-const calculateJointAngleDegrees = (A: poseDetection.Keypoint, B: poseDetection.Keypoint, C: poseDetection.Keypoint, invert = false) => {
+const calculateJointAngleDegrees = (
+  A: poseDetection.Keypoint,
+  B: poseDetection.Keypoint,
+  C: poseDetection.Keypoint,
+  invert = false
+) => {
   // Vectores BA y BC
   const BA = { x: A.x - B.x, y: A.y - B.y };
   const BC = { x: C.x - B.x, y: C.y - B.y };
@@ -29,16 +34,26 @@ const calculateJointAngleDegrees = (A: poseDetection.Keypoint, B: poseDetection.
   }
 
   return angleDeg;
-}
+};
 
-const getJointPoints = (jointName: Keypoint): [Keypoint, Keypoint, Keypoint] | null => {
+const getJointPoints = (
+  jointName: Keypoint
+): [Keypoint, Keypoint, Keypoint] | null => {
   switch (jointName) {
     case Keypoint.RIGHT_ELBOW:
-      return [Keypoint.RIGHT_SHOULDER, Keypoint.RIGHT_ELBOW, Keypoint.RIGHT_WRIST];
+      return [
+        Keypoint.RIGHT_SHOULDER,
+        Keypoint.RIGHT_ELBOW,
+        Keypoint.RIGHT_WRIST,
+      ];
     case Keypoint.RIGHT_KNEE:
       return [Keypoint.RIGHT_HIP, Keypoint.RIGHT_KNEE, Keypoint.RIGHT_ANKLE];
     case Keypoint.RIGHT_SHOULDER:
-      return [Keypoint.RIGHT_HIP, Keypoint.RIGHT_SHOULDER, Keypoint.RIGHT_ELBOW];
+      return [
+        Keypoint.RIGHT_HIP,
+        Keypoint.RIGHT_SHOULDER,
+        Keypoint.RIGHT_ELBOW,
+      ];
     case Keypoint.RIGHT_HIP:
       return [Keypoint.RIGHT_SHOULDER, Keypoint.RIGHT_HIP, Keypoint.RIGHT_KNEE];
 
@@ -59,7 +74,9 @@ const getJointPoints = (jointName: Keypoint): [Keypoint, Keypoint, Keypoint] | n
 const getJointKeypoints = (
   jointName: Keypoint,
   keypoints: poseDetection.Keypoint[]
-): [poseDetection.Keypoint, poseDetection.Keypoint, poseDetection.Keypoint] | null => {
+):
+  | [poseDetection.Keypoint, poseDetection.Keypoint, poseDetection.Keypoint]
+  | null => {
   const jointPoints = getJointPoints(jointName);
   if (!jointPoints) return null;
 
@@ -74,8 +91,17 @@ const getJointKeypoints = (
   return [kpA, kpB, kpC];
 };
 
-export const updateJoint = ({ctx, keypoints, jointData, jointName, invert = false, velocityHistorySize = 5, angleHistorySize = 5,}: UpdateJointParams): JointData => {
-  // Buscar los keypoints en la lista
+export const updateJoint = ({
+  ctx,
+  keypoints,
+  jointData,
+  jointName,
+  invert = false,
+  velocityHistorySize = 5,
+  angleHistorySize = 5,
+  withVelocity = false, // Valor por defecto (puedes ajustarlo según necesites)
+}: UpdateJointParams): JointData => {
+  // Buscar los keypoints de la articulación
   const jointKeypoints = getJointKeypoints(jointName, keypoints);
 
   if (!jointKeypoints) {
@@ -91,71 +117,88 @@ export const updateJoint = ({ctx, keypoints, jointData, jointName, invert = fals
   }
 
   const [kpA, kpB, kpC] = jointKeypoints;
-  
-  // Calcular el ángulo
   const angleNow = calculateJointAngleDegrees(kpA, kpB, kpC, invert);
   let smoothedAngle = angleNow;
+  const timeNow = performance.now();
 
-  // Manejar referencia al estado previo de la articulación
-  if (!jointData) {
-    // Inicializar con valores por defecto
-    jointData = {
-      angle: angleNow,
-      lastTimestamp: performance.now(),
-      angularVelocity: 0,
-      angularVelocityHistory: [],
-      angleHistory: [],
-    };
+  if (withVelocity) {
+    if (!jointData) {
+      // Inicializar si no existe información previa
+      jointData = {
+        angle: angleNow,
+        lastTimestamp: timeNow,
+        angularVelocity: 0,
+        angularVelocityHistory: [],
+        angleHistory: [],
+      };
+    } else {
+      const prevData = jointData;
+      const anglePrev = prevData.angle;
+      const timePrev = prevData.lastTimestamp;
+      const deltaTime = (timeNow - timePrev) / 1000; // convertir a segundos
+
+      let angularVelocity = 0;
+      if (deltaTime > 0) {
+        angularVelocity = (angleNow - anglePrev) / deltaTime;
+      }
+
+      // Actualizar historial de velocidades
+      prevData.angularVelocityHistory.push(angularVelocity);
+      if (prevData.angularVelocityHistory.length > velocityHistorySize) {
+        prevData.angularVelocityHistory.shift();
+      }
+
+      // Calcular velocidad angular suavizada (media móvil)
+      const smoothedAngularVelocity =
+        prevData.angularVelocityHistory.reduce((acc, v) => acc + v, 0) /
+        prevData.angularVelocityHistory.length;
+
+      // Actualizar historial de ángulos para suavizar el valor mostrado
+      prevData.angleHistory.push(angleNow);
+      if (prevData.angleHistory.length > angleHistorySize) {
+        prevData.angleHistory.shift();
+      }
+
+      smoothedAngle =
+        prevData.angleHistory.reduce((sum, a) => sum + a, 0) /
+        prevData.angleHistory.length;
+
+      // Guardar el nuevo estado de la articulación
+      jointData = {
+        angle: angleNow,
+        lastTimestamp: timeNow,
+        angularVelocity: smoothedAngularVelocity,
+        angularVelocityHistory: prevData.angularVelocityHistory,
+        angleHistory: prevData.angleHistory,
+      };
+    }
   } else {
-    // Calcular velocidad angular
-    const prevData = jointData;
-    const anglePrev = prevData.angle;
-    const timePrev = prevData.lastTimestamp;
-
-    const timeNow = performance.now();
-    const deltaTime = (timeNow - timePrev) / 1000; // en segundos
-    let angularVelocity = 0; // en grados/segundo
-
-    if (deltaTime > 0) {
-      angularVelocity = (angleNow - anglePrev) / deltaTime;
+    // Si solo se requiere dibujar el ángulo, se actualiza solo la información necesaria
+    if (!jointData) {
+      jointData = {
+        angle: angleNow,
+        lastTimestamp: timeNow,
+        angularVelocity: 0,
+        angularVelocityHistory: [],
+        angleHistory: [],
+      };
+    } else {
+      jointData = {
+        ...jointData,
+        angle: angleNow,
+        lastTimestamp: timeNow,
+      };
     }
-
-    // Actualizar el historial de velocidades
-    prevData.angularVelocityHistory.push(angularVelocity);
-    if (prevData.angularVelocityHistory.length > velocityHistorySize) {
-      prevData.angularVelocityHistory.shift();
-    }
-
-    // Calcular la media móvil (velocidad angular suavizada)
-    const smoothedAngularVelocity =
-    prevData.angularVelocityHistory.reduce((acc, v) => acc + v, 0) /
-    prevData.angularVelocityHistory.length;
-
-    // Suavizar el ángulo solo para mostrar
-    prevData.angleHistory.push(angleNow);
-    if (prevData.angleHistory.length > angleHistorySize) {
-      prevData.angleHistory.shift();
-    }
-
-    // Calcular la media (ángulo suavizado)
-    smoothedAngle =
-    prevData.angleHistory.reduce((sum, a) => sum + a, 0) / prevData.angleHistory.length;
-
-    // Guardar el nuevo estado
-    jointData = {
-      angle: angleNow,
-      lastTimestamp: timeNow,
-      angularVelocity: smoothedAngularVelocity,
-      angularVelocityHistory: prevData.angularVelocityHistory,
-      angleHistory: prevData.angleHistory,
-    };
   }
 
-  // Recuperar la velocidad angular calculada
-  const { angularVelocity: smoothedAngularVelocity } = jointData;
+  // Dibujar en el canvas:
+  // Siempre se dibuja el ángulo
+  drawAngle(ctx, kpB, smoothedAngle);
 
-  // Dibujar en el canvas (ángulo y velocidad angular)
-  drawAngleAndVelocity(ctx, kpB, smoothedAngle, smoothedAngularVelocity);
+  // Dibujar la velocidad angular solo si withVelocity es true
+  if (withVelocity) {
+    drawAngularVelocity(ctx, kpB, jointData.angularVelocity);
+  }
 
   return jointData;
-}
+};

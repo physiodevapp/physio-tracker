@@ -4,7 +4,7 @@ import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam"; // Importación del convertidor de modelos
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { useTensorFlow } from "../hooks/useTensorFlow";
-import { JointDataMap, JointConfigMap, Keypoint, KeypointData, PoseSettings } from "@/interfaces/pose";
+import { JointDataMap, JointConfigMap, Keypoint, KeypointData, PoseSettings, Kinematics } from "@/interfaces/pose";
 import { drawKeypointConnections, drawKeypoints } from "@/utils/drawUtils";
 import { updateKeypointVelocity } from "@/utils/keypointUtils";
 import { updateJoint } from "@/utils/jointUtils";
@@ -28,6 +28,7 @@ export const PoseDetector = () => {
   const [jointAngleHistorySize, setJointAngleHistorySize] = useState(5);
 
   const [visibleJoints, setVisibleJoints] = useState<Keypoint[]>([]);
+  const [visibleKinematics, setVisibleKinematics] = useState<Kinematics[]>([]);
 
   const jointVelocityHistorySizeRef = useRef(jointVelocityHistorySize);
   const jointAngleHistorySizeRef = useRef(jointAngleHistorySize);
@@ -37,6 +38,7 @@ export const PoseDetector = () => {
   const keypointDataRef = useRef<KeypointData | null>(null);
 
   const visibleJointsRef = useRef(visibleJoints);
+  const visibleKinematicsRef = useRef(visibleKinematics);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webcamRef = useRef<Webcam>(null);
@@ -68,14 +70,19 @@ export const PoseDetector = () => {
   };
 
   const joints = [
-    { label: "Right Shoulder", value: "right_shoulder" },
-    { label: "Left Shoulder", value: "left_shoulder" },
-    { label: "Right Elbow", value: "right_elbow" },
-    { label: "Left Elbow", value: "left_elbow" },
-    { label: "Right Hip", value: "right_hip" },
-    { label: "Left Hip", value: "left_hip" },
-    { label: "Right Knee", value: "right_knee" },
-    { label: "Left Knee", value: "left_knee" },
+    { label: "Right Shoulder", value: Keypoint.RIGHT_SHOULDER },
+    { label: "Left Shoulder", value: Keypoint.LEFT_SHOULDER },
+    { label: "Right Elbow", value: Keypoint.RIGHT_ELBOW },
+    { label: "Left Elbow", value: Keypoint.LEFT_ELBOW },
+    { label: "Right Hip", value: Keypoint.RIGHT_HIP },
+    { label: "Left Hip", value: Keypoint.LEFT_HIP },
+    { label: "Right Knee", value: Keypoint.RIGHT_KNEE },
+    { label: "Left Knee", value: Keypoint.LEFT_KNEE },
+  ];
+
+  const kinematicOptions = [
+    { label: "Angle", value: Kinematics.ANGLE },
+    { label: "Angular velocity", value: Kinematics.ANGULAR_VELOCITY },
   ];
 
   const handleAngularHistorySizeChange = (newSize: number) => {
@@ -90,23 +97,12 @@ export const PoseDetector = () => {
     }
   };
 
-  const toggleCamera = useCallback(() => {
-    setVideoConstraints((prev) => ({
-      facingMode: prev.facingMode === "user" ? "environment" : "user",
-    }));
-  }, []);
+  const handleJointSelection = (selectedJoints: string[]) => {
+    setVisibleJoints(selectedJoints as Keypoint[]);
+  };
 
-  const showMyWebcam = () => {
-    if (
-      webcamRef.current !== null &&
-      webcamRef.current.video?.readyState === 4
-    ) {
-      const myVideoWidth = webcamRef.current.video.videoWidth;
-      const myVideoHeight = webcamRef.current.video.videoHeight;
-
-      webcamRef.current.video.width = myVideoWidth;
-      webcamRef.current.video.height = myVideoHeight;
-    }
+  const handleKinematicsSelection = (selectedCinematics: string[]) => {
+    setVisibleKinematics(selectedCinematics as Kinematics[]);
   };
 
   const updateMultipleJoints = (
@@ -129,12 +125,28 @@ export const PoseDetector = () => {
         invert: jointConfig.invert,
         velocityHistorySize: jointVelocityHistorySizeRef.current,
         angleHistorySize: jointAngleHistorySizeRef.current,
+        withVelocity: visibleKinematicsRef.current.includes(Kinematics.ANGULAR_VELOCITY),
       });
     });
   };
 
-  const handleJointSelection = (selectedJoints: string[]) => {
-    setVisibleJoints(selectedJoints as Keypoint[]);
+  const toggleCamera = useCallback(() => {
+    setVideoConstraints((prev) => ({
+      facingMode: prev.facingMode === "user" ? "environment" : "user",
+    }));
+  }, []);
+
+  const showMyWebcam = () => {
+    if (
+      webcamRef.current !== null &&
+      webcamRef.current.video?.readyState === 4
+    ) {
+      const myVideoWidth = webcamRef.current.video.videoWidth;
+      const myVideoHeight = webcamRef.current.video.videoHeight;
+
+      webcamRef.current.video.width = myVideoWidth;
+      webcamRef.current.video.height = myVideoHeight;
+    }
   };
 
   // Sincronizar los valores en los refs
@@ -147,6 +159,10 @@ export const PoseDetector = () => {
   useEffect(() => {
     visibleJointsRef.current = visibleJoints;
   }, [visibleJoints])
+
+  useEffect(() => {
+    visibleKinematicsRef.current = visibleKinematics;
+  }, [visibleKinematics])
 
   useEffect(() => {
     const initializeDetector = async () => {
@@ -284,14 +300,22 @@ export const PoseDetector = () => {
         parentStyles="absolute bottom-8 ml-[19rem] text-lg font-medium text-gray-700"
       />
 
-      <div className="absolute bottom-8 -ml-36 mt-2 text-lg font-medium text-gray-700"><p>Model</p><p className="p-[0.4rem] pl-0 text-[1.4em] mt-[0.3em]">{detector ? "✅" : "⏳"}</p></div>
+      <div className="absolute top-2 right-1 mt-1 text-lg font-medium text-gray-700"><p className="p-[0.4rem] pl-0 text-[1.4em]">{detector ? "✅" : "⏳"}</p></div>
 
       <CheckboxSelector
         items={joints}
         onSelectionChange={handleJointSelection}
-        buttonLabel="Joints"
         headerText="Metrics"
-        parentStyles="absolute bottom-8 -ml-[19rem]"
+        buttonLabel="Joints"
+        parentStyles="absolute bottom-8 -ml-[12rem]"
+        />
+
+      <CheckboxSelector
+        items={kinematicOptions}
+        onSelectionChange={handleKinematicsSelection}
+        headerText="Type"
+        buttonLabel="A/V"
+        parentStyles="absolute bottom-8 -ml-[23rem]"
         />
     </div>
   );

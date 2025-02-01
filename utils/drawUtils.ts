@@ -49,39 +49,65 @@ export const drawKeypointConnections = (
   });
 };
 
-export const drawAngleAndVelocity = (
+// Función para dibujar el ángulo
+export const drawAngle = (
   ctx: CanvasRenderingContext2D,
   kp: { x: number; y: number },
-  smoothedAngle: number,
-  smoothedAngularVelocity: number,
+  angle: number,
   padding: number = 8
 ) => {
-  // Preparar los textos
-  const textAngle = `${smoothedAngle.toFixed(0)}°`;
-  const textVelocity = `ω: ${smoothedAngularVelocity.toFixed(0)} °/s`;
+  const textAngle = `${angle.toFixed(0)}°`;
 
-  // Configurar fuente y medir el texto
+  // Configurar fuente y alineación
   ctx.font = "16px Arial";
   ctx.textBaseline = "top";
 
+  // Medir el ancho del texto
   const angleMetrics = ctx.measureText(textAngle);
-  const velocityMetrics = ctx.measureText(textVelocity);
 
-  // Calcular dimensiones del cuadro
+  // Calcular dimensiones y posición del recuadro
   const rectX = kp.x + 10;
-  const rectY = kp.y - 10;
-  const rectWidth = Math.max(angleMetrics.width, velocityMetrics.width) + padding * 2;
-  const rectHeight = 40;
+  const rectY = kp.y - 10; // posición base para el ángulo
+  const rectWidth = angleMetrics.width + padding * 2;
+  const rectHeight = 20; // altura ajustada para una sola línea
 
-  // Dibujar fondo del cuadro
+  // Dibujar fondo del recuadro
   ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
   ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
 
-  // Dibujar texto del ángulo
+  // Dibujar el texto del ángulo
   ctx.fillStyle = "yellow";
   ctx.fillText(textAngle, rectX + padding, rectY + 4);
+};
 
-  // Dibujar texto de la velocidad angular
+// Función para dibujar la velocidad angular
+export const drawAngularVelocity = (
+  ctx: CanvasRenderingContext2D,
+  kp: { x: number; y: number },
+  angularVelocity: number,
+  padding: number = 8,
+  offsetY: number = 30 // Desplazamiento vertical para que no se solape con el ángulo
+) => {
+  const textVelocity = `ω: ${angularVelocity.toFixed(0)} °/s`;
+
+  // Configurar fuente y alineación
+  ctx.font = "16px Arial";
+  ctx.textBaseline = "top";
+
+  // Medir el ancho del texto
+  const velocityMetrics = ctx.measureText(textVelocity);
+
+  // Calcular dimensiones y posición del recuadro
+  const rectX = kp.x + 10;
+  const rectY = kp.y - 10 + offsetY; // se aplica el desplazamiento vertical
+  const rectWidth = velocityMetrics.width + padding * 2;
+  const rectHeight = 20; // altura ajustada para una sola línea
+
+  // Dibujar fondo del recuadro
+  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+  ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
+
+  // Dibujar el texto de la velocidad angular
   ctx.fillStyle = "cyan";
-  ctx.fillText(textVelocity, rectX + padding, rectY + 20);
+  ctx.fillText(textVelocity, rectX + padding, rectY + 4);
 };
