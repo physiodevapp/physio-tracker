@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { Line } from "react-chartjs-2";
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from "chart.js";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
 import { Keypoint } from "@/interfaces/pose";
 
 // Registro de componentes de Chart.js
@@ -13,6 +22,7 @@ interface RealTimeGraphProps {
   timeWindow?: number; // Ventana de tiempo en milisegundos (por defecto 10 segundos)
   parentStyles?: string; // Estilos CSS para el contenedor
   updateInterval?: number; // Intervalo de actualización en milisegundos (por defecto 500ms)
+  maxPoints?: number; // Número máximo de puntos a mostrar en el gráfico (por defecto 50)
 }
 
 export const RealTimeGraph = ({
@@ -22,15 +32,14 @@ export const RealTimeGraph = ({
   timeWindow = 10000, // Últimos 10 segundos
   parentStyles = "relative w-full flex flex-col items-center justify-center h-[50vh]",
   updateInterval = 500, // Valor por defecto 500 ms
+  maxPoints = 50, // Valor por defecto 50
 }: RealTimeGraphProps) => {
-  const [chartData, setChartData] = useState<{ [joint: string]: { labels: number[]; data: number[] } }>(
-    {}
-  );
+  const [chartData, setChartData] = useState<{ [joint: string]: { labels: number[]; data: number[] } }>({});
 
   const transformJointName = (joint: string): string => {
     const words = joint.split('_');
     if (words.length === 0) return joint;
-    // Capitaliza solo la primera palabra y pasa el resto a minúsculas
+    // Capitaliza la primera palabra y pasa el resto a minúsculas
     words[0] = words[0].charAt(0).toUpperCase() + words[0].slice(1).toLowerCase();
     for (let i = 1; i < words.length; i++) {
       words[i] = words[i].toLowerCase();
@@ -39,45 +48,70 @@ export const RealTimeGraph = ({
   };
 
   useEffect(() => {
-    console.log('joints in RealTimeGraph', joints);
-    const interval = setInterval(() => {
-      joints.forEach((joint) => {
-        const newData = getDataForJoint(joint);
+    let lastUpdate = performance.now();
+    let animationFrameId: number;
 
-        if (newData) {
-          setChartData((prev) => {
-            const now = performance.now();
+    const update = () => {
+      const now = performance.now();
+      if (now - lastUpdate >= updateInterval) {
+        joints.forEach((joint) => {
+          const newData = getDataForJoint(joint);
+          if (newData) {
+            setChartData((prev) => {
+              const currentTime = performance.now();
+              const previousData = prev[joint] || { labels: [], data: [] };
 
-            // Filtrar datos antiguos fuera de la ventana de tiempo
-            const previousData = prev[joint] || { labels: [], data: [] };
-            const filteredLabels = previousData.labels.filter((timestamp) => now - timestamp <= timeWindow);
-            const filteredData = previousData.data.slice(previousData.labels.length - filteredLabels.length);
+              // Filtrar los datos antiguos fuera de la ventana de tiempo
+              const filteredLabels = previousData.labels.filter((timestamp) => currentTime - timestamp <= timeWindow);
+              const filteredData = previousData.data.slice(previousData.labels.length - filteredLabels.length);
 
-            return {
-              ...prev,
-              [joint]: {
-                labels: [...filteredLabels, newData.timestamp],
-                data: [...filteredData, newData.value],
-              },
-            };
-          });
-        }
-      });
-    }, updateInterval); // Actualización cada 500ms
+              // Agregar el nuevo dato
+              let newLabels = [...filteredLabels, newData.timestamp];
+              let newValues = [...filteredData, newData.value];
 
-    return () => clearInterval(interval);
-  }, [getDataForJoint, joints, timeWindow, updateInterval]);
+              // Si se excede el máximo, hacer downsampling tomando cada nth punto
+              if (newLabels.length > maxPoints) {
+                const step = Math.ceil(newLabels.length / maxPoints);
+                newLabels = newLabels.filter((_, i) => i % step === 0);
+                newValues = newValues.filter((_, i) => i % step === 0);
+              }
+
+              return {
+                ...prev,
+                [joint]: {
+                  labels: newLabels,
+                  data: newValues,
+                },
+              };
+            });
+          }
+        });
+        lastUpdate = now;
+      }
+      animationFrameId = requestAnimationFrame(update);
+    };
+
+    animationFrameId = requestAnimationFrame(update);
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [getDataForJoint, joints, timeWindow, updateInterval, maxPoints]);
 
   return (
     <div className={parentStyles}>
-      <h2 className="text-xl font-bold mb-4">Real-Time Graph: {valueType === "angle" ? "Angle" : "Velocity"}</h2>
+      <h2 className="text-xl font-bold mb-4">
+        Real-Time Graph: {valueType === "angle" ? "Angle" : "Velocity"}
+      </h2>
       <Line
         data={{
-          labels: chartData[joints[0]]?.labels.map((timestamp) => ((timestamp - chartData[joints[0]].labels[0]) / 1000).toFixed(1)) || [],
+          labels:
+            chartData[joints[0]]?.labels
+              .map((timestamp) =>
+                ((timestamp - chartData[joints[0]].labels[0]) / 1000).toFixed(1)
+              ) || [],
           datasets: joints.map((joint, index) => ({
             label: `${transformJointName(joint)} ${valueType}`,
             data: chartData[joint]?.data || [],
-            borderColor: `hsl(${(index * 60) % 360}, 70%, 50%)`, // Colores únicos por articulación
+            borderColor: `hsl(${(index * 60) % 360}, 70%, 50%)`,
             backgroundColor: `hsla(${(index * 60) % 360}, 70%, 50%, 0.2)`,
             tension: 0.3,
           })),
@@ -108,7 +142,7 @@ export const RealTimeGraph = ({
                 text: valueType === "angle" ? "Angle (degrees)" : "Velocity (°/s or px/s)",
               },
               ticks: {
-                callback: (value) => Number(value).toFixed(0), // <-- Cambio agregado aquí
+                callback: (value) => Number(value).toFixed(0),
               },
             },
           },
@@ -116,4 +150,4 @@ export const RealTimeGraph = ({
       />
     </div>
   );
-}
+};

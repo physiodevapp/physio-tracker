@@ -261,6 +261,7 @@ export const PoseDetector = () => {
           className="w-full relative"
           videoConstraints={videoConstraints}
           muted
+          mirrored={videoConstraints.facingMode === "user"}
         />
         <canvas ref={canvasRef} className="absolute w-full" />
 
@@ -339,6 +340,7 @@ export const PoseDetector = () => {
             }}
             timeWindow={10000}
             updateInterval={250}
+            maxPoints={50}
             />
         )
       }
