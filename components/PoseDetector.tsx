@@ -17,7 +17,7 @@ export const PoseDetector = () => {
   const [detector, setDetector] = useState<poseDetection.PoseDetector | null>( null);
 
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
-    facingMode: "user",
+    facingMode: "environment",
   });
 
   const [poseSettings, setPoseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
@@ -41,6 +41,7 @@ export const PoseDetector = () => {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webcamRef = useRef<Webcam>(null);
+  const videoConstraintsRef = useRef(videoConstraints);
 
   const toggleCamera = useCallback(() => {
     setVideoConstraints((prev) => ({
@@ -121,6 +122,8 @@ export const PoseDetector = () => {
     jointAngleDataRef: RefObject<JointDataMap>,
     jointConfigMap: JointConfigMap
   ) => {
+    if (!visibleJointsRef.current.length) return; 
+
     jointNames.forEach((jointName) => {
       const jointConfig = jointConfigMap[jointName] ?? { invert: false };
 
@@ -135,6 +138,7 @@ export const PoseDetector = () => {
         velocityHistorySize: jointVelocityHistorySizeRef.current,
         angleHistorySize: jointAngleHistorySizeRef.current,
         withVelocity: visibleKinematicsRef.current.includes(Kinematics.ANGULAR_VELOCITY),
+        mirror: videoConstraintsRef.current.facingMode === "user",
       });
     });
   };
@@ -165,6 +169,10 @@ export const PoseDetector = () => {
   useEffect(() => {
     visibleKinematicsRef.current = visibleKinematics;
   }, [visibleKinematics])
+
+  useEffect(() => {
+    videoConstraintsRef.current = videoConstraints;
+  }, [videoConstraints]);
 
   useEffect(() => {
     const initializeDetector = async () => {
@@ -217,6 +225,10 @@ export const PoseDetector = () => {
                 (kp) => kp.score && kp.score > poseSettings.scoreThreshold
               );
 
+              if (jointOptions.length > 0) {
+
+              }
+              
               // Mostrar velocidad en píxeles de un keypoint seleccionado (virtual)
               keypointDataRef.current = updateKeypointVelocity(
                 keypoints,
@@ -227,10 +239,10 @@ export const PoseDetector = () => {
               );
 
               // Dibujar keypoints en el canvas
-              drawKeypoints(ctx, keypoints, selectedKeypoint, keypointDataRef.current);
+              drawKeypoints({ctx, keypoints, selectedKeypoint, keypointData: keypointDataRef.current, mirror: videoConstraintsRef.current.facingMode === "user"});
 
               // Dibujar conexiones entre puntos clave
-              drawKeypointConnections(ctx, keypoints, keypointPairs);
+              drawKeypointConnections({ctx, keypoints, keypointPairs, mirror: videoConstraintsRef.current.facingMode === "user"});
 
               // Calcular ángulo entre tres keypoints
               updateMultipleJoints(ctx, keypoints, visibleJointsRef.current, jointDataRef, jointConfigMap);
@@ -268,6 +280,7 @@ export const PoseDetector = () => {
         <button
           className="absolute bottom-8 w-16 aspect-square bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 active:bg-red-700 transition"
           onClick={toggleCamera}
+          disabled={false}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

@@ -48,7 +48,8 @@ export interface UpdateJointParams {
   invert?: boolean;
   velocityHistorySize?: number;
   angleHistorySize?: number;
-  withVelocity?: boolean; // Nuevo parámetro: si es true, se calcula y dibuja la velocidad
+  withVelocity?: boolean;
+  mirror?: boolean;
 }
 
 export type JointConfigMap = Partial<{ [key in Keypoint]: { invert: boolean } }>;

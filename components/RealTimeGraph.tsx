@@ -53,9 +53,11 @@ export const RealTimeGraph = ({
 
     const update = () => {
       const now = performance.now();
+      
       if (now - lastUpdate >= updateInterval) {
         joints.forEach((joint) => {
           const newData = getDataForJoint(joint);
+
           if (newData) {
             setChartData((prev) => {
               const currentTime = performance.now();
@@ -133,6 +135,7 @@ export const RealTimeGraph = ({
               },
               ticks: {
                 stepSize: 1,
+                display: joints.length > 0,
                 callback: (value) => Number(value).toFixed(0),
               },
             },
@@ -142,6 +145,7 @@ export const RealTimeGraph = ({
                 text: valueType === "angle" ? "Angle (degrees)" : "Velocity (°/s or px/s)",
               },
               ticks: {
+                display: joints.length > 0,
                 callback: (value) => Number(value).toFixed(0),
               },
             },
