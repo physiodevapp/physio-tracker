@@ -9,7 +9,8 @@ export interface PoseSettings {
 }
 
 export interface KeypointData {
-  position: { x: number; y: number };
+  position: { x: 
+    number; y: number };
   lastTimestamp: number;
   velocityInPixels: number;
   velocityInPixelsHistory: number[];

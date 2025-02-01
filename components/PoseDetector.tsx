@@ -17,7 +17,7 @@ export const PoseDetector = () => {
   const [detector, setDetector] = useState<poseDetection.PoseDetector | null>( null);
 
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
-    facingMode: "environment",
+    facingMode: "user",
   });
 
   const [poseSettings, setPoseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
@@ -267,7 +267,7 @@ export const PoseDetector = () => {
 
   return (
     <>
-      <div className={`relative w-full flex flex-col items-center justify-center ${displayGraphs ? "h-[50vh]" : "h-screen"}`}>
+      <div className={`relative z-0 w-full flex flex-col items-center justify-center ${displayGraphs ? "h-[50vh]" : "h-screen"}`}>
         <Webcam
           ref={webcamRef}
           className="w-full relative"
@@ -277,8 +277,31 @@ export const PoseDetector = () => {
         />
         <canvas ref={canvasRef} className="absolute w-full" />
 
+        <div className="absolute top-2 right-1 p-[0.2rem] text-[1.4rem] font-medium text-gray-700"><p>{detector ? "✅" : "⏳"}</p></div>
+
+        <DisplayGraphsButton 
+          onVisibilityChange={handleGrahpsVisibility} 
+          parentStyles="absolute top-2 right-[3rem] p-2 bg-transparent text-black rounded flex items-center space-x-2"
+          />
+      </div> 
+
+      <div className="fixed z-10 bottom-1 left-1/2 transform -translate-x-1/2 flex flex-row justify-center items-center gap-[0.6rem]">
+        <CheckboxSelector
+          items={jointOptions}
+          onSelectionChange={handleJointSelection}
+          headerText="Metrics"
+          buttonLabel="Joints"
+          />
+
+        <CheckboxSelector
+          items={kinematicOptions}
+          onSelectionChange={handleKinematicsSelection}
+          headerText="Type"
+          buttonLabel="A/V"
+          />
+
         <button
-          className="absolute bottom-8 w-16 aspect-square bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 active:bg-red-700 transition"
+          className="w-16 aspect-square bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 active:bg-red-700 transition"
           onClick={toggleCamera}
           disabled={false}
         >
@@ -307,53 +330,31 @@ export const PoseDetector = () => {
           title="Angle"
           value={jointAngleHistorySize}
           onChange={(value) => handleAngularHistorySizeChange(value)}
-          parentStyles="absolute bottom-8 ml-[11rem]"
         />
 
         <DropdwonSelector
           title="Velocity"
           value={jointVelocityHistorySize}
           onChange={(value) => handleVelocityHistorySizeChange(value)}
-          parentStyles="absolute bottom-8 ml-[22rem]"
         />
-
-        <CheckboxSelector
-          items={jointOptions}
-          onSelectionChange={handleJointSelection}
-          headerText="Metrics"
-          buttonLabel="Joints"
-          parentStyles="absolute bottom-8 -ml-[12rem]"
-          />
-
-        <CheckboxSelector
-          items={kinematicOptions}
-          onSelectionChange={handleKinematicsSelection}
-          headerText="Type"
-          buttonLabel="A/V"
-          parentStyles="absolute bottom-8 -ml-[23rem]"
-          />
-
-        <div className="absolute top-2 right-1 p-[0.2rem] text-[1.4rem] font-medium text-gray-700"><p>{detector ? "✅" : "⏳"}</p></div>
-
-        <DisplayGraphsButton 
-          onVisibilityChange={handleGrahpsVisibility} 
-          parentStyles="absolute top-2 right-[3rem] p-2 bg-transparent text-black rounded flex items-center space-x-2"
-          />
-
-      </div> 
+      </div>      
 
       {
         displayGraphs && (
           <RealTimeGraph
             joints={visibleJoints}
-            valueType={Kinematics.ANGLE}
+            valueTypes={visibleKinematics}
             getDataForJoint={(joint) => {
               const data = jointDataRef.current[joint];
-              return data ? { timestamp: data.lastTimestamp, value: data.angle } : null;
+              // console.log('data -> ',data)
+              return data
+                ? { timestamp: data.lastTimestamp, angle: data.angle, angularVelocity: data.angularVelocity }
+                : null;
             }}
             timeWindow={10000}
             updateInterval={250}
             maxPoints={50}
+            parentStyles="z-0"
             />
         )
       }
