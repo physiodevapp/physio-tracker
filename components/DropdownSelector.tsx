@@ -12,11 +12,11 @@ export const DropdwonSelector = ({ title = "", value, onChange, parentStyles = "
   const options = Array.from({ length: 11 }, (_, i) => i + 5);
 
   return (
-    <div  className={parentStyles}>
-      <label className="text-lg font-medium text-gray-700">{title}</label>
+    <div className={parentStyles}>
+      <p className="bg-[#00000045] text-white text-center rounded-md text-lg font-medium px-1">{title}</p>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="mt-[0.2rem] flex w-16 p-2 text-lg font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:bg-gray-50"
+        className="mt-[0.2rem] flex w-20 p-2 text-[1.2rem] font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:bg-gray-50"
       >
         {value}
         <svg className="w-5 h-5 ml-2 -mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -34,7 +34,7 @@ export const DropdwonSelector = ({ title = "", value, onChange, parentStyles = "
             {options.map((option) => (
               <li
                 key={option}
-                className="px-4 py-2 text-[1em] text-gray-700 cursor-pointer hover:bg-gray-100"
+                className="px-4 py-2 text-[1.2rem] text-gray-700 cursor-pointer hover:bg-gray-100"
                 onClick={() => {
                   onChange(option);
                   setIsOpen(false); // Cerrar menú al seleccionar

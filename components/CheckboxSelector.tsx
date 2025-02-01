@@ -36,7 +36,7 @@ export const CheckboxSelector = ({
 
   return (
     <div className={parentStyles}>
-      <p className="text-lg font-medium text-gray-700 p-0 m-0">{headerText}</p>
+      <p className="text-lg font-medium bg-[#00000045] text-white text-center rounded-md">{headerText}</p>
       <button
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
         className="inline-flex justify-center w-full px-2 py-[0.5rem] text-[1.2em] font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-[0.3rem]"

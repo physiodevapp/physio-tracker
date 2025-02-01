@@ -10,6 +10,7 @@ import { updateKeypointVelocity } from "@/utils/keypointUtils";
 import { updateJoint } from "@/utils/jointUtils";
 import { DropdwonSelector } from "./DropdownSelector";
 import { CheckboxSelector } from "./CheckboxSelector";
+import { DisplayGraphsButton } from "./DisplayGraphsButton";
 
 export const PoseDetector = () => {
   const [detector, setDetector] = useState<poseDetection.PoseDetector | null>( null);
@@ -25,6 +26,7 @@ export const PoseDetector = () => {
 
   const [visibleJoints, setVisibleJoints] = useState<Keypoint[]>([]);
   const [visibleKinematics, setVisibleKinematics] = useState<Kinematics[]>([]);
+  const [visibleGraphs, setVisibleGraphs] = useState(false);
 
   const jointVelocityHistorySizeRef = useRef(jointVelocityHistorySize);
   const jointAngleHistorySizeRef = useRef(jointAngleHistorySize);
@@ -99,6 +101,10 @@ export const PoseDetector = () => {
 
   const handleKinematicsSelection = (selectedCinematics: string[]) => {
     setVisibleKinematics(selectedCinematics as Kinematics[]);
+  };
+
+  const handleGrahpsVisibility = (isVisible: boolean) => {
+    setVisibleGraphs(isVisible);
   };
 
   const updateMultipleJoints = (
@@ -247,7 +253,7 @@ export const PoseDetector = () => {
   }, []);
 
   return (
-    <div className="relative w-full flex flex-col items-center justify-center h-screen">
+    <div className={`relative w-full flex flex-col items-center justify-center ${visibleGraphs ? "h-[50vh]" : "h-screen"}`}>
       <Webcam
         ref={webcamRef}
         className="w-full relative"
@@ -285,17 +291,16 @@ export const PoseDetector = () => {
         title="Angle"
         value={jointAngleHistorySize}
         onChange={(value) => handleAngularHistorySizeChange(value)}
-        parentStyles="absolute bottom-8 ml-[10rem] text-lg font-medium text-gray-700"
+        parentStyles="absolute bottom-8 ml-[11rem]"
       />
 
       <DropdwonSelector
         title="Velocity"
         value={jointVelocityHistorySize}
         onChange={(value) => handleVelocityHistorySizeChange(value)}
-        parentStyles="absolute bottom-8 ml-[19rem] text-lg font-medium text-gray-700"
+        parentStyles="absolute bottom-8 ml-[22rem]"
       />
 
-      <div className="absolute top-2 right-1 mt-1 text-lg font-medium text-gray-700"><p className="p-[0.4rem] pl-0 text-[1.4em]">{detector ? "✅" : "⏳"}</p></div>
 
       <CheckboxSelector
         items={joints}
@@ -311,6 +316,13 @@ export const PoseDetector = () => {
         headerText="Type"
         buttonLabel="A/V"
         parentStyles="absolute bottom-8 -ml-[23rem]"
+        />
+
+      <div className="absolute top-2 right-1 p-[0.2rem] text-[1.4rem] font-medium text-gray-700"><p>{detector ? "✅" : "⏳"}</p></div>
+
+      <DisplayGraphsButton 
+        onVisibilityChange={handleGrahpsVisibility} 
+        parentStyles="absolute top-2 right-[3rem] p-2 bg-blue-500 text-white rounded flex items-center space-x-2"
         />
     </div>
   );
