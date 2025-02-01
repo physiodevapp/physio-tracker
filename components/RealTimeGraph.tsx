@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { Line } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from "chart.js";
+import { Keypoint } from "@/interfaces/pose";
 
 // Registro de componentes de Chart.js
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 interface RealTimeGraphProps {
-  joints: string[]; // Lista de articulaciones a mostrar
+  joints: Keypoint[]; // Lista de articulaciones a mostrar
   valueType: "angle" | "velocity"; // Tipo de dato a mostrar
-  getDataForJoint: (joint: string) => { timestamp: number; value: number } | null; // Función que proporciona datos para una articulación
+  getDataForJoint: (joint: Keypoint) => { timestamp: number; value: number } | null; // Función que proporciona datos para una articulación
   timeWindow?: number; // Ventana de tiempo en milisegundos (por defecto 10 segundos)
   parentStyles?: string; // Estilos CSS para el contenedor
+  updateInterval?: number; // Intervalo de actualización en milisegundos (por defecto 500ms)
 }
 
 export const RealTimeGraph = ({
@@ -19,6 +21,7 @@ export const RealTimeGraph = ({
   getDataForJoint,
   timeWindow = 10000, // Últimos 10 segundos
   parentStyles = "relative w-full flex flex-col items-center justify-center h-[50vh]",
+  updateInterval = 500, // Valor por defecto 500 ms
 }: RealTimeGraphProps) => {
   const [chartData, setChartData] = useState<{ [joint: string]: { labels: number[]; data: number[] } }>(
     {}
@@ -60,10 +63,10 @@ export const RealTimeGraph = ({
           });
         }
       });
-    }, 500); // Actualización cada 500ms
+    }, updateInterval); // Actualización cada 500ms
 
     return () => clearInterval(interval);
-  }, [getDataForJoint, joints, timeWindow]);
+  }, [getDataForJoint, joints, timeWindow, updateInterval]);
 
   return (
     <div className={parentStyles}>

@@ -42,6 +42,12 @@ export const PoseDetector = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webcamRef = useRef<Webcam>(null);
 
+  const toggleCamera = useCallback(() => {
+    setVideoConstraints((prev) => ({
+      facingMode: prev.facingMode === "user" ? "environment" : "user",
+    }));
+  }, []);
+
   const isTfReady = useTensorFlow();
 
   const keypointPairs: [Keypoint, Keypoint][] = [
@@ -68,7 +74,7 @@ export const PoseDetector = () => {
     [Keypoint.LEFT_KNEE]: { invert: true },
   };
 
-  const joints = [
+  const jointOptions = [
     { label: "Right Shoulder", value: Keypoint.RIGHT_SHOULDER },
     { label: "Left Shoulder", value: Keypoint.LEFT_SHOULDER },
     { label: "Right Elbow", value: Keypoint.RIGHT_ELBOW },
@@ -132,12 +138,6 @@ export const PoseDetector = () => {
       });
     });
   };
-
-  const toggleCamera = useCallback(() => {
-    setVideoConstraints((prev) => ({
-      facingMode: prev.facingMode === "user" ? "environment" : "user",
-    }));
-  }, []);
 
   const showMyWebcam = () => {
     if (
@@ -304,7 +304,7 @@ export const PoseDetector = () => {
         />
 
         <CheckboxSelector
-          items={joints}
+          items={jointOptions}
           onSelectionChange={handleJointSelection}
           headerText="Metrics"
           buttonLabel="Joints"
@@ -323,7 +323,7 @@ export const PoseDetector = () => {
 
         <DisplayGraphsButton 
           onVisibilityChange={handleGrahpsVisibility} 
-          parentStyles="absolute top-2 right-[3rem] p-2 bg-blue-500 text-white rounded flex items-center space-x-2"
+          parentStyles="absolute top-2 right-[3rem] p-2 bg-transparent text-black rounded flex items-center space-x-2"
           />
 
       </div> 
@@ -333,12 +333,13 @@ export const PoseDetector = () => {
           <RealTimeGraph
             joints={visibleJoints}
             valueType={Kinematics.ANGLE}
-            getDataForJoint={(joint) => ({
-              timestamp: performance.now(),
-              value: Math.random() * 100,
-            })}
-            timeWindow={10}
-          />
+            getDataForJoint={(joint) => {
+              const data = jointDataRef.current[joint];
+              return data ? { timestamp: data.lastTimestamp, value: data.angle } : null;
+            }}
+            timeWindow={10000}
+            updateInterval={250}
+            />
         )
       }
     </>
