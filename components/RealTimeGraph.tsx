@@ -215,9 +215,18 @@ export const RealTimeGraph = ({
             y: {
               title: {
                 display: true,
-                text: valueTypes.includes(Kinematics.ANGLE)
-                  ? "Angle (degrees)"
-                  : "Velocity (°/s or px/s)",
+                text: (() => {
+                  // Si se muestran ambos valores, se muestra un título combinado.
+                  if (valueTypes.includes(Kinematics.ANGLE) && valueTypes.includes(Kinematics.ANGULAR_VELOCITY)) {
+                    return "Angle (degrees) & Angular Velocity (°/s)";
+                  }
+                  // Si se muestra solo ángulo.
+                  if (valueTypes.includes(Kinematics.ANGLE)) {
+                    return "Angle (degrees)";
+                  }
+                  
+                  return "";
+                })(),
               },
               suggestedMin: 0,
               suggestedMax: 90,
