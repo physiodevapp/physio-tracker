@@ -8,7 +8,7 @@ import { JointDataMap, JointConfigMap, Keypoint, KeypointData, PoseSettings, Kin
 import { drawKeypointConnections, drawKeypoints } from "@/utils/drawUtils";
 import { updateKeypointVelocity } from "@/utils/keypointUtils";
 import { updateJoint } from "@/utils/jointUtils";
-import { ThresholdSelector } from "./ThresholdSelector";
+import { DropdwonSelector } from "./DropdownSelector";
 import { CheckboxSelector } from "./CheckboxSelector";
 
 export const PoseDetector = () => {
@@ -77,7 +77,7 @@ export const PoseDetector = () => {
   ];
 
   const kinematicOptions = [
-    { label: "Angle", value: Kinematics.ANGLE },
+    { label: "Angle", value: Kinematics.ANGLE, defaultChecked: true, disabled: true },
     { label: "Angular velocity", value: Kinematics.ANGULAR_VELOCITY },
   ];
 
@@ -145,7 +145,6 @@ export const PoseDetector = () => {
     }
   };
 
-  // Sincronizar los valores en los refs
   useEffect(() => {
     selectedKeypointRef.current = selectedKeypoint;
     jointVelocityHistorySizeRef.current = jointVelocityHistorySize;
@@ -282,14 +281,14 @@ export const PoseDetector = () => {
         </svg>
       </button>
 
-      <ThresholdSelector
+      <DropdwonSelector
         title="Angle"
         value={jointAngleHistorySize}
         onChange={(value) => handleAngularHistorySizeChange(value)}
         parentStyles="absolute bottom-8 ml-[10rem] text-lg font-medium text-gray-700"
       />
 
-      <ThresholdSelector
+      <DropdwonSelector
         title="Velocity"
         value={jointVelocityHistorySize}
         onChange={(value) => handleVelocityHistorySizeChange(value)}

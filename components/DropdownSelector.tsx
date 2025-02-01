@@ -7,7 +7,7 @@ interface SelectorProps {
   parentStyles?: string;
 }
 
-export const ThresholdSelector = ({ title = "", value, onChange, parentStyles = "relative inline-block text-left" }: SelectorProps) => {
+export const DropdwonSelector = ({ title = "", value, onChange, parentStyles = "relative inline-block text-left" }: SelectorProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const options = Array.from({ length: 11 }, (_, i) => i + 5);
 

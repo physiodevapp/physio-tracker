@@ -1,9 +1,5 @@
+import { CheckboxItem } from "@/interfaces/pose";
 import { useEffect, useState } from "react";
-
-export interface CheckboxItem {
-  label: string;
-  value: string;
-}
 
 interface CheckboxSelectorProps {
   items: CheckboxItem[]; // Array de items a mostrar como checkboxes
@@ -20,7 +16,9 @@ export const CheckboxSelector = ({
   buttonLabel = "Select Items",
   headerText = "Metrics",
 }: CheckboxSelectorProps) => {
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [selectedItems, setSelectedItems] = useState<string[]>(() =>
+    items.filter((item) => item.defaultChecked === true).map((item) => item.value)
+  );
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const handleCheckboxChange = (value: string) => {
@@ -70,6 +68,7 @@ export const CheckboxSelector = ({
                   className="form-checkbox h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   value={item.value}
                   checked={selectedItems.includes(item.value)}
+                  disabled={item.disabled}
                   onChange={() => handleCheckboxChange(item.value)}
                 />
                 <span className="ml-2">{item.label}</span>
