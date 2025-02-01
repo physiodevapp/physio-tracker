@@ -1,5 +1,9 @@
 import * as poseDetection from '@tensorflow-models/pose-detection';
 
+export interface VideoConstraints {
+  facingMode: "user" | "environment";
+}
+
 export interface PoseSettings {
   scoreThreshold: number;
 }

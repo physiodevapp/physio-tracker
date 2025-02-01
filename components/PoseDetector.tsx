@@ -4,16 +4,12 @@ import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam"; // Importación del convertidor de modelos
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { useTensorFlow } from "../hooks/useTensorFlow";
-import { JointDataMap, JointConfigMap, Keypoint, KeypointData, PoseSettings, Kinematics } from "@/interfaces/pose";
+import { JointDataMap, JointConfigMap, Keypoint, KeypointData, PoseSettings, Kinematics, VideoConstraints } from "@/interfaces/pose";
 import { drawKeypointConnections, drawKeypoints } from "@/utils/drawUtils";
 import { updateKeypointVelocity } from "@/utils/keypointUtils";
 import { updateJoint } from "@/utils/jointUtils";
 import { ThresholdSelector } from "./ThresholdSelector";
 import { CheckboxSelector } from "./CheckboxSelector";
-
-interface VideoConstraints {
-  facingMode: "user" | "environment";
-}
 
 export const PoseDetector = () => {
   const [detector, setDetector] = useState<poseDetection.PoseDetector | null>( null);
