@@ -8,8 +8,8 @@ import { JointDataMap, JointConfigMap, Keypoint, KeypointData, PoseSettings } fr
 import { drawKeypointConnections, drawKeypoints } from "@/utils/drawUtils";
 import { updateKeypointVelocity } from "@/utils/keypointUtils";
 import { updateJoint } from "@/utils/jointUtils";
-import { JointSelector } from "./JointSelector";
 import { ThresholdSelector } from "./ThresholdSelector";
+import { CheckboxSelector } from "./CheckboxSelector";
 
 interface VideoConstraints {
   facingMode: "user" | "environment";
@@ -66,6 +66,17 @@ export const PoseDetector = () => {
     [Keypoint.LEFT_HIP]: { invert: false },
     [Keypoint.LEFT_KNEE]: { invert: true },
   };
+
+  const joints = [
+    { label: "Right Shoulder", value: "right_shoulder" },
+    { label: "Left Shoulder", value: "left_shoulder" },
+    { label: "Right Elbow", value: "right_elbow" },
+    { label: "Left Elbow", value: "left_elbow" },
+    { label: "Right Hip", value: "right_hip" },
+    { label: "Left Hip", value: "left_hip" },
+    { label: "Right Knee", value: "right_knee" },
+    { label: "Left Knee", value: "left_knee" },
+  ];
 
   const handleAngularHistorySizeChange = (newSize: number) => {
     if (newSize >= 1 && newSize <= 20) {
@@ -275,7 +286,13 @@ export const PoseDetector = () => {
 
       <div className="absolute bottom-8 -ml-36 mt-2 text-lg font-medium text-gray-700"><p>Model</p><p className="p-[0.4rem] pl-0 text-[1.4em] mt-[0.3em]">{detector ? "✅" : "⏳"}</p></div>
 
-      <JointSelector parentStyles="absolute bottom-8 -ml-[19rem]" onSelectionChange={handleJointSelection} />
+      <CheckboxSelector
+        items={joints}
+        onSelectionChange={handleJointSelection}
+        buttonLabel="Joints"
+        headerText="Metrics"
+        parentStyles="absolute bottom-8 -ml-[19rem]"
+        />
     </div>
   );
 };
