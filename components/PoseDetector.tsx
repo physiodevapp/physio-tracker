@@ -1,6 +1,6 @@
 "use client";
 
-import { RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam"; // Importación del convertidor de modelos
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { useTensorFlow } from "../hooks/useTensorFlow";
@@ -48,6 +48,15 @@ export const PoseDetector = () => {
       facingMode: prev.facingMode === "user" ? "environment" : "user",
     }));
   }, []);
+
+  const maxJointsAllowed = useMemo(() => {
+    return visibleKinematics.length === 2 ? 3 : 6;
+  }, [visibleKinematics]);
+  
+  const maxKinematicsAllowed = useMemo(() => {
+    return visibleJoints.length > 0 ? Math.floor(6 / visibleJoints.length) : 2;
+  }, [visibleJoints]);
+  
 
   const isTfReady = useTensorFlow();
 
@@ -317,6 +326,7 @@ export const PoseDetector = () => {
           onSelectionChange={handleJointSelection}
           headerText="Marks"
           buttonLabel="Joints"
+          maxSelected={maxJointsAllowed}
           />
 
         <CheckboxSelector
@@ -324,6 +334,7 @@ export const PoseDetector = () => {
           onSelectionChange={handleKinematicsSelection}
           headerText="Metrics"
           buttonLabel="A / V"
+          maxSelected={maxKinematicsAllowed}
           />
 
         <DropdwonSelector
