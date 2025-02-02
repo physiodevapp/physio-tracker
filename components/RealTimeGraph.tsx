@@ -193,6 +193,7 @@ export const RealTimeGraph = ({
         }}
         options={{
           responsive: true,
+          maintainAspectRatio: false,
           plugins: {
             legend: {
               display: true,
@@ -214,15 +215,15 @@ export const RealTimeGraph = ({
             },
             y: {
               title: {
-                display: true,
+                display: false,
                 text: (() => {
                   // Si se muestran ambos valores, se muestra un título combinado.
                   if (valueTypes.includes(Kinematics.ANGLE) && valueTypes.includes(Kinematics.ANGULAR_VELOCITY)) {
-                    return "Angle (degrees) & Angular Velocity (°/s)";
+                    return "Angle (°) & Angular Velocity (°/s)";
                   }
                   // Si se muestra solo ángulo.
                   if (valueTypes.includes(Kinematics.ANGLE)) {
-                    return "Angle (degrees)";
+                    return "Angle (°)";
                   }
                   
                   return "";

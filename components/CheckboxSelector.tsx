@@ -7,6 +7,7 @@ interface CheckboxSelectorProps {
   onSelectionChange: (selectedItems: string[]) => void; // Callback para notificar la selección
   buttonLabel?: string; // Texto del botón desplegable
   headerText?: string; // Texto del encabezado
+  maxSelected?: number;
 }
 
 export const CheckboxSelector = ({
@@ -15,6 +16,7 @@ export const CheckboxSelector = ({
   onSelectionChange,
   buttonLabel = "Select Items",
   headerText = "Metrics",
+  maxSelected = 6,
 }: CheckboxSelectorProps) => {
   const [selectedItems, setSelectedItems] = useState<string[]>(() =>
     items.filter((item) => item.defaultChecked === true).map((item) => item.value)
@@ -39,7 +41,7 @@ export const CheckboxSelector = ({
       <p className="text-lg font-medium bg-[#00000045] text-white text-center rounded-md">{headerText}</p>
       <button
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="inline-flex justify-center w-full px-2 py-[0.5rem] text-[1.2em] font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-[0.3rem]"
+        className="inline-flex justify-center w-full px-2 py-[0.5rem] text-[1.2em] font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-[0.3rem] whitespace-nowrap"
       >
         {buttonLabel}
         <svg className="w-5 h-5 ml-2 -mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -68,7 +70,10 @@ export const CheckboxSelector = ({
                   className="form-checkbox h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   value={item.value}
                   checked={selectedItems.includes(item.value)}
-                  disabled={item.disabled}
+                  disabled={
+                    item.disabled ||
+                    (selectedItems.length >= maxSelected && !selectedItems.includes(item.value))
+                  }
                   onChange={() => handleCheckboxChange(item.value)}
                 />
                 <span className="ml-2">{item.label}</span>
