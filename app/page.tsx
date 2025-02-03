@@ -3,8 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { useSwipeable } from 'react-swipeable';
-const Pose = dynamic(() => import('./pose/page').then(mod => mod.PoseDetector), { ssr: false });
-const Strength = dynamic(() => import('./strength/page').then(mod => mod.StrengthDetector), { ssr: false });
+const Pose = dynamic(() => import('./pose/page').then(mod => mod.default), { ssr: false });
+const Strength = dynamic(() => import('./strength/page').then(mod => mod.default), { ssr: false });
 
 export default function Home() {
   const [activePage, setActivePage] = useState<'pose' | 'strength'>('pose');

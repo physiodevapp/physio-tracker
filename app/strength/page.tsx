@@ -6,15 +6,15 @@ import { useState } from "react";
 const CMD_TARE_SCALE = 100;
 const CMD_START_WEIGHT_MEAS = 101;
 const CMD_STOP_WEIGHT_MEAS = 102;
-const CMD_START_PEAK_RFD_MEAS = 103;
-const CMD_START_PEAK_RFD_MEAS_SERIES = 104;
-const CMD_ADD_CALIBRATION_POINT = 105;
-const CMD_SAVE_CALIBRATION = 106;
-const CMD_GET_APP_VERSION = 107;
-const CMD_GET_ERROR_INFORMATION = 108;
-const CMD_CLR_ERROR_INFORMATION = 109;
-const CMD_ENTER_SLEEP = 110;
-const CMD_GET_BATTERY_VOLTAGE = 111;
+// const CMD_START_PEAK_RFD_MEAS = 103;
+// const CMD_START_PEAK_RFD_MEAS_SERIES = 104;
+// const CMD_ADD_CALIBRATION_POINT = 105;
+// const CMD_SAVE_CALIBRATION = 106;
+// const CMD_GET_APP_VERSION = 107;
+// const CMD_GET_ERROR_INFORMATION = 108;
+// const CMD_CLR_ERROR_INFORMATION = 109;
+// const CMD_ENTER_SLEEP = 110;
+// const CMD_GET_BATTERY_VOLTAGE = 111;
 
 // Definición de códigos de respuesta
 const RES_CMD_RESPONSE = 0;
@@ -23,7 +23,7 @@ const RES_RFD_PEAK = 2;
 const RES_RFD_PEAK_SERIES = 3;
 const RES_LOW_PWR_WARNING = 4;
 
-export const StrengthDetector = () => {
+const StrengthDetector = () => {
   const [device, setDevice] = useState<BluetoothDevice | null>(null);
   const [sensorData, setSensorData] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -45,7 +45,7 @@ export const StrengthDetector = () => {
     // Procesar según el código de respuesta
     if (responseCode === RES_WEIGHT_MEAS) {
       // Leer el tamaño del payload (segundo byte)
-      const payloadSize = dataView.getUint8(1);
+      // const payloadSize = dataView.getUint8(1);
 
       // Iterar sobre los bloques de datos: cada medición ocupa 8 bytes
       // Se asume que a partir del byte 2 está el peso (float32) y
@@ -53,8 +53,8 @@ export const StrengthDetector = () => {
       for (let i = 2; i < dataView.byteLength; i += 8) {
         if (i + 7 < dataView.byteLength) {
           const weight = dataView.getFloat32(i, true);       // peso en kg (float32)
-          const rawTimestamp = dataView.getUint32(i + 4, true); // timestamp en microsegundos
-          const timeSec = rawTimestamp / 1000000.0;            // convertir a segundos
+          // const rawTimestamp = dataView.getUint32(i + 4, true); // timestamp en microsegundos
+          // const timeSec = rawTimestamp / 1000000.0;            // convertir a segundos
 
           // Actualizamos el estado con el último peso recibido
           setSensorData(weight);
@@ -213,3 +213,5 @@ export const StrengthDetector = () => {
     </div>
   );
 };
+
+export default StrengthDetector

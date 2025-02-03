@@ -14,13 +14,13 @@ import { RealTimeGraph } from "../../components/RealTimeGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetectorContext";
 
-export const PoseDetector = () => {
+const PoseDetector = () => {
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
   });
 
-  const [poseSettings, setPoseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
-  const [selectedKeypoint, setSelectedKeypoint] = useState<Keypoint | null>(null);
+  const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
+  const [selectedKeypoint] = useState<Keypoint | null>(null);
   const [jointVelocityHistorySize, setJointVelocityHistorySize] = useState(5);
   const [jointAngleHistorySize, setJointAngleHistorySize] = useState(5);
 
@@ -352,3 +352,5 @@ export const PoseDetector = () => {
     </>
   );
 };
+
+export default PoseDetector;

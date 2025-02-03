@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { TensorFlowProvider, useTensorFlow } from "@/providers/TensorFlowContext";
-import { PoseDetectorProvider } from "@/providers/PoseDetectorContext";
+import { TensorFlowProvider } from "@/providers/TensorFlowContext";
 import ClientProvidersWrapper from "@/providers/ClientProvidersWrapper";
 
 const geistSans = Geist({
