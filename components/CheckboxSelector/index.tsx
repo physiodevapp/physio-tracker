@@ -1,4 +1,4 @@
-import { CheckboxItem } from "@/interfaces/pose";
+import { CheckboxItem } from "@/interfaces/CheckboxSelector";
 import { useEffect, useState } from "react";
 
 interface CheckboxSelectorProps {

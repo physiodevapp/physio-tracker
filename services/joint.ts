@@ -1,5 +1,5 @@
 import * as poseDetection from "@tensorflow-models/pose-detection";
-import { drawAngle, drawAngularVelocity } from "./drawUtils";
+import { drawAngle, drawAngularVelocity } from "./draw";
 import { JointData, Keypoint, UpdateJointParams } from "../interfaces/pose";
 
 const calculateJointAngleDegrees = (

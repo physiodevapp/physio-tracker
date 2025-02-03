@@ -1,9 +1,5 @@
 import * as poseDetection from '@tensorflow-models/pose-detection';
 
-export interface VideoConstraints {
-  facingMode: "user" | "environment";
-}
-
 export interface PoseSettings {
   scoreThreshold: number;
 }
@@ -58,11 +54,4 @@ export type JointConfigMap = Partial<{ [key in Keypoint]: { invert: boolean } }>
 export enum Kinematics {
   ANGLE = "angle",
   ANGULAR_VELOCITY = "angularVelocity",
-}
-
-export interface CheckboxItem {
-  label: string;
-  value: string;
-  defaultChecked?: boolean; // Si es true (o está sin definir), el checkbox se marcará por defecto
-  disabled?: boolean; // Si es true, el checkbox no será editable
 }

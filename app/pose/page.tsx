@@ -3,19 +3,18 @@
 import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam"; // Importación del convertidor de modelos
 import * as poseDetection from "@tensorflow-models/pose-detection";
-import { useTensorFlow } from "../hooks/useTensorFlow";
-import { JointDataMap, JointConfigMap, Keypoint, KeypointData, PoseSettings, Kinematics, VideoConstraints } from "@/interfaces/pose";
-import { drawKeypointConnections, drawKeypoints } from "@/utils/drawUtils";
-import { updateKeypointVelocity } from "@/utils/keypointUtils";
-import { updateJoint } from "@/utils/jointUtils";
-import { DropdwonSelector } from "./DropdownSelector";
-import { CheckboxSelector } from "./CheckboxSelector";
-import { DisplayGraphsButton } from "./DisplayGraphsButton";
-import { RealTimeGraph } from "./RealTimeGraph";
+import { JointDataMap, JointConfigMap, Keypoint, KeypointData, PoseSettings, Kinematics } from "@/interfaces/pose";
+import { drawKeypointConnections, drawKeypoints } from "@/services/draw";
+import { updateKeypointVelocity } from "@/services/keypoint";
+import { updateJoint } from "@/services/joint";
+import { DropdwonSelector } from "../../components/DropdownSelector";
+import { CheckboxSelector } from "../../components/CheckboxSelector";
+import { DisplayGraphsButton } from "../../components/DisplayGraphsButton";
+import { RealTimeGraph } from "../../components/RealTimeGraph";
+import { VideoConstraints } from "@/interfaces/camera";
+import { usePoseDetector } from "@/providers/PoseDetectorContext";
 
 export const PoseDetector = () => {
-  const [detector, setDetector] = useState<poseDetection.PoseDetector | null>( null);
-
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
   });
@@ -57,8 +56,7 @@ export const PoseDetector = () => {
     return visibleJoints.length > 0 ? Math.floor(6 / visibleJoints.length) : 2;
   }, [visibleJoints]);
   
-
-  const isTfReady = useTensorFlow();
+  const detector = usePoseDetector();
 
   const keypointPairs: [Keypoint, Keypoint][] = [
     [Keypoint.LEFT_SHOULDER, Keypoint.RIGHT_SHOULDER],
@@ -182,23 +180,6 @@ export const PoseDetector = () => {
   useEffect(() => {
     videoConstraintsRef.current = videoConstraints;
   }, [videoConstraints]);
-
-  useEffect(() => {
-    const initializeDetector = async () => {
-      if (!isTfReady) return;
-
-      const detectorInstance = await poseDetection.createDetector(
-        poseDetection.SupportedModels.MoveNet,
-        {
-          modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-          minPoseScore: 0.3,
-        }
-      );
-      setDetector(detectorInstance);
-    };
-
-    initializeDetector();
-  }, [isTfReady]);
 
   useEffect(() => {
     if (!detector || !webcamRef.current) return;
@@ -357,7 +338,6 @@ export const PoseDetector = () => {
             valueTypes={visibleKinematics}
             getDataForJoint={(joint) => {
               const data = jointDataRef.current[joint];
-              // console.log('data -> ',data)
               return data
                 ? { timestamp: data.lastTimestamp, angle: data.angle, angularVelocity: data.angularVelocity }
                 : null;
