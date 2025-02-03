@@ -1,4 +1,4 @@
-import * as poseDetection from '@tensorflow-models/pose-detection';
+import type * as poseDetection from '@tensorflow-models/pose-detection';
 
 export interface PoseSettings {
   scoreThreshold: number;
