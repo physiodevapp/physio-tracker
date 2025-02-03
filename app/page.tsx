@@ -25,7 +25,7 @@ export default function Home() {
   };
   
   return (
-    <main {...handlers} className='h-screen overflow-hidden relative'>
+    <main {...handlers} className='h-dvh overflow-hidden relative'>
       {activePage === 'pose' && <Pose />}
       {activePage === 'strength' && <Strength />}
         <button onClick={togglePage} className="absolute bottom-0 right-0 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full w-12 h-12 flex items-center justify-center shadow-md transition duration-150">

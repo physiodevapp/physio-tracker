@@ -200,6 +200,11 @@ export const RealTimeGraph = ({
               position: "top",
             },
           },
+          elements: {
+            point: {
+              radius: 2,
+            },
+          },
           scales: {
             x: {
               type: "linear",
