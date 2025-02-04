@@ -276,7 +276,7 @@ const PoseDetector = () => {
         />
         <canvas ref={canvasRef} className="absolute object-cover h-full" />
 
-        <section className="absolute top-2 left-0 p-2 flex flex-col-reverse justify-between gap-4">
+        <section className="absolute top-2 right-0 p-2 flex flex-col-reverse justify-between gap-4">
           <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
           <PresentationChartBarIcon className="h-6 w-6 text-white cursor-pointer" onClick={handleGrahpsVisibility}/>
           {detector ? (
