@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { useSwipeable } from 'react-swipeable';
 const Pose = dynamic(() => import('./pose/page').then(mod => mod.default), { ssr: false });
 const Strength = dynamic(() => import('./strength/page').then(mod => mod.default), { ssr: false });
-const Example = dynamic(() => import('../modals/PoseModal').then(mod => mod.default), { ssr: false });
 
 export default function Home() {
   const [activePage, setActivePage] = useState<'pose' | 'strength'>('pose');
