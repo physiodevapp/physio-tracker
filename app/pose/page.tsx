@@ -1,6 +1,6 @@
 "use client";
 
-import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam"; // Importación del convertidor de modelos
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { JointDataMap, JointConfigMap, Keypoint, KeypointData, PoseSettings, Kinematics } from "@/interfaces/pose";
@@ -16,6 +16,8 @@ import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 import { CloudArrowDownIcon } from "@heroicons/react/24/solid";
 import { CameraIcon } from "@heroicons/react/24/solid";
 import { PresentationChartBarIcon } from "@heroicons/react/24/solid";
+import { UserIcon } from "@heroicons/react/24/solid";
+import { PoseModal } from "@/modals/PoseModal";
 
 const PoseDetector = () => {
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
@@ -257,6 +259,11 @@ const PoseDetector = () => {
     showMyWebcam();
   }, []);
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const handleModal = () => {
+    setIsModalOpen((prev) => !prev);
+  }
+
   return (
     <>
       <div className={`relative z-0 flex flex-col items-center justify-start ${displayGraphs ? "h-[50dvh]" : "h-dvh"} border border-solid border-red-500`}>
@@ -278,13 +285,14 @@ const PoseDetector = () => {
             <CloudArrowDownIcon className="h-6 w-6 text-blue-500 animate-bounce"/>
           )}
         </section>
-        <section className="absolute bottom-2 left-1/2 transform -translate-x-1/2 p-2 pt-1 flex justify-center gap-2 border border-white rounded-full">
-          {/* <button className="relative w-12 h-12 rounded-full text-white flex-col items-center justify-center">
-            <p className="text-[1.2rem]">180</p>
-            <p className="text-[1rem]"></p>
-            <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -z-10 w-10 h-10 bg-blue-500 rounded-full"></span>
-          </button> */}
+
+        <section className="fixed bottom-0 left-1/2 transform -translate-x-1/2 p-2 pt-1 flex justify-center gap-2">
+          <button className="relative w-14 h-14 text-white bg-black bg-opacity-40 flex-col items-center justify-center border-4 border-white rounded-full p-2" onClick={handleModal}>
+            <UserIcon />           
+          </button>
         </section>
+
+        <PoseModal isModalOpen={isModalOpen} handleModal={handleModal} />
       </div> 
 
       {/* <div className="fixed z-10 bottom-1 flex flex-row justify-center items-center gap-[0.6rem] h-[6rem] left-0 right-0 px-6">
@@ -331,6 +339,7 @@ const PoseDetector = () => {
             timeWindow={10000}
             updateInterval={100}
             maxPoints={50}
+            maxPointsThreshold={80}
             parentStyles="z-0 h-[50dvh] border border-solid border-green-500"
             />
         )

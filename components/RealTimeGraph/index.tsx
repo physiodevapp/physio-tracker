@@ -26,6 +26,7 @@ interface RealTimeGraphProps {
   parentStyles?: string; // Estilos CSS para el contenedor
   updateInterval?: number; // Intervalo de actualización en milisegundos (por defecto 500ms)
   maxPoints?: number; // Número máximo de puntos a mostrar en el gráfico (por defecto 50)
+  maxPointsThreshold?: number
 }
 
 export const RealTimeGraph = ({
@@ -36,6 +37,7 @@ export const RealTimeGraph = ({
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
   updateInterval = 500,
   maxPoints = 50,
+  maxPointsThreshold = 80,
 }: RealTimeGraphProps) => {
   // Estado para almacenar los datos por articulación
   const [chartData, setChartData] = useState<{
@@ -166,11 +168,8 @@ export const RealTimeGraph = ({
 
   return (
     <div className={parentStyles}>
-      <h2 className="text-xl font-bold mt-1 mb-2 text-center">
-        Real-Time Graph: {valueTypes.join(" & ")}
-      </h2>
       <Line
-        className="pb-[4rem]"
+        className="pb-2"
         data={{
           // Usamos el array global para el eje X. Se puede adaptar si se requiere
           labels:
@@ -192,7 +191,7 @@ export const RealTimeGraph = ({
               enabled: true,
               algorithm: "lttb",
               samples: maxPoints,
-              threshold: Math.floor(timeWindow / updateInterval) - 20
+              threshold: maxPointsThreshold
             }
           },
           elements: {
