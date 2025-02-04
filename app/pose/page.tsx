@@ -9,10 +9,13 @@ import { updateKeypointVelocity } from "@/services/keypoint";
 import { updateJoint } from "@/services/joint";
 import { DropdwonSelector } from "../../components/DropdownSelector";
 import { CheckboxSelector } from "../../components/CheckboxSelector";
-import { DisplayGraphsButton } from "../../components/DisplayGraphsButton";
 import { RealTimeGraph } from "../../components/RealTimeGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetectorContext";
+import { CheckBadgeIcon } from "@heroicons/react/24/solid";
+import { CloudArrowDownIcon } from "@heroicons/react/24/solid";
+import { CameraIcon } from "@heroicons/react/24/solid";
+import { PresentationChartBarIcon } from "@heroicons/react/24/solid";
 
 const PoseDetector = () => {
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
@@ -118,8 +121,8 @@ const PoseDetector = () => {
     setVisibleKinematics(selectedCinematics as Kinematics[]);
   };
 
-  const handleGrahpsVisibility = (isVisible: boolean) => {
-    setDisplayGraphs(isVisible);
+  const handleGrahpsVisibility = () => {
+    setDisplayGraphs((prev) =>!prev);
   };
 
   const updateMultipleJoints = (
@@ -250,58 +253,41 @@ const PoseDetector = () => {
 
   }, [detector]);
 
-
   useEffect(() => {
     showMyWebcam();
   }, []);
 
   return (
     <>
-      <div className={`relative z-0 w-full flex flex-col items-center justify-center ${displayGraphs ? "h-[50vh]" : "h-screen"}`}>
+      <div className={`relative z-0 flex flex-col items-center justify-start ${displayGraphs ? "h-[50dvh]" : "h-dvh"} border border-solid border-red-500`}>
         <Webcam
           ref={webcamRef}
-          className="w-full relative"
+          className="relative object-cover h-full"
           videoConstraints={videoConstraints}
           muted
           mirrored={videoConstraints.facingMode === "user"}
         />
-        <canvas ref={canvasRef} className="absolute w-full" />
+        <canvas ref={canvasRef} className="absolute object-cover h-full" />
 
-        <div className="absolute top-2 right-1 p-[0.2rem] text-[1.4rem] font-medium text-gray-700"><p>{detector ? "✅" : "⏳"}</p></div>
-
-        <DisplayGraphsButton 
-          onVisibilityChange={handleGrahpsVisibility} 
-          parentStyles="absolute top-2 right-[3rem] p-2 bg-transparent text-black rounded flex items-center space-x-2"
-          />
+        <section className="absolute top-2 left-0 p-2 flex flex-col-reverse justify-between gap-4">
+          <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
+          <PresentationChartBarIcon className="h-6 w-6 text-white cursor-pointer" onClick={handleGrahpsVisibility}/>
+          {detector ? (
+            <CheckBadgeIcon className="h-6 w-6 text-white"/>
+          ) : (
+            <CloudArrowDownIcon className="h-6 w-6 text-blue-500 animate-bounce"/>
+          )}
+        </section>
+        <section className="absolute bottom-2 left-1/2 transform -translate-x-1/2 p-2 pt-1 flex justify-center gap-2 border border-white rounded-full">
+          {/* <button className="relative w-12 h-12 rounded-full text-white flex-col items-center justify-center">
+            <p className="text-[1.2rem]">180</p>
+            <p className="text-[1rem]"></p>
+            <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -z-10 w-10 h-10 bg-blue-500 rounded-full"></span>
+          </button> */}
+        </section>
       </div> 
 
-      <button
-        className="absolute top-[0.6rem] left-[0.6rem] w-10 aspect-square bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 active:bg-red-700 transition"
-        onClick={toggleCamera}
-        disabled={false}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={1.5}
-          stroke="currentColor"
-          className="w-6 h-6"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"
-          />
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"
-          />
-        </svg>
-      </button>
-
-      <div className="fixed z-10 bottom-1 flex flex-row justify-center items-center gap-[0.6rem] h-[6rem] left-0 right-0 px-6">
+      {/* <div className="fixed z-10 bottom-1 flex flex-row justify-center items-center gap-[0.6rem] h-[6rem] left-0 right-0 px-6">
         <CheckboxSelector
           items={jointOptions}
           onSelectionChange={handleJointSelection}
@@ -329,7 +315,7 @@ const PoseDetector = () => {
           value={jointVelocityHistorySize}
           onChange={(value) => handleVelocityHistorySizeChange(value)}
         />
-      </div>      
+      </div>       */}
 
       {
         displayGraphs && (
@@ -343,9 +329,9 @@ const PoseDetector = () => {
                 : null;
             }}
             timeWindow={10000}
-            updateInterval={250}
+            updateInterval={100}
             maxPoints={50}
-            parentStyles="z-0 h-[calc(50vh-10rem)]"
+            parentStyles="z-0 h-[50dvh] border border-solid border-green-500"
             />
         )
       }

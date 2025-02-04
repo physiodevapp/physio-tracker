@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useSwipeable } from 'react-swipeable';
 const Pose = dynamic(() => import('./pose/page').then(mod => mod.default), { ssr: false });
 const Strength = dynamic(() => import('./strength/page').then(mod => mod.default), { ssr: false });
+const Example = dynamic(() => import('./example/page').then(mod => mod.default), { ssr: false });
 
 export default function Home() {
   const [activePage, setActivePage] = useState<'pose' | 'strength'>('pose');
@@ -26,11 +27,12 @@ export default function Home() {
   
   return (
     <main {...handlers} className='h-dvh overflow-hidden relative'>
+      {/* <Example /> */}
       {activePage === 'pose' && <Pose />}
-      {activePage === 'strength' && <Strength />}
-        <button onClick={togglePage} className="absolute bottom-0 right-0 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full w-12 h-12 flex items-center justify-center shadow-md transition duration-150">
+      {activePage === 'strength' && <Example />}
+        {/* <button onClick={togglePage} className="absolute bottom-0 right-0 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full w-12 h-12 flex items-center justify-center shadow-md transition duration-150">
           {activePage === 'pose' ? 'S' : 'P'}
-        </button>
+        </button> */}
     </main>
   );
 }

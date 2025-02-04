@@ -9,6 +9,7 @@ import {
   Title,
   Tooltip,
   Legend,
+  ChartDataset,
 } from "chart.js";
 import { Keypoint, Kinematics } from "@/interfaces/pose";
 
@@ -95,21 +96,15 @@ export const RealTimeGraph = ({
               const filteredLabels = previousData.labels.filter(
                 (timestamp) => currentTime - timestamp <= timeWindow
               );
-              const filteredAngle = previousData.angle.slice(previousData.labels.length - filteredLabels.length);
-              const filteredAngularVelocity = previousData.angularVelocity.slice(previousData.labels.length - filteredLabels.length);
+              // Para mantener la consistencia, usamos la misma cantidad de datos en cada array:
+              const offset = previousData.labels.length - filteredLabels.length;
+              const filteredAngle = previousData.angle.slice(offset);
+              const filteredAngularVelocity = previousData.angularVelocity.slice(offset);
 
-              // Agregar el nuevo dato
-              let newLabels = [...filteredLabels, newData.timestamp];
-              let newAngle = [...filteredAngle, newData.angle];
-              let newAngularVelocity = [...filteredAngularVelocity, newData.angularVelocity];
-
-              // Downsampling si se excede el máximo
-              if (newLabels.length > maxPoints) {
-                const step = Math.ceil(newLabels.length / maxPoints);
-                newLabels = newLabels.filter((_, i) => i % step === 0);
-                newAngle = newAngle.filter((_, i) => i % step === 0);
-                newAngularVelocity = newAngularVelocity.filter((_, i) => i % step === 0);
-              }
+              // Agregar el nuevo dato sin downsampling manual
+              const newLabels = [...filteredLabels, newData.timestamp];
+              const newAngle = [...filteredAngle, newData.angle];
+              const newAngularVelocity = [...filteredAngularVelocity, newData.angularVelocity];
 
               return {
                 ...prev,
@@ -124,7 +119,6 @@ export const RealTimeGraph = ({
         });
 
         // Actualizamos el array global de labels usando el timestamp actual
-        // Esto asegura que el eje X avance independientemente de si una articulación se pausa.
         setGlobalLabels((prev) => {
           const newLabel = now;
           if (prev.length === 0 || newLabel > prev[prev.length - 1]) {
@@ -143,17 +137,10 @@ export const RealTimeGraph = ({
       cancelAnimationFrame(animationFrameId);
       startTimeRef.current = null;
     };
-  }, [getDataForJoint, joints, timeWindow, updateInterval, maxPoints]);
+  }, [getDataForJoint, joints, timeWindow, updateInterval]);
 
   // Construir los datasets para cada articulación y cada valueType
-  const datasets: {
-    label: string;
-    data: number[];
-    borderColor: string;
-    backgroundColor: string;
-    tension: number;
-    borderDash?: number[];
-  }[] = [];
+  const datasets: ChartDataset<"line">[] = [];
 
   joints.forEach((joint, jIndex) => {
     const jointData = chartData[joint];
@@ -170,20 +157,22 @@ export const RealTimeGraph = ({
         data: vType === Kinematics.ANGLE ? jointData.angle : jointData.angularVelocity,
         borderColor: baseColor,
         backgroundColor: baseBackgroundColor,
+        borderWidth: vType === Kinematics.ANGLE ? 2 : 1,
         tension: 0.6,
-        ...(vType === Kinematics.ANGULAR_VELOCITY && { borderDash: [5, 5] }),
+        ...(vType === Kinematics.ANGULAR_VELOCITY && { borderDash: [2, 2] }),
       });
     });
   });
 
   return (
     <div className={parentStyles}>
-      <h2 className="text-xl font-bold mb-4 text-center">
+      <h2 className="text-xl font-bold mt-1 mb-2 text-center">
         Real-Time Graph: {valueTypes.join(" & ")}
       </h2>
       <Line
+        className="pb-[4rem]"
         data={{
-          // Usamos el array global para el eje X.
+          // Usamos el array global para el eje X. Se puede adaptar si se requiere
           labels:
             globalLabels
               .map((timestamp) =>
@@ -199,10 +188,16 @@ export const RealTimeGraph = ({
               display: true,
               position: "top",
             },
+            decimation: {
+              enabled: true,
+              algorithm: "lttb",
+              samples: maxPoints,
+              threshold: Math.floor(timeWindow / updateInterval) - 20
+            }
           },
           elements: {
             point: {
-              radius: 2,
+              radius: 0,
             },
           },
           scales: {
@@ -230,7 +225,6 @@ export const RealTimeGraph = ({
                   if (valueTypes.includes(Kinematics.ANGLE)) {
                     return "Angle (°)";
                   }
-                  
                   return "";
                 })(),
               },
