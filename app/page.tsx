@@ -1,5 +1,6 @@
 "use client";
 
+import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { useSwipeable } from 'react-swipeable';
@@ -7,30 +8,47 @@ const Pose = dynamic(() => import('./pose/page').then(mod => mod.default), { ssr
 const Strength = dynamic(() => import('./strength/page').then(mod => mod.default), { ssr: false });
 
 export default function Home() {
-  const [activePage, setActivePage] = useState<'pose' | 'strength'>('pose');
+  const [page, setPage] = useState('pose');
 
   const handlers = useSwipeable({
-    onSwipedLeft: () => {
-      if (activePage === 'pose') setActivePage('strength');
-    },
-    onSwipedRight: () => {
-      if (activePage === 'strength') setActivePage('pose');
-    },
-    preventScrollOnSwipe: true,
-    trackMouse: true,
+    onSwipedLeft: () => setPage('strength'),
+    onSwipedRight: () => setPage('pose'),
+    trackMouse: true
   });
 
-  const togglePage = () => {
-    setActivePage(prev => (prev === 'pose' ? 'strength' : 'pose'));
+  const variants = {
+    initial: { opacity: 0, x: 10 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: 10 }
   };
   
   return (
     <main {...handlers} className='h-dvh overflow-hidden relative'>
-      {activePage === 'pose' && <Pose />}
-      {activePage === 'strength' && <Strength />}
-        {/* <button onClick={togglePage} className="absolute bottom-0 right-0 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full w-12 h-12 flex items-center justify-center shadow-md transition duration-150">
-          {activePage === 'pose' ? 'S' : 'P'}
-        </button> */}
+      <AnimatePresence mode="wait">
+        {page === 'pose' ? (
+          <motion.div
+            key="pose"
+            variants={variants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ ease: "easeInOut", duration: 0.25 }}
+          >
+            <Pose />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="strength"
+            variants={variants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ ease: "easeInOut", duration: 0.25 }}
+          >
+            <Strength />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

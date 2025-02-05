@@ -17,7 +17,7 @@ import { CloudArrowDownIcon } from "@heroicons/react/24/solid";
 import { CameraIcon } from "@heroicons/react/24/solid";
 import { PresentationChartBarIcon } from "@heroicons/react/24/solid";
 import { UserIcon } from "@heroicons/react/24/solid";
-import { PoseModal } from "@/modals/PoseModal";
+import PoseModal from "@/modals";
 
 const PoseDetector = () => {
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
@@ -87,16 +87,16 @@ const PoseDetector = () => {
     [Keypoint.LEFT_KNEE]: { invert: true },
   };
 
-  const jointOptions = [
-    { label: "Right Shoulder", value: Keypoint.RIGHT_SHOULDER },
+  const jointOptions = useMemo(() => [
     { label: "Left Shoulder", value: Keypoint.LEFT_SHOULDER },
-    { label: "Right Elbow", value: Keypoint.RIGHT_ELBOW },
     { label: "Left Elbow", value: Keypoint.LEFT_ELBOW },
-    { label: "Right Hip", value: Keypoint.RIGHT_HIP },
     { label: "Left Hip", value: Keypoint.LEFT_HIP },
-    { label: "Right Knee", value: Keypoint.RIGHT_KNEE },
     { label: "Left Knee", value: Keypoint.LEFT_KNEE },
-  ];
+    { label: "Right Shoulder", value: Keypoint.RIGHT_SHOULDER },
+    { label: "Right Elbow", value: Keypoint.RIGHT_ELBOW },
+    { label: "Right Hip", value: Keypoint.RIGHT_HIP },
+    { label: "Right Knee", value: Keypoint.RIGHT_KNEE },
+  ], []);
 
   const kinematicOptions = [
     { label: "Angle", value: Kinematics.ANGLE, defaultChecked: true, disabled: true },
@@ -115,9 +115,9 @@ const PoseDetector = () => {
     }
   };
 
-  const handleJointSelection = (selectedJoints: string[]) => {
+  const handleJointSelection = useCallback((selectedJoints: string[]) => {
     setVisibleJoints(selectedJoints as Keypoint[]);
-  };
+  }, []);
 
   const handleKinematicsSelection = (selectedCinematics: string[]) => {
     setVisibleKinematics(selectedCinematics as Kinematics[]);
@@ -292,7 +292,12 @@ const PoseDetector = () => {
           </button>
         </section>
 
-        <PoseModal isModalOpen={isModalOpen} handleModal={handleModal} />
+        <PoseModal 
+          isModalOpen={isModalOpen} 
+          handleModal={handleModal} 
+          jointOptions={jointOptions}
+          onSelectionChange={handleJointSelection} 
+          />
       </div> 
 
       {/* <div className="fixed z-10 bottom-1 flex flex-row justify-center items-center gap-[0.6rem] h-[6rem] left-0 right-0 px-6">
