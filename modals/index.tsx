@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { CheckIcon } from "@heroicons/react/24/solid";
+import { CheckIcon, PlusIcon, StopIcon } from "@heroicons/react/24/solid";
 import { CheckboxItem } from "@/interfaces/CheckboxSelector";
 
 interface PoseModalProps {
@@ -17,6 +17,31 @@ export const PoseModal = ({
   maxSelected = 6,
   jointOptions,
 }: PoseModalProps) => {
+  // Estado de cada checkbox (por defecto, todos sin marcar)
+  const [checkboxStates, setCheckboxStates] = useState<boolean[]>(
+    new Array(jointOptions.length).fill(false)
+  );
+  const [angleSmoothing, setAngleSmoothing] = useState(5);
+  const [angleVelocitySmoothing, setVelocitySmoothing] = useState(10);
+
+  const handleAngleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    event.nativeEvent.stopImmediatePropagation()
+    setAngleSmoothing(Number(event.target.value));
+  };
+
+  const handleAngularVelocityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setVelocitySmoothing(Number(event.target.value));
+  };
+
+  // Número actual de checkboxes seleccionados
+  const selectedCount = checkboxStates.filter(Boolean).length;
+
+  const handleCheckboxChange = (index: number, checked: boolean) => {
+    const newStates = [...checkboxStates];
+    newStates[index] = checked;
+    setCheckboxStates(newStates);
+  };
+
   // Posiciones de cada checkbox sobre la imagen.
   // Se asume que el número de posiciones es igual al de jointOptions.
   const positions = [
@@ -30,29 +55,18 @@ export const PoseModal = ({
     { top: "65%", left: "75%" },
   ];
 
-  // Estado de cada checkbox (por defecto, todos sin marcar)
-  const [checkboxStates, setCheckboxStates] = useState<boolean[]>(
-    new Array(jointOptions.length).fill(false)
-  );
-
-  // Número actual de checkboxes seleccionados
-  const selectedCount = checkboxStates.filter(Boolean).length;
-
-  const handleCheckboxChange = (index: number, checked: boolean) => {
-    const newStates = [...checkboxStates];
-    newStates[index] = checked;
-    setCheckboxStates(newStates);
-  };
-
   // Notifica al componente padre la selección actual.
   // Se devuelve un arreglo de strings que contiene el value de cada jointOption seleccionado.
   useEffect(() => {
-    const selectedItems = checkboxStates.reduce((acc: string[], state, index) => {
-      if (state) {
-        acc.push(jointOptions[index].value);
-      }
-      return acc;
-    }, []);
+    const selectedItems = checkboxStates.reduce(
+      (acc: string[], state, index) => {
+        if (state) {
+          acc.push(jointOptions[index].value);
+        }
+        return acc;
+      },
+      []
+    );
     onSelectionChange(selectedItems);
   }, [checkboxStates, onSelectionChange]);
 
@@ -60,6 +74,7 @@ export const PoseModal = ({
 
   return (
     <div
+      id="pose-modal"
       className="fixed w-full h-dvh inset-0 z-50 flex items-center justify-center"
       style={{ backdropFilter: "blur(30px)" }}
       onClick={handleModal}
@@ -79,6 +94,7 @@ export const PoseModal = ({
           backgroundSize: "contain",
           backgroundRepeat: "no-repeat",
           aspectRatio: "806/2000",
+          marginBottom: "4rem"
         }}
         onClick={(e) => {
           e.stopPropagation();
@@ -101,21 +117,62 @@ export const PoseModal = ({
               type="checkbox"
               checked={checkboxStates[index]}
               disabled={!checkboxStates[index] && selectedCount >= maxSelected}
-              onChange={(e) =>
-                handleCheckboxChange(index, e.target.checked)
-              }
+              onChange={(e) => handleCheckboxChange(index, e.target.checked)}
               className="absolute opacity-0 w-0 h-0"
             />
             <div
               className={`w-6 h-6 border rounded-md flex items-center justify-center 
-                ${checkboxStates[index] ? "bg-white border-white" : "bg-white border-gray-600"}`}
+                ${
+                  checkboxStates[index]
+                    ? "bg-white border-white"
+                    : "bg-white border-gray-600"
+                }`}
               style={{ opacity: checkboxStates[index] ? "1" : "0.4" }}
             >
-              {checkboxStates[index] && <CheckIcon className="w-4 h-4 text-black" />}
+              {checkboxStates[index] && (
+                <StopIcon className="w-4 h-4 text-blue-500" />
+              )}
             </div>
           </label>
         ))}
       </div>
+      <form className="absolute text-white" style={{bottom: "1rem", padding: "0rem 2rem"}}>
+        <div className="mb-2">
+          <label
+            htmlFor="angle-range"
+            className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+          >
+            Angle smoothing
+          </label>
+          <input
+            id="angle-range"
+            type="range"
+            value={angleSmoothing}
+            min="5"
+            max="15"
+            onChange={handleAngleChange}
+            onDragStartCapture={(e) => e.nativeEvent.stopImmediatePropagation()}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="angularVelocity-range"
+            className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+          >
+            Velocity smoothing
+          </label>
+          <input
+            id="angularVelocity-range"
+            type="range"
+            value={angleVelocitySmoothing}
+            min="5"
+            max="25"
+            onChange={handleAngularVelocityChange}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+          />
+        </div>
+      </form>
     </div>
   );
 };

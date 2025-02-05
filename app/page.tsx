@@ -11,8 +11,22 @@ export default function Home() {
   const [page, setPage] = useState('pose');
 
   const handlers = useSwipeable({
-    onSwipedLeft: () => setPage('strength'),
-    onSwipedRight: () => setPage('pose'),
+    onSwipedLeft: (eventData) => {
+      const targetElement = eventData.event.target as HTMLElement;
+      const isSwipeable = !Boolean(targetElement.closest("#pose-modal"));
+
+      if (!isSwipeable) return;
+
+      setPage('strength');
+    },
+    onSwipedRight: (eventData) => {
+      const targetElement = eventData.event.target as HTMLElement;
+      const isSwipeable = !Boolean(targetElement.closest("#pose-modal"));
+
+      if (!isSwipeable) return;
+
+      setPage('pose');
+    },
     trackMouse: true
   });
 

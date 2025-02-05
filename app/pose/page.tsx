@@ -88,14 +88,14 @@ const PoseDetector = () => {
   };
 
   const jointOptions = useMemo(() => [
-    { label: "Left Shoulder", value: Keypoint.LEFT_SHOULDER },
-    { label: "Left Elbow", value: Keypoint.LEFT_ELBOW },
-    { label: "Left Hip", value: Keypoint.LEFT_HIP },
-    { label: "Left Knee", value: Keypoint.LEFT_KNEE },
     { label: "Right Shoulder", value: Keypoint.RIGHT_SHOULDER },
     { label: "Right Elbow", value: Keypoint.RIGHT_ELBOW },
     { label: "Right Hip", value: Keypoint.RIGHT_HIP },
     { label: "Right Knee", value: Keypoint.RIGHT_KNEE },
+    { label: "Left Shoulder", value: Keypoint.LEFT_SHOULDER },
+    { label: "Left Elbow", value: Keypoint.LEFT_ELBOW },
+    { label: "Left Hip", value: Keypoint.LEFT_HIP },
+    { label: "Left Knee", value: Keypoint.LEFT_KNEE },
   ], []);
 
   const kinematicOptions = [
@@ -276,20 +276,18 @@ const PoseDetector = () => {
         />
         <canvas ref={canvasRef} className="absolute object-cover h-full" />
 
-        <section className="absolute top-2 right-0 p-2 flex flex-col-reverse justify-between gap-4">
-          <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
-          <PresentationChartBarIcon className="h-6 w-6 text-white cursor-pointer" onClick={handleGrahpsVisibility}/>
+        <section className="absolute top-2 left-0 p-2 flex flex-col-reverse justify-between gap-4">
           {detector ? (
             <CheckBadgeIcon className="h-6 w-6 text-white"/>
           ) : (
             <CloudArrowDownIcon className="h-6 w-6 text-blue-500 animate-bounce"/>
           )}
         </section>
-
-        <section className="fixed bottom-0 left-1/2 transform -translate-x-1/2 p-2 pt-1 flex justify-center gap-2">
-          <button className="relative w-14 h-14 text-white bg-black bg-opacity-40 flex-col items-center justify-center border-4 border-white rounded-full p-2" onClick={handleModal}>
-            <UserIcon />           
-          </button>
+        
+        <section className="absolute top-2 right-0 p-2 flex flex-col-reverse justify-between gap-4">
+          <UserIcon className="h-6 w-6 text-white cursor-pointer" onClick={handleModal}/>
+          <PresentationChartBarIcon className="h-6 w-6 text-white cursor-pointer" onClick={handleGrahpsVisibility}/>
+          <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
         </section>
 
         <PoseModal 
