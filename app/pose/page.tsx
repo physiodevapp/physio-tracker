@@ -12,12 +12,9 @@ import { CheckboxSelector } from "../../components/CheckboxSelector";
 import { RealTimeGraph } from "../../components/RealTimeGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetectorContext";
-import { CheckCircleIcon } from "@heroicons/react/24/solid";
-import { CloudArrowDownIcon } from "@heroicons/react/24/solid";
-import { CameraIcon } from "@heroicons/react/24/solid";
-import { PresentationChartBarIcon } from "@heroicons/react/24/solid";
-import { UserIcon } from "@heroicons/react/24/solid";
+import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon } from "@heroicons/react/24/solid";
 import PoseModal from "@/modals";
+import { ArrowPathIcon } from "@heroicons/react/24/outline";
 
 const PoseDetector = () => {
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
@@ -30,7 +27,7 @@ const PoseDetector = () => {
   const [jointAngleHistorySize, setJointAngleHistorySize] = useState(5);
 
   const [visibleJoints, setVisibleJoints] = useState<Keypoint[]>([]);
-  const [visibleKinematics, setVisibleKinematics] = useState<Kinematics[]>([]);
+  const [visibleKinematics, setVisibleKinematics] = useState<Kinematics[]>([Kinematics.ANGLE]);
   const [displayGraphs, setDisplayGraphs] = useState(false);
 
   const jointVelocityHistorySizeRef = useRef(jointVelocityHistorySize);
@@ -98,10 +95,7 @@ const PoseDetector = () => {
     { label: "Left Knee", value: Keypoint.LEFT_KNEE },
   ], []);
 
-  const kinematicOptions = [
-    { label: "Angle", value: Kinematics.ANGLE, defaultChecked: true, disabled: true },
-    { label: "Angular velocity", value: Kinematics.ANGULAR_VELOCITY },
-  ];
+  const kinematicOptions = [Kinematics.ANGLE, Kinematics.ANGULAR_VELOCITY];
 
   const handleAngularHistorySizeChange = (newSize: number) => {
     if (newSize >= 1 && newSize <= 20) {
@@ -119,8 +113,13 @@ const PoseDetector = () => {
     setVisibleJoints(selectedJoints as Keypoint[]);
   }, []);
 
-  const handleKinematicsSelection = (selectedCinematics: string[]) => {
-    setVisibleKinematics(selectedCinematics as Kinematics[]);
+  const handleKinematicsSelection = (selectedKinematic: Kinematics) => {
+    // setVisibleKinematics(selectedKinematics as Kinematics[]);
+    setVisibleKinematics((prevKinematics) =>
+      prevKinematics.includes(selectedKinematic)
+        ? prevKinematics.filter((kinematic) => kinematic !== selectedKinematic)
+        : [...prevKinematics, selectedKinematic]
+    );
   };
 
   const handleGrahpsVisibility = () => {
@@ -180,6 +179,7 @@ const PoseDetector = () => {
 
   useEffect(() => {
     visibleKinematicsRef.current = visibleKinematics;
+    console.log(visibleKinematicsRef.current)
   }, [visibleKinematics])
 
   useEffect(() => {
@@ -266,6 +266,14 @@ const PoseDetector = () => {
 
   return (
     <>
+      {
+        !detector && (
+          <div className="fixed w-full h-dvh z-10 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
+            <p>Setting up...</p>
+            <ArrowPathIcon className="w-8 h-8 animate-spin"/>
+          </div>
+        )
+      }
       <div className={`relative z-0 flex flex-col items-center justify-start ${displayGraphs ? "h-[50dvh]" : "h-dvh"} border border-solid border-red-500`}>
         <Webcam
           ref={webcamRef}
@@ -276,24 +284,30 @@ const PoseDetector = () => {
         />
         <canvas ref={canvasRef} className="absolute object-cover h-full" />
 
-        <section className="absolute top-2 left-0 p-2 flex flex-col-reverse justify-between gap-4">
-          {detector ? (
-            <CheckCircleIcon className="h-6 w-6 text-white"/>
-          ) : (
-            <CheckCircleIcon className="h-6 w-6 text-blue-500 animate-bounce"/>
-          )}
+        <section className="absolute top-2 left-0 p-2 flex flex-col justify-between gap-4">
+          <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
+          <PresentationChartBarIcon className="h-6 w-6 text-white cursor-pointer" onClick={handleGrahpsVisibility}/>
         </section>
         
-        <section className="absolute top-2 right-0 p-2 flex flex-col-reverse justify-between gap-4">
+        <section className="absolute top-2 right-0 p-2 flex flex-col justify-between gap-4">
           <UserIcon className="h-6 w-6 text-white cursor-pointer" onClick={handleModal}/>
-          <PresentationChartBarIcon className="h-6 w-6 text-white cursor-pointer" onClick={handleGrahpsVisibility}/>
-          <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
+          { 
+            maxKinematicsAllowed > 1 && (
+              <ChevronDoubleDownIcon 
+                className={`h-6 w-6 text-white cursor-pointer ${
+                  visibleKinematics.length > 1 ? 'border-2 rounded-full p-[0.1rem] animate-pulse' : ''
+                }`} 
+                onClick={() => handleKinematicsSelection(Kinematics.ANGULAR_VELOCITY)}
+                />
+            )
+          }
         </section>
 
         <PoseModal 
           isModalOpen={isModalOpen} 
           handleModal={handleModal} 
           jointOptions={jointOptions}
+          maxSelected={maxJointsAllowed }
           onSelectionChange={handleJointSelection} 
           onAngleSmoothingChange={handleAngularHistorySizeChange}
           onAngularVelocitySmoothingChange={handleVelocityHistorySizeChange}
