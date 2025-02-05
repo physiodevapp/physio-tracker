@@ -12,7 +12,7 @@ import { CheckboxSelector } from "../../components/CheckboxSelector";
 import { RealTimeGraph } from "../../components/RealTimeGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetectorContext";
-import { CheckBadgeIcon } from "@heroicons/react/24/solid";
+import { CheckCircleIcon } from "@heroicons/react/24/solid";
 import { CloudArrowDownIcon } from "@heroicons/react/24/solid";
 import { CameraIcon } from "@heroicons/react/24/solid";
 import { PresentationChartBarIcon } from "@heroicons/react/24/solid";
@@ -278,9 +278,9 @@ const PoseDetector = () => {
 
         <section className="absolute top-2 left-0 p-2 flex flex-col-reverse justify-between gap-4">
           {detector ? (
-            <CheckBadgeIcon className="h-6 w-6 text-white"/>
+            <CheckCircleIcon className="h-6 w-6 text-white"/>
           ) : (
-            <CloudArrowDownIcon className="h-6 w-6 text-blue-500 animate-bounce"/>
+            <CheckCircleIcon className="h-6 w-6 text-blue-500 animate-bounce"/>
           )}
         </section>
         
@@ -295,6 +295,8 @@ const PoseDetector = () => {
           handleModal={handleModal} 
           jointOptions={jointOptions}
           onSelectionChange={handleJointSelection} 
+          onAngleSmoothingChange={handleAngularHistorySizeChange}
+          onAngularVelocitySmoothingChange={handleVelocityHistorySizeChange}
           />
       </div> 
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { CheckIcon, PlusIcon, StopIcon } from "@heroicons/react/24/solid";
+import { StopIcon } from "@heroicons/react/24/solid";
 import { CheckboxItem } from "@/interfaces/CheckboxSelector";
 
 interface PoseModalProps {
@@ -8,6 +8,8 @@ interface PoseModalProps {
   onSelectionChange: (selectedItems: string[]) => void;
   maxSelected?: number;
   jointOptions: CheckboxItem[];
+  onAngleSmoothingChange?: (value: number) => void;
+  onAngularVelocitySmoothingChange?: (value: number) => void;
 }
 
 export const PoseModal = ({
@@ -16,6 +18,8 @@ export const PoseModal = ({
   onSelectionChange,
   maxSelected = 6,
   jointOptions,
+  onAngleSmoothingChange,
+  onAngularVelocitySmoothingChange,
 }: PoseModalProps) => {
   // Estado de cada checkbox (por defecto, todos sin marcar)
   const [checkboxStates, setCheckboxStates] = useState<boolean[]>(
@@ -25,12 +29,19 @@ export const PoseModal = ({
   const [angleVelocitySmoothing, setVelocitySmoothing] = useState(10);
 
   const handleAngleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    event.nativeEvent.stopImmediatePropagation()
-    setAngleSmoothing(Number(event.target.value));
+    const value = Number(event.target.value);
+
+    setAngleSmoothing(value);
+
+    if (onAngleSmoothingChange) onAngleSmoothingChange(value);
   };
 
   const handleAngularVelocityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setVelocitySmoothing(Number(event.target.value));
+    const value = Number(event.target.value);
+
+    setVelocitySmoothing(value);
+
+    if (onAngularVelocitySmoothingChange) onAngularVelocitySmoothingChange(value);
   };
 
   // Número actual de checkboxes seleccionados
@@ -38,7 +49,9 @@ export const PoseModal = ({
 
   const handleCheckboxChange = (index: number, checked: boolean) => {
     const newStates = [...checkboxStates];
+
     newStates[index] = checked;
+
     setCheckboxStates(newStates);
   };
 
