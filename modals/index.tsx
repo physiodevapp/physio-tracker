@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { StopIcon } from "@heroicons/react/24/solid";
-import { CheckboxItem } from "@/interfaces/CheckboxSelector";
+import { checkbox } from "@/interfaces/checkbox";
 
 interface PoseModalProps {
   isModalOpen: boolean;
   handleModal: () => void;
   onSelectionChange: (selectedItems: string[]) => void;
   maxSelected?: number;
-  jointOptions: CheckboxItem[];
+  jointOptions: checkbox[];
   onAngleSmoothingChange?: (value: number) => void;
   onAngularVelocitySmoothingChange?: (value: number) => void;
 }
@@ -134,7 +134,7 @@ export const PoseModal = ({
               className="absolute opacity-0 w-0 h-0"
             />
             <div
-              className={`w-6 h-6 border rounded-md flex items-center justify-center 
+              className={`w-6 h-6 border rounded-[1rem] flex items-center justify-center 
                 ${
                   checkboxStates[index]
                     ? "bg-white border-white"

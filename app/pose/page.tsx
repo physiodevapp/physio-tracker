@@ -3,12 +3,10 @@
 import { Fragment, RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam"; // Importación del convertidor de modelos
 import * as poseDetection from "@tensorflow-models/pose-detection";
-import { JointDataMap, JointConfigMap, Keypoint, KeypointData, PoseSettings, Kinematics } from "@/interfaces/pose";
+import { JointDataMap, JointConfigMap, CanvasKeypointName, CanvasKeypointData, PoseSettings, Kinematics } from "@/interfaces/pose";
 import { drawKeypointConnections, drawKeypoints } from "@/services/draw";
 import { updateKeypointVelocity } from "@/services/keypoint";
 import { updateJoint } from "@/services/joint";
-import { DropdwonSelector } from "../../components/DropdownSelector";
-import { CheckboxSelector } from "../../components/CheckboxSelector";
 import { RealTimeGraph } from "../../components/RealTimeGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetectorContext";
@@ -22,11 +20,11 @@ const PoseDetector = () => {
   });
 
   const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
-  const [selectedKeypoint] = useState<Keypoint | null>(null);
+  const [selectedKeypoint] = useState<CanvasKeypointName | null>(null);
   const [jointVelocityHistorySize, setJointVelocityHistorySize] = useState(5);
   const [jointAngleHistorySize, setJointAngleHistorySize] = useState(5);
 
-  const [visibleJoints, setVisibleJoints] = useState<Keypoint[]>([]);
+  const [visibleJoints, setVisibleJoints] = useState<CanvasKeypointName[]>([]);
   const [visibleKinematics, setVisibleKinematics] = useState<Kinematics[]>([Kinematics.ANGLE]);
   const [displayGraphs, setDisplayGraphs] = useState(false);
 
@@ -35,7 +33,7 @@ const PoseDetector = () => {
   
   const selectedKeypointRef = useRef(selectedKeypoint);
   const jointDataRef = useRef<JointDataMap>({});
-  const keypointDataRef = useRef<KeypointData | null>(null);
+  const keypointDataRef = useRef<CanvasKeypointData | null>(null);
 
   const visibleJointsRef = useRef(visibleJoints);
   const visibleKinematicsRef = useRef(visibleKinematics);
@@ -60,42 +58,40 @@ const PoseDetector = () => {
   
   const detector = usePoseDetector();
 
-  const keypointPairs: [Keypoint, Keypoint][] = [
-    [Keypoint.LEFT_SHOULDER, Keypoint.RIGHT_SHOULDER],
-    [Keypoint.LEFT_SHOULDER, Keypoint.LEFT_ELBOW],
-    [Keypoint.LEFT_ELBOW, Keypoint.LEFT_WRIST],
-    [Keypoint.RIGHT_SHOULDER, Keypoint.RIGHT_ELBOW],
-    [Keypoint.RIGHT_ELBOW, Keypoint.RIGHT_WRIST],
-    [Keypoint.LEFT_HIP, Keypoint.RIGHT_HIP],
-    [Keypoint.LEFT_HIP, Keypoint.LEFT_KNEE],
-    [Keypoint.LEFT_KNEE, Keypoint.LEFT_ANKLE],
-    [Keypoint.RIGHT_HIP, Keypoint.RIGHT_KNEE],
-    [Keypoint.RIGHT_KNEE, Keypoint.RIGHT_ANKLE],
+  const keypointPairs: [CanvasKeypointName, CanvasKeypointName][] = [
+    [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.RIGHT_SHOULDER],
+    [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.LEFT_ELBOW],
+    [CanvasKeypointName.LEFT_ELBOW, CanvasKeypointName.LEFT_WRIST],
+    [CanvasKeypointName.RIGHT_SHOULDER, CanvasKeypointName.RIGHT_ELBOW],
+    [CanvasKeypointName.RIGHT_ELBOW, CanvasKeypointName.RIGHT_WRIST],
+    [CanvasKeypointName.LEFT_HIP, CanvasKeypointName.RIGHT_HIP],
+    [CanvasKeypointName.LEFT_HIP, CanvasKeypointName.LEFT_KNEE],
+    [CanvasKeypointName.LEFT_KNEE, CanvasKeypointName.LEFT_ANKLE],
+    [CanvasKeypointName.RIGHT_HIP, CanvasKeypointName.RIGHT_KNEE],
+    [CanvasKeypointName.RIGHT_KNEE, CanvasKeypointName.RIGHT_ANKLE],
   ];
 
   const jointConfigMap: JointConfigMap = {
-    [Keypoint.RIGHT_ELBOW]: { invert: true },
-    [Keypoint.RIGHT_SHOULDER]: { invert: false },
-    [Keypoint.RIGHT_HIP]: { invert: false },
-    [Keypoint.RIGHT_KNEE]: { invert: true },
-    [Keypoint.LEFT_ELBOW]: { invert: true },
-    [Keypoint.LEFT_SHOULDER]: { invert: false },
-    [Keypoint.LEFT_HIP]: { invert: false },
-    [Keypoint.LEFT_KNEE]: { invert: true },
+    [CanvasKeypointName.RIGHT_ELBOW]: { invert: true },
+    [CanvasKeypointName.RIGHT_SHOULDER]: { invert: false },
+    [CanvasKeypointName.RIGHT_HIP]: { invert: false },
+    [CanvasKeypointName.RIGHT_KNEE]: { invert: true },
+    [CanvasKeypointName.LEFT_ELBOW]: { invert: true },
+    [CanvasKeypointName.LEFT_SHOULDER]: { invert: false },
+    [CanvasKeypointName.LEFT_HIP]: { invert: false },
+    [CanvasKeypointName.LEFT_KNEE]: { invert: true },
   };
 
   const jointOptions = useMemo(() => [
-    { label: "Right Shoulder", value: Keypoint.RIGHT_SHOULDER },
-    { label: "Right Elbow", value: Keypoint.RIGHT_ELBOW },
-    { label: "Right Hip", value: Keypoint.RIGHT_HIP },
-    { label: "Right Knee", value: Keypoint.RIGHT_KNEE },
-    { label: "Left Shoulder", value: Keypoint.LEFT_SHOULDER },
-    { label: "Left Elbow", value: Keypoint.LEFT_ELBOW },
-    { label: "Left Hip", value: Keypoint.LEFT_HIP },
-    { label: "Left Knee", value: Keypoint.LEFT_KNEE },
+    { label: "Right Shoulder", value: CanvasKeypointName.RIGHT_SHOULDER },
+    { label: "Right Elbow", value: CanvasKeypointName.RIGHT_ELBOW },
+    { label: "Right Hip", value: CanvasKeypointName.RIGHT_HIP },
+    { label: "Right Knee", value: CanvasKeypointName.RIGHT_KNEE },
+    { label: "Left Shoulder", value: CanvasKeypointName.LEFT_SHOULDER },
+    { label: "Left Elbow", value: CanvasKeypointName.LEFT_ELBOW },
+    { label: "Left Hip", value: CanvasKeypointName.LEFT_HIP },
+    { label: "Left Knee", value: CanvasKeypointName.LEFT_KNEE },
   ], []);
-
-  const kinematicOptions = [Kinematics.ANGLE, Kinematics.ANGULAR_VELOCITY];
 
   const handleAngularHistorySizeChange = (newSize: number) => {
     if (newSize >= 1 && newSize <= 20) {
@@ -110,7 +106,7 @@ const PoseDetector = () => {
   };
 
   const handleJointSelection = useCallback((selectedJoints: string[]) => {
-    setVisibleJoints(selectedJoints as Keypoint[]);
+    setVisibleJoints(selectedJoints as CanvasKeypointName[]);
   }, []);
 
   const handleKinematicsSelection = (selectedKinematic: Kinematics) => {
@@ -129,8 +125,8 @@ const PoseDetector = () => {
   const updateMultipleJoints = (
     ctx: CanvasRenderingContext2D,
     keypoints: poseDetection.Keypoint[],
-    jointNames: Keypoint[],
-    jointAngleDataRef: RefObject<JointDataMap>,
+    jointNames: CanvasKeypointName[],
+    jointDataRef: RefObject<JointDataMap>,
     jointConfigMap: JointConfigMap
   ) => {
     if (!visibleJointsRef.current.length) return; 
@@ -138,9 +134,9 @@ const PoseDetector = () => {
     jointNames.forEach((jointName) => {
       const jointConfig = jointConfigMap[jointName] ?? { invert: false };
 
-      const jointData = jointAngleDataRef.current[jointName] ?? null;
+      const jointData = jointDataRef.current[jointName] ?? null;
 
-      jointAngleDataRef.current[jointName] = updateJoint({
+      jointDataRef.current[jointName] = updateJoint({
         ctx,
         keypoints,
         jointData,
@@ -179,7 +175,6 @@ const PoseDetector = () => {
 
   useEffect(() => {
     visibleKinematicsRef.current = visibleKinematics;
-    console.log(visibleKinematicsRef.current)
   }, [visibleKinematics])
 
   useEffect(() => {
@@ -220,9 +215,9 @@ const PoseDetector = () => {
                 (kp) => kp.score && kp.score > poseSettings.scoreThreshold
               );
 
-              if (jointOptions.length > 0) {
+              // if (jointOptions.length > 0) {
 
-              }
+              // }
               
               // Mostrar velocidad en píxeles de un keypoint seleccionado (virtual)
               keypointDataRef.current = updateKeypointVelocity(
@@ -314,36 +309,6 @@ const PoseDetector = () => {
           />
       </div> 
 
-      {/* <div className="fixed z-10 bottom-1 flex flex-row justify-center items-center gap-[0.6rem] h-[6rem] left-0 right-0 px-6">
-        <CheckboxSelector
-          items={jointOptions}
-          onSelectionChange={handleJointSelection}
-          headerText="Marks"
-          buttonLabel="Joints"
-          maxSelected={maxJointsAllowed}
-          />
-
-        <CheckboxSelector
-          items={kinematicOptions}
-          onSelectionChange={handleKinematicsSelection}
-          headerText="Metrics"
-          buttonLabel="A / V"
-          maxSelected={maxKinematicsAllowed}
-          />
-
-        <DropdwonSelector
-          title="Angle"
-          value={jointAngleHistorySize}
-          onChange={(value) => handleAngularHistorySizeChange(value)}
-        />
-
-        <DropdwonSelector
-          title="Velocity"
-          value={jointVelocityHistorySize}
-          onChange={(value) => handleVelocityHistorySizeChange(value)}
-        />
-      </div>       */}
-
       {
         displayGraphs && (
           <RealTimeGraph
@@ -352,7 +317,12 @@ const PoseDetector = () => {
             getDataForJoint={(joint) => {
               const data = jointDataRef.current[joint];
               return data
-                ? { timestamp: data.lastTimestamp, angle: data.angle, angularVelocity: data.angularVelocity }
+                ? { 
+                    timestamp: data.lastTimestamp, 
+                    angle: data.angle, 
+                    angularVelocity: data.angularVelocity ,
+                    color: data.color
+                  }
                 : null;
             }}
             timeWindow={10000}

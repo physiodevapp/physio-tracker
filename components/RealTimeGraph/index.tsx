@@ -11,17 +11,23 @@ import {
   Legend,
   ChartDataset,
 } from "chart.js";
-import { Keypoint, Kinematics } from "@/interfaces/pose";
+import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
+import { getColorsForJoint } from "@/services/joint";
 
 // Registro de componentes de Chart.js
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 interface RealTimeGraphProps {
-  joints: Keypoint[]; // Lista de articulaciones a mostrar
+  joints: CanvasKeypointName[]; // Lista de articulaciones a mostrar
   // Se acepta un arreglo con uno o ambos valores
   valueTypes?: Kinematics[]; 
   // Función que proporciona datos para una articulación; se espera que devuelva ambos valores.
-  getDataForJoint: (joint: Keypoint) => { timestamp: number; angle: number; angularVelocity: number } | null;
+  getDataForJoint: (joint: CanvasKeypointName) => { 
+    timestamp: number; 
+    angle: number; 
+    angularVelocity: number;
+    color: JointColors 
+  } | null;
   timeWindow?: number; // Ventana de tiempo en milisegundos (por defecto 10 segundos)
   parentStyles?: string; // Estilos CSS para el contenedor
   updateInterval?: number; // Intervalo de actualización en milisegundos (por defecto 500ms)
@@ -41,7 +47,7 @@ export const RealTimeGraph = ({
 }: RealTimeGraphProps) => {
   // Estado para almacenar los datos por articulación
   const [chartData, setChartData] = useState<{
-    [joint: string]: { labels: number[]; angle: number[]; angularVelocity: number[] }
+    [joint: string]: { labels: number[]; angle: number[]; angularVelocity: number[], color: JointColors }
   }>({});
 
   // Estado global para los labels del eje X
@@ -76,10 +82,11 @@ export const RealTimeGraph = ({
       if (now - lastUpdate >= updateInterval) {
         joints.forEach((joint) => {
           const newData = getDataForJoint(joint);
+
           if (newData) {
             setChartData((prev) => {
               const currentTime = performance.now();
-              const previousData = prev[joint] || { labels: [], angle: [], angularVelocity: [] };
+              const previousData = prev[joint] || { labels: [], angle: [], angularVelocity: [], color: getColorsForJoint(null) };
 
               // Establecer el tiempo inicial si aún no se ha hecho
               if (startTimeRef.current === null) {
@@ -114,6 +121,7 @@ export const RealTimeGraph = ({
                   labels: newLabels,
                   angle: newAngle,
                   angularVelocity: newAngularVelocity,
+                  color: newData.color
                 },
               };
             });
@@ -149,9 +157,11 @@ export const RealTimeGraph = ({
     if (!jointData) return;
 
     // Color base para la articulación
-    const baseHue = (jIndex * 60) % 360;
-    const baseColor = `hsl(${baseHue}, 70%, 50%)`;
-    const baseBackgroundColor = `hsla(${baseHue}, 70%, 50%, 0.2)`;
+    // const baseHue = (jIndex * 60) % 360;
+    // const baseColor = `hsl(${baseHue}, 70%, 50%)`;
+    // const baseBackgroundColor = `hsla(${baseHue}, 70%, 50%, 0.2)`;
+    const baseColor = jointData.color.borderColor;
+    const baseBackgroundColor = jointData.color.backgroundColor;
 
     valueTypes.forEach((vType) => {
       datasets.push({
