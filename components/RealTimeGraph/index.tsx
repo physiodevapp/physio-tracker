@@ -120,55 +120,69 @@ export const RealTimeGraph = ({
     });
   });
 
+  // Calculamos el rango del eje X usando el tiempo normalizado
+  const normalizedMaxX = startTimeRef.current
+    ? (currentTime - startTimeRef.current) / 1000
+    : currentTime / 1000;
+  const normalizedMinX = normalizedMaxX - timeWindow / 1000;
+
   useEffect(() => {
     let lastUpdate = performance.now();
     let animationFrameId: number;
-
+  
     const update = () => {
       const now = performance.now();
       setCurrentTime(now);
-
+  
       if (now - lastUpdate >= updateInterval) {
         joints.forEach((joint) => {
           const newData = getDataForJoint(joint);
           if (newData) {
             setChartData((prev) => {
-              const previousData =
-                prev[joint] || {
-                  anglePoints: [],
-                  angularVelocityPoints: [],
-                  color: getColorsForJoint(null),
-                };
-
+              // Extraemos la información previa para la articulación.
+              // Si no existe o no tiene la estructura esperada, usamos arrays vacíos.
+              const previousData = prev[joint] || {
+                anglePoints: [] as DataPoint[],
+                angularVelocityPoints: [] as DataPoint[],
+                color: getColorsForJoint(null),
+              };
+  
+              // Nos aseguramos de que anglePoints y angularVelocityPoints sean arrays
+              const anglePoints = Array.isArray(previousData.anglePoints)
+                ? previousData.anglePoints
+                : [];
+              const angularVelocityPoints = Array.isArray(previousData.angularVelocityPoints)
+                ? previousData.angularVelocityPoints
+                : [];
+  
               // Si aún no se ha establecido el tiempo inicial global, lo fijamos
               if (startTimeRef.current === null) {
                 startTimeRef.current = newData.timestamp;
               }
-
+  
               // Calculamos el tiempo normalizado (en segundos) para el nuevo dato
               const normalizedTime =
                 (newData.timestamp - (startTimeRef.current as number)) / 1000;
-
-              // Evitar duplicados si el tiempo normalizado no ha avanzado
+  
+              // Evitamos duplicados si el tiempo normalizado no ha avanzado
               if (
-                previousData.anglePoints.length > 0 &&
-                normalizedTime ===
-                  previousData.anglePoints[previousData.anglePoints.length - 1].x
+                anglePoints.length > 0 &&
+                normalizedTime === anglePoints[anglePoints.length - 1].x
               ) {
                 return prev;
               }
-
+  
               // Agregamos el nuevo punto a cada serie y recortamos para mantener solo los últimos maxPoints
               const updatedAnglePoints = [
-                ...previousData.anglePoints,
+                ...anglePoints,
                 { x: normalizedTime, y: newData.angle },
               ].slice(-maxPoints);
-
+  
               const updatedAngularVelocityPoints = [
-                ...previousData.angularVelocityPoints,
+                ...angularVelocityPoints,
                 { x: normalizedTime, y: newData.angularVelocity },
               ].slice(-maxPoints);
-
+  
               return {
                 ...prev,
                 [joint]: {
@@ -184,19 +198,26 @@ export const RealTimeGraph = ({
       }
       animationFrameId = requestAnimationFrame(update);
     };
-
+  
     animationFrameId = requestAnimationFrame(update);
+
     return () => {
       cancelAnimationFrame(animationFrameId);
       // **No reiniciamos startTimeRef.current aquí**
     };
   }, [getDataForJoint, joints, updateInterval, maxPoints]);
 
-  // Calculamos el rango del eje X usando el tiempo normalizado
-  const normalizedMaxX = startTimeRef.current
-    ? (currentTime - startTimeRef.current) / 1000
-    : currentTime / 1000;
-  const normalizedMinX = normalizedMaxX - timeWindow / 1000;
+  // Nuevo efecto: Si no hay datos (o displayGraphs es false) reiniciamos la línea de tiempo.
+  // Puedes adaptar la condición según tu lógica.
+  useEffect(() => {
+    // Comprobamos si para todos los joints getDataForJoint devuelve null
+    const allNull = joints.every((joint) => !getDataForJoint(joint));
+    if (allNull) {
+      // Reiniciamos la línea de tiempo
+      startTimeRef.current = performance.now();
+      setCurrentTime(performance.now());
+    }
+  }, [joints, getDataForJoint]);
 
   return (
     <div className={parentStyles}>
