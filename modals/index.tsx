@@ -1,7 +1,9 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
-import { StopIcon } from "@heroicons/react/24/solid";
 import { checkbox } from "@/interfaces/checkbox";
 import { CanvasKeypointName } from "@/interfaces/pose";
+import { StopIcon } from "@heroicons/react/24/solid";
 
 interface PoseModalProps {
   isModalOpen: boolean;
@@ -16,7 +18,7 @@ interface PoseModalProps {
   onAngularVelocitySmoothingChange?: (value: number) => void;
 }
 
-export const PoseModal = ({
+const PoseModal = ({
   isModalOpen,
   handleModal,
   onSelectionChange,
@@ -101,7 +103,7 @@ export const PoseModal = ({
     >
       <p
         className="absolute text-white"
-        style={{ top: "2rem", fontSize: "1.6em" }}
+        style={{ top: "1rem", fontSize: "1.6em" }}
       >
         Track joints
       </p>
@@ -142,26 +144,30 @@ export const PoseModal = ({
               className="absolute opacity-0 w-0 h-0"
             />
             <div
-              className={`w-6 h-6 border rounded-[1rem] flex items-center justify-center 
+              className={`w-6 h-6 border rounded-[0.4rem] flex items-center justify-center 
                 ${
                   checkboxStates[index]
                     ? "bg-white border-white"
                     : "bg-white border-gray-600"
+                }
+                ${
+                  checkboxStates[index] 
+                  ? "opacity-100"
+                  : "opacity-40"
                 }`}
-              style={{ opacity: checkboxStates[index] ? "1" : "0.4" }}
             >
               {checkboxStates[index] && (
-                <StopIcon className="w-4 h-4 text-blue-500" />
+                <StopIcon className="w-6 h-6 text-blue-500"/>
               )}
             </div>
           </label>
         ))}
       </div>
-      <form className="absolute w-full text-white" style={{bottom: "1rem", padding: "0rem 2rem"}}>
+      <form className="absolute bottom-0 w-full px-8 py-4 bg-black/40 text-white">
         <div style={{marginBottom: "0.6rem"}}>
           <label
             htmlFor="angle-range"
-            className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+            className="block mb-1 text-sm font-medium text-white dark:text-white"
           >
             Angle smoothing: {angleSmoothing}
           </label>
@@ -179,7 +185,7 @@ export const PoseModal = ({
         <div>
           <label
             htmlFor="angularVelocity-range"
-            className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+            className="block mb-1 text-sm font-medium text-white dark:text-white"
           >
             Velocity smoothing: {angleVelocitySmoothing}
           </label>

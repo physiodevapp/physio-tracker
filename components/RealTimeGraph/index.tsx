@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -94,31 +94,36 @@ export const RealTimeGraph = ({
   };
 
   // Construir los datasets usando los puntos (x, y) para cada articulación y cada valueType
-  const datasets: ChartDataset<"line">[] = [];
-  joints.forEach((joint) => {
-    const jointData = chartData[joint];
-    if (!jointData) return;
-
-    const baseColor = jointData.color.borderColor;
-    const baseBackgroundColor = jointData.color.backgroundColor;
-
-    valueTypes.forEach((vType) => {
-      const dataPoints =
-        vType === Kinematics.ANGLE
-          ? jointData.anglePoints
-          : jointData.angularVelocityPoints;
-
-      datasets.push({
-        label: `${transformJointName(joint)} ${transformKinematicsLabel(vType)}`,
-        data: dataPoints,
-        borderColor: baseColor,
-        backgroundColor: baseBackgroundColor,
-        borderWidth: vType === Kinematics.ANGLE ? 2 : 1,
-        tension: 0.6,
-        ...(vType === Kinematics.ANGULAR_VELOCITY && { borderDash: [2, 2] }),
+  // Este bloque se recalcula solo cuando cambian chartData, joints o valueTypes.
+  const datasets = useMemo(() => {
+    const result: ChartDataset<"line">[] = [];
+    joints.forEach((joint) => {
+      const jointData = chartData[joint];
+      if (!jointData) return;
+  
+      const baseColor = jointData.color.borderColor;
+      const baseBackgroundColor = jointData.color.backgroundColor;
+  
+      valueTypes.forEach((vType) => {
+        const dataPoints =
+          vType === Kinematics.ANGLE
+            ? jointData.anglePoints
+            : jointData.angularVelocityPoints;
+  
+        result.push({
+          label: `${transformJointName(joint)} ${transformKinematicsLabel(vType)}`,
+          data: dataPoints,
+          borderColor: baseColor,
+          backgroundColor: baseBackgroundColor,
+          borderWidth: vType === Kinematics.ANGLE ? 2 : 1,
+          tension: 0.6,
+          ...(vType === Kinematics.ANGULAR_VELOCITY && { borderDash: [2, 2] }),
+        });
       });
     });
-  });
+    return result;
+  }, [chartData, joints, valueTypes]);
+
 
   // Calculamos el rango del eje X usando el tiempo normalizado
   const normalizedMaxX = startTimeRef.current
@@ -129,7 +134,7 @@ export const RealTimeGraph = ({
   useEffect(() => {
     let lastUpdate = performance.now();
     let animationFrameId: number;
-  
+
     const update = () => {
       const now = performance.now();
       setCurrentTime(now);
@@ -203,21 +208,14 @@ export const RealTimeGraph = ({
 
     return () => {
       cancelAnimationFrame(animationFrameId);
-      // **No reiniciamos startTimeRef.current aquí**
     };
   }, [getDataForJoint, joints, updateInterval, maxPoints]);
 
-  // Nuevo efecto: Si no hay datos (o displayGraphs es false) reiniciamos la línea de tiempo.
-  // Puedes adaptar la condición según tu lógica.
   useEffect(() => {
-    // Comprobamos si para todos los joints getDataForJoint devuelve null
-    const allNull = joints.every((joint) => !getDataForJoint(joint));
-    if (allNull) {
-      // Reiniciamos la línea de tiempo
-      startTimeRef.current = performance.now();
-      setCurrentTime(performance.now());
-    }
-  }, [joints, getDataForJoint]);
+    startTimeRef.current = performance.now();
+
+    setCurrentTime(performance.now());
+  }, [])
 
   return (
     <div className={parentStyles}>

@@ -11,9 +11,9 @@ import { RealTimeGraph } from "../../components/RealTimeGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
 import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon } from "@heroicons/react/24/solid";
-import PoseModal from "@/modals";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
+import PoseModal from "@/modals";
 
 const PoseDetector = () => {
   const { settings, setSelectedJoints, setVelocityHistorySize, setAngularHistorySize } = useSettings();
@@ -331,9 +331,9 @@ const PoseDetector = () => {
                 : null;
             }}
             timeWindow={10000}
-            updateInterval={100}
-            maxPoints={100}
-            maxPointsThreshold={120}
+            updateInterval={300}
+            maxPoints={50}
+            maxPointsThreshold={60}
             parentStyles="z-0 h-[50dvh] border border-solid border-green-500"
             />
         )
