@@ -25,6 +25,12 @@ ChartJS.register(
   Legend
 );
 
+// Definimos la interfaz para cada punto de datos
+interface DataPoint {
+  x: number; // Tiempo normalizado en segundos
+  y: number; // Valor medido (por ejemplo, ángulo o velocidad angular)
+}
+
 interface RealTimeGraphProps {
   joints: CanvasKeypointName[]; // Lista de articulaciones a mostrar
   valueTypes?: Kinematics[]; // Se acepta un arreglo con uno o ambos valores
@@ -52,19 +58,22 @@ export const RealTimeGraph = ({
   maxPoints = 50,
   maxPointsThreshold = 80,
 }: RealTimeGraphProps) => {
-  // Estado para almacenar los datos por articulación (se mantienen SOLO los últimos maxPoints puntos)
+  // Estado para almacenar los datos por articulación
+  // Para cada articulación se almacenan:
+  //   - anglePoints: Array de { x, y } para el ángulo.
+  //   - angularVelocityPoints: Array de { x, y } para la velocidad angular.
+  //   - color: Color asociado.
   const [chartData, setChartData] = useState<{
     [joint: string]: {
-      labels: number[]; // Aquí se almacenan los timestamps absolutos
-      angle: number[];
-      angularVelocity: number[];
+      anglePoints: DataPoint[];
+      angularVelocityPoints: DataPoint[];
       color: JointColors;
     };
   }>({});
 
   // Estado para el tiempo actual (en milisegundos)
   const [currentTime, setCurrentTime] = useState(performance.now());
-  // Ref para almacenar el tiempo inicial (primer timestamp recibido)
+  // Ref para almacenar el tiempo inicial global (se fija la primera vez que se recibe un dato)
   const startTimeRef = useRef<number | null>(null);
 
   const transformJointName = (joint: string): string => {
@@ -84,7 +93,7 @@ export const RealTimeGraph = ({
     return vType; // En este caso, "angle"
   };
 
-  // Construir los datasets para cada articulación y cada valueType
+  // Construir los datasets usando los puntos (x, y) para cada articulación y cada valueType
   const datasets: ChartDataset<"line">[] = [];
   joints.forEach((joint) => {
     const jointData = chartData[joint];
@@ -94,10 +103,14 @@ export const RealTimeGraph = ({
     const baseBackgroundColor = jointData.color.backgroundColor;
 
     valueTypes.forEach((vType) => {
+      const dataPoints =
+        vType === Kinematics.ANGLE
+          ? jointData.anglePoints
+          : jointData.angularVelocityPoints;
+
       datasets.push({
         label: `${transformJointName(joint)} ${transformKinematicsLabel(vType)}`,
-        // Utilizamos los datos (números absolutos) pero en el eje X se normalizarán
-        data: vType === Kinematics.ANGLE ? jointData.angle : jointData.angularVelocity,
+        data: dataPoints,
         borderColor: baseColor,
         backgroundColor: baseBackgroundColor,
         borderWidth: vType === Kinematics.ANGLE ? 2 : 1,
@@ -118,41 +131,49 @@ export const RealTimeGraph = ({
       if (now - lastUpdate >= updateInterval) {
         joints.forEach((joint) => {
           const newData = getDataForJoint(joint);
-          
           if (newData) {
             setChartData((prev) => {
               const previousData =
                 prev[joint] || {
-                  labels: [],
-                  angle: [],
-                  angularVelocity: [],
+                  anglePoints: [],
+                  angularVelocityPoints: [],
                   color: getColorsForJoint(null),
                 };
 
-              // Si aún no se ha establecido el tiempo inicial, lo fijamos
+              // Si aún no se ha establecido el tiempo inicial global, lo fijamos
               if (startTimeRef.current === null) {
                 startTimeRef.current = newData.timestamp;
               }
 
-              // Evitamos duplicados si el timestamp no ha avanzado
+              // Calculamos el tiempo normalizado (en segundos) para el nuevo dato
+              const normalizedTime =
+                (newData.timestamp - (startTimeRef.current as number)) / 1000;
+
+              // Evitar duplicados si el tiempo normalizado no ha avanzado
               if (
-                previousData.labels.length > 0 &&
-                newData.timestamp === previousData.labels[previousData.labels.length - 1]
+                previousData.anglePoints.length > 0 &&
+                normalizedTime ===
+                  previousData.anglePoints[previousData.anglePoints.length - 1].x
               ) {
                 return prev;
               }
 
-              // Agregamos el nuevo dato (se almacenan timestamps absolutos)
-              const updatedLabels = [...previousData.labels, newData.timestamp].slice(-maxPoints);
-              const updatedAngle = [...previousData.angle, newData.angle].slice(-maxPoints);
-              const updatedAngularVelocity = [...previousData.angularVelocity, newData.angularVelocity].slice(-maxPoints);
+              // Agregamos el nuevo punto a cada serie y recortamos para mantener solo los últimos maxPoints
+              const updatedAnglePoints = [
+                ...previousData.anglePoints,
+                { x: normalizedTime, y: newData.angle },
+              ].slice(-maxPoints);
+
+              const updatedAngularVelocityPoints = [
+                ...previousData.angularVelocityPoints,
+                { x: normalizedTime, y: newData.angularVelocity },
+              ].slice(-maxPoints);
 
               return {
                 ...prev,
                 [joint]: {
-                  labels: updatedLabels,
-                  angle: updatedAngle,
-                  angularVelocity: updatedAngularVelocity,
+                  anglePoints: updatedAnglePoints,
+                  angularVelocityPoints: updatedAngularVelocityPoints,
                   color: newData.color,
                 },
               };
@@ -165,30 +186,24 @@ export const RealTimeGraph = ({
     };
 
     animationFrameId = requestAnimationFrame(update);
-    
     return () => {
       cancelAnimationFrame(animationFrameId);
-
-      startTimeRef.current = null;
+      // **No reiniciamos startTimeRef.current aquí**
     };
   }, [getDataForJoint, joints, updateInterval, maxPoints]);
 
-  // Normalización: Si startTimeRef está definido, restamos su valor a los timestamps para que comiencen en 0
-  const normalizedMinX = startTimeRef.current ? (currentTime - timeWindow - startTimeRef.current) / 1000 : 0;
-  const normalizedMaxX = startTimeRef.current ? (currentTime - startTimeRef.current) / 1000 : (currentTime / 1000);
+  // Calculamos el rango del eje X usando el tiempo normalizado
+  const normalizedMaxX = startTimeRef.current
+    ? (currentTime - startTimeRef.current) / 1000
+    : currentTime / 1000;
+  const normalizedMinX = normalizedMaxX - timeWindow / 1000;
 
   return (
     <div className={parentStyles}>
       <Line
         className="pb-2"
         data={{
-          // Para las etiquetas del eje X, usamos los timestamps normalizados (en segundos)
-          labels:
-            chartData && Object.values(chartData).length > 0
-              ? Object.values(chartData)[0].labels.map((ts) =>
-                  ((ts - (startTimeRef.current || ts)) / 1000).toFixed(1)
-                )
-              : [],
+          // Al usar puntos con x e y, no se requiere definir "labels"
           datasets: datasets,
         }}
         options={{
@@ -202,7 +217,8 @@ export const RealTimeGraph = ({
                 usePointStyle: true,
                 font: { size: 10 },
                 generateLabels: (chart) => {
-                  const defaultLabels = ChartJS.defaults.plugins.legend.labels.generateLabels(chart);
+                  const defaultLabels =
+                    ChartJS.defaults.plugins.legend.labels.generateLabels(chart);
                   return defaultLabels
                     .filter((label) =>
                       label.text.toLowerCase().includes("angle")
@@ -227,14 +243,15 @@ export const RealTimeGraph = ({
           scales: {
             x: {
               type: "linear",
-              // Establecemos el rango del eje X usando valores normalizados
               min: normalizedMinX,
               max: normalizedMaxX,
               title: { display: true, text: "Time (seconds)" },
               ticks: {
-                // Calcula un stepSize dinámico basado en el rango actual y un número objetivo de ticks (por ejemplo, 10)
-                stepSize: Math.max(1, Math.ceil((normalizedMaxX - normalizedMinX) / 10)),
-                maxTicksLimit: 11, // Limita el número máximo de ticks a 10
+                stepSize: Math.max(
+                  1,
+                  Math.ceil((normalizedMaxX - normalizedMinX) / 10)
+                ),
+                maxTicksLimit: 11,
                 callback: (value) => Number(value).toFixed(0),
               },
             },
