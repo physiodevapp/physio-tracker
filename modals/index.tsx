@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { StopIcon } from "@heroicons/react/24/solid";
 import { checkbox } from "@/interfaces/checkbox";
+import { CanvasKeypointName } from "@/interfaces/pose";
 
 interface PoseModalProps {
   isModalOpen: boolean;
@@ -8,6 +9,7 @@ interface PoseModalProps {
   onSelectionChange: (selectedItems: string[]) => void;
   maxSelected?: number;
   jointOptions: checkbox[];
+  initialSelectedJoints?: CanvasKeypointName[];
   onAngleSmoothingChange?: (value: number) => void;
   onAngularVelocitySmoothingChange?: (value: number) => void;
 }
@@ -20,10 +22,11 @@ export const PoseModal = ({
   jointOptions,
   onAngleSmoothingChange,
   onAngularVelocitySmoothingChange,
+  initialSelectedJoints = [],
 }: PoseModalProps) => {
   // Estado de cada checkbox (por defecto, todos sin marcar)
   const [checkboxStates, setCheckboxStates] = useState<boolean[]>(
-    new Array(jointOptions.length).fill(false)
+    jointOptions.map((joint) => initialSelectedJoints.includes(joint.value as CanvasKeypointName))
   );
   const [angleSmoothing, setAngleSmoothing] = useState(5);
   const [angleVelocitySmoothing, setVelocitySmoothing] = useState(10);

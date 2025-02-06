@@ -9,35 +9,35 @@ import { updateKeypointVelocity } from "@/services/keypoint";
 import { updateJoint } from "@/services/joint";
 import { RealTimeGraph } from "../../components/RealTimeGraph";
 import { VideoConstraints } from "@/interfaces/camera";
-import { usePoseDetector } from "@/providers/PoseDetectorContext";
+import { usePoseDetector } from "@/providers/PoseDetector";
 import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon } from "@heroicons/react/24/solid";
 import PoseModal from "@/modals";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { useSettings } from "@/providers/Settings";
 
 const PoseDetector = () => {
+  const { settings, setSelectedJoints, setVelocityHistorySize, setAngularHistorySize } = useSettings();
+
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
   });
 
   const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
   const [selectedKeypoint] = useState<CanvasKeypointName | null>(null);
-  const [jointVelocityHistorySize, setJointVelocityHistorySize] = useState(5);
-  const [jointAngleHistorySize, setJointAngleHistorySize] = useState(5);
 
-  const [visibleJoints, setVisibleJoints] = useState<CanvasKeypointName[]>([]);
   const [visibleKinematics, setVisibleKinematics] = useState<Kinematics[]>([Kinematics.ANGLE]);
   const [displayGraphs, setDisplayGraphs] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const jointVelocityHistorySizeRef = useRef(jointVelocityHistorySize);
-  const jointAngleHistorySizeRef = useRef(jointAngleHistorySize);
+  const jointVelocityHistorySizeRef = useRef(settings.velocityHistorySize);
+  const jointAngleHistorySizeRef = useRef(settings.angularHistorySize);
   
   const selectedKeypointRef = useRef(selectedKeypoint);
   const jointDataRef = useRef<JointDataMap>({});
   const keypointDataRef = useRef<CanvasKeypointData | null>(null);
 
-  const visibleJointsRef = useRef(visibleJoints);
+  const visibleJointsRef = useRef(settings.selectedJoints);
   const visibleKinematicsRef = useRef(visibleKinematics);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -55,8 +55,8 @@ const PoseDetector = () => {
   }, [visibleKinematics]);
   
   const maxKinematicsAllowed = useMemo(() => {
-    return visibleJoints.length > 0 ? Math.floor(6 / visibleJoints.length) : 2;
-  }, [visibleJoints]);
+    return settings.selectedJoints.length > 0 ? Math.floor(6 / settings.selectedJoints.length) : 2;
+  }, [settings]);
   
   const detector = usePoseDetector();
 
@@ -97,18 +97,19 @@ const PoseDetector = () => {
 
   const handleAngularHistorySizeChange = (newSize: number) => {
     if (newSize >= 1 && newSize <= 20) {
-      setJointAngleHistorySize(newSize);
+      setAngularHistorySize(newSize);
     }
   };
   
   const handleVelocityHistorySizeChange = (newSize: number) => {
     if (newSize >= 1 && newSize <= 20) {
-      setJointVelocityHistorySize(newSize);
+      setVelocityHistorySize(newSize);
     }
   };
 
   const handleJointSelection = useCallback((selectedJoints: string[]) => {
-    setVisibleJoints(selectedJoints as CanvasKeypointName[]);
+    // setVisibleJoints(selectedJoints as CanvasKeypointName[]);
+    setSelectedJoints(selectedJoints as CanvasKeypointName[]);
   }, []);
 
   const handleKinematicsSelection = (selectedKinematic: Kinematics) => {
@@ -171,13 +172,13 @@ const PoseDetector = () => {
 
   useEffect(() => {
     selectedKeypointRef.current = selectedKeypoint;
-    jointVelocityHistorySizeRef.current = jointVelocityHistorySize;
-    jointAngleHistorySizeRef.current = jointAngleHistorySize;
-  }, [selectedKeypoint, jointVelocityHistorySize, jointAngleHistorySize]);
-
+  }, [selectedKeypoint]);
+  
   useEffect(() => {
-    visibleJointsRef.current = visibleJoints;
-  }, [visibleJoints])
+    jointVelocityHistorySizeRef.current = settings.velocityHistorySize;
+    jointAngleHistorySizeRef.current = settings.angularHistorySize;
+    visibleJointsRef.current = settings.selectedJoints;
+  }, [settings])
 
   useEffect(() => {
     visibleKinematicsRef.current = visibleKinematics;
@@ -304,6 +305,7 @@ const PoseDetector = () => {
           handleModal={handleModal} 
           jointOptions={jointOptions}
           maxSelected={maxJointsAllowed }
+          initialSelectedJoints={settings.selectedJoints} 
           onSelectionChange={handleJointSelection} 
           onAngleSmoothingChange={handleAngularHistorySizeChange}
           onAngularVelocitySmoothingChange={handleVelocityHistorySizeChange}
@@ -313,7 +315,7 @@ const PoseDetector = () => {
       {
         displayGraphs && (
           <RealTimeGraph
-            joints={visibleJoints}
+            joints={settings.selectedJoints}
             valueTypes={visibleKinematics}
             getDataForJoint={(joint) => {
               const data = jointDataRef.current[joint];

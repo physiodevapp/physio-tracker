@@ -1,10 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { CanvasKeypointName } from '@/interfaces/pose';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 // Definimos la interfaz del objeto settings
 interface Settings {
-  selectedJoints: string[];
+  selectedJoints: CanvasKeypointName[];
   angularHistorySize: number;
   velocityHistorySize: number;
 }
@@ -12,7 +13,7 @@ interface Settings {
 // Definimos la interfaz del contexto para incluir el estado y las funciones de actualización
 interface SettingsContextProps {
   settings: Settings;
-  setSelectedJoints: (joints: string[]) => void;
+  setSelectedJoints: (joints: CanvasKeypointName[]) => void;
   setAngularHistorySize: (size: number) => void;
   setVelocityHistorySize: (size: number) => void;
 }
@@ -26,13 +27,18 @@ interface SettingsProviderProps {
 
 // Implementamos el provider
 export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) => {
-  const [settings, setSettings] = useState<Settings>({
-    selectedJoints: [],
-    angularHistorySize: 1,
-    velocityHistorySize: 1,
+  const [settings, setSettings] = useState<Settings>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("poseSettings");
+
+      return stored
+        ? JSON.parse(stored)
+        : { selectedJoints: [], angularHistorySize: 5, velocityHistorySize: 1 };
+    }
+    return { selectedJoints: [], angularHistorySize: 5, velocityHistorySize: 1 };
   });
 
-  const setSelectedJoints = (joints: string[]) => {
+  const setSelectedJoints = (joints: CanvasKeypointName[]) => {
     setSettings(prev => ({ ...prev, selectedJoints: joints }));
   };
 
@@ -47,6 +53,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       setSettings(prev => ({ ...prev, velocityHistorySize: size }));
     }
   };
+
+  useEffect(() => {
+    localStorage.setItem("poseSettings", JSON.stringify(settings));
+  }, [settings]);
 
   return (
     <SettingsContext.Provider
