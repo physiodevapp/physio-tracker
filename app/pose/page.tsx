@@ -28,6 +28,8 @@ const PoseDetector = () => {
   const [visibleKinematics, setVisibleKinematics] = useState<Kinematics[]>([Kinematics.ANGLE]);
   const [displayGraphs, setDisplayGraphs] = useState(false);
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const jointVelocityHistorySizeRef = useRef(jointVelocityHistorySize);
   const jointAngleHistorySizeRef = useRef(jointAngleHistorySize);
   
@@ -121,6 +123,10 @@ const PoseDetector = () => {
   const handleGrahpsVisibility = () => {
     setDisplayGraphs((prev) =>!prev);
   };
+  
+  const handleModal = () => {
+    setIsModalOpen((prev) => !prev);
+  }
 
   const updateMultipleJoints = (
     ctx: CanvasRenderingContext2D,
@@ -253,11 +259,6 @@ const PoseDetector = () => {
   useEffect(() => {
     showMyWebcam();
   }, []);
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const handleModal = () => {
-    setIsModalOpen((prev) => !prev);
-  }
 
   return (
     <>
