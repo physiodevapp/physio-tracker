@@ -332,8 +332,8 @@ const PoseDetector = () => {
             }}
             timeWindow={10000}
             updateInterval={100}
-            maxPoints={50}
-            maxPointsThreshold={80}
+            maxPoints={100}
+            maxPointsThreshold={120}
             parentStyles="z-0 h-[50dvh] border border-solid border-green-500"
             />
         )
