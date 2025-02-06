@@ -72,6 +72,30 @@ export const RealTimeGraph = ({
     return vType; // En este caso, "angle"
   };
 
+  // Construir los datasets para cada articulación y cada valueType
+  const datasets: ChartDataset<"line">[] = [];
+
+  joints.forEach((joint) => {
+    const jointData = chartData[joint];
+    if (!jointData) return;
+
+    // Color base para la articulación
+    const baseColor = jointData.color.borderColor;
+    const baseBackgroundColor = jointData.color.backgroundColor;
+
+    valueTypes.forEach((vType) => {
+      datasets.push({
+        label: `${transformJointName(joint)} ${transformKinematicsLabel(vType)}`,
+        data: vType === Kinematics.ANGLE ? jointData.angle : jointData.angularVelocity,
+        borderColor: baseColor,
+        backgroundColor: baseBackgroundColor,
+        borderWidth: vType === Kinematics.ANGLE ? 2 : 1,
+        tension: 0.6,
+        ...(vType === Kinematics.ANGULAR_VELOCITY && { borderDash: [2, 2] }),
+      });
+    });
+  });
+
   useEffect(() => {
     let lastUpdate = performance.now();
     let animationFrameId: number;
@@ -149,32 +173,10 @@ export const RealTimeGraph = ({
     };
   }, [getDataForJoint, joints, timeWindow, updateInterval]);
 
-  // Construir los datasets para cada articulación y cada valueType
-  const datasets: ChartDataset<"line">[] = [];
+  
+  useEffect(() => {
 
-  joints.forEach((joint, jIndex) => {
-    const jointData = chartData[joint];
-    if (!jointData) return;
-
-    // Color base para la articulación
-    // const baseHue = (jIndex * 60) % 360;
-    // const baseColor = `hsl(${baseHue}, 70%, 50%)`;
-    // const baseBackgroundColor = `hsla(${baseHue}, 70%, 50%, 0.2)`;
-    const baseColor = jointData.color.borderColor;
-    const baseBackgroundColor = jointData.color.backgroundColor;
-
-    valueTypes.forEach((vType) => {
-      datasets.push({
-        label: `${transformJointName(joint)} ${transformKinematicsLabel(vType)}`,
-        data: vType === Kinematics.ANGLE ? jointData.angle : jointData.angularVelocity,
-        borderColor: baseColor,
-        backgroundColor: baseBackgroundColor,
-        borderWidth: vType === Kinematics.ANGLE ? 2 : 1,
-        tension: 0.6,
-        ...(vType === Kinematics.ANGULAR_VELOCITY && { borderDash: [2, 2] }),
-      });
-    });
-  });
+  }, [])
 
   return (
     <div className={parentStyles}>
@@ -196,6 +198,25 @@ export const RealTimeGraph = ({
             legend: {
               display: true,
               position: "top",
+              labels: {
+                usePointStyle: true,
+                font: {
+                  size: 10
+                },
+                generateLabels: (chart) => {
+                  // Obtenemos las etiquetas por defecto
+                  const defaultLabels = ChartJS.defaults.plugins.legend.labels.generateLabels(chart);
+                  // Filtramos y modificamos: solo incluimos las que tengan "angle" y quitamos esa parte del texto
+                  return defaultLabels
+                    .filter((label) =>
+                      label.text.toLowerCase().includes("angle")
+                    )
+                    .map((label) => ({
+                      ...label,
+                      text: label.text.split("angle")[0].trim(),
+                    }));
+                },
+              }
             },
             decimation: {
               enabled: true,

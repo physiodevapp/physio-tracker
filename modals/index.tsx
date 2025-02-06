@@ -10,6 +10,8 @@ interface PoseModalProps {
   maxSelected?: number;
   jointOptions: checkbox[];
   initialSelectedJoints?: CanvasKeypointName[];
+  initialAngleSmoothing?: number;
+  initialVelocitySmoothing?: number;
   onAngleSmoothingChange?: (value: number) => void;
   onAngularVelocitySmoothingChange?: (value: number) => void;
 }
@@ -23,13 +25,15 @@ export const PoseModal = ({
   onAngleSmoothingChange,
   onAngularVelocitySmoothingChange,
   initialSelectedJoints = [],
+  initialAngleSmoothing = 5,
+  initialVelocitySmoothing = 5,
 }: PoseModalProps) => {
   // Estado de cada checkbox (por defecto, todos sin marcar)
   const [checkboxStates, setCheckboxStates] = useState<boolean[]>(
     jointOptions.map((joint) => initialSelectedJoints.includes(joint.value as CanvasKeypointName))
   );
-  const [angleSmoothing, setAngleSmoothing] = useState(5);
-  const [angleVelocitySmoothing, setVelocitySmoothing] = useState(10);
+  const [angleSmoothing, setAngleSmoothing] = useState(initialAngleSmoothing);
+  const [angleVelocitySmoothing, setVelocitySmoothing] = useState(initialVelocitySmoothing);
 
   const handleAngleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
@@ -114,6 +118,7 @@ export const PoseModal = ({
         }}
         onClick={(e) => {
           e.stopPropagation();
+
           handleModal();
         }}
       >
@@ -152,13 +157,13 @@ export const PoseModal = ({
           </label>
         ))}
       </div>
-      <form className="absolute text-white" style={{bottom: "1rem", padding: "0rem 2rem"}}>
-        <div className="mb-2">
+      <form className="absolute w-full text-white" style={{bottom: "1rem", padding: "0rem 2rem"}}>
+        <div style={{marginBottom: "0.6rem"}}>
           <label
             htmlFor="angle-range"
             className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
           >
-            Angle smoothing
+            Angle smoothing: {angleSmoothing}
           </label>
           <input
             id="angle-range"
@@ -176,7 +181,7 @@ export const PoseModal = ({
             htmlFor="angularVelocity-range"
             className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
           >
-            Velocity smoothing
+            Velocity smoothing: {angleVelocitySmoothing}
           </label>
           <input
             id="angularVelocity-range"

@@ -306,6 +306,8 @@ const PoseDetector = () => {
           jointOptions={jointOptions}
           maxSelected={maxJointsAllowed }
           initialSelectedJoints={settings.selectedJoints} 
+          initialAngleSmoothing={settings.angularHistorySize}
+          initialVelocitySmoothing={settings.velocityHistorySize}
           onSelectionChange={handleJointSelection} 
           onAngleSmoothingChange={handleAngularHistorySizeChange}
           onAngularVelocitySmoothingChange={handleVelocityHistorySizeChange}
