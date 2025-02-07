@@ -7,18 +7,22 @@ import { JointDataMap, JointConfigMap, CanvasKeypointName, CanvasKeypointData, P
 import { drawKeypointConnections, drawKeypoints } from "@/services/draw";
 import { updateKeypointVelocity } from "@/services/keypoint";
 import { updateJoint } from "@/services/joint";
-import { RealTimeGraph } from "../../components/PoseGraph";
+import RealTimeGraph from "../../components/PoseGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
-import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon } from "@heroicons/react/24/solid";
+import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon } from "@heroicons/react/24/solid";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Pose";
 import PoseGraphSettingsModal from "@/modals/PoseGraphSettings";
 import PoseSettingsModal from "@/modals/PoseSettings"
 
-const PoseDetector = () => {
-  const { settings, setSelectedJoints, setVelocityHistorySize, setAngularHistorySize, setPoseTimeWindow, setPoseUpdateInterval } = useSettings();
+interface PageProps {
+  navigateTo?: () => void;
+}
+
+const Page = ({ navigateTo }: PageProps) => {
+  const { settings, setSelectedJoints, setVelocityHistorySize, setAngularHistorySize } = useSettings();
 
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
@@ -99,28 +103,8 @@ const PoseDetector = () => {
     { label: "Left Knee", value: CanvasKeypointName.LEFT_KNEE },
   ], []);
 
-  const handleAngularHistorySizeChange = useCallback((newSize: number) => {
-    if (newSize >= 1 && newSize <= 20) {
-      setAngularHistorySize(newSize);
-    }
-  }, []);
-  
-  const handleVelocityHistorySizeChange = useCallback((newSize: number) => {
-    if (newSize >= 1 && newSize <= 20) {
-      setVelocityHistorySize(newSize);
-    }
-  }, []);
-
   const handleJointSelection = useCallback((selectedJoints: string[]) => {
     setSelectedJoints(selectedJoints as CanvasKeypointName[]);
-  }, []);
-
-  const handleTimeWindow = useCallback((timeInSeconds: number) => {
-    setPoseTimeWindow(timeInSeconds);
-  }, []);
-  
-  const handleUpdateInterval = useCallback((timeInMiliseconds: number) => {
-    setPoseUpdateInterval(timeInMiliseconds);
   }, []);
 
   const handleKinematicsSelection = (selectedKinematic: Kinematics) => {
@@ -147,13 +131,6 @@ const PoseDetector = () => {
       setIsPoseSettingsModalOpen((prev) => !prev);
     }
   }
-  useEffect(() => {
-    if (displayGraphs) {
-      setIsPoseSettingsModalOpen(false);
-    } else {
-      setIsPoseGraphSettingsModalOpen(false);
-    }
-  }, [displayGraphs])
 
   const updateMultipleJoints = (
     ctx: CanvasRenderingContext2D,
@@ -213,6 +190,14 @@ const PoseDetector = () => {
   useEffect(() => {
     videoConstraintsRef.current = videoConstraints;
   }, [videoConstraints]);
+
+  useEffect(() => {
+    if (displayGraphs) {
+      setIsPoseSettingsModalOpen(false);
+    } else {
+      setIsPoseGraphSettingsModalOpen(false);
+    }
+  }, [displayGraphs]);
 
   useEffect(() => {
     if (!detector || !webcamRef.current) return;
@@ -295,7 +280,7 @@ const PoseDetector = () => {
           </div>
         )
       }
-      <div className={`relative z-0 flex flex-col items-center justify-start ${displayGraphs ? "h-[50dvh]" : "h-dvh"} border border-solid border-red-500`}>
+      <div className={`relative z-0 flex flex-col items-center justify-start ${displayGraphs ? "h-[50dvh]" : "h-dvh"}`}>
         <Webcam
           ref={webcamRef}
           className="relative object-cover h-full"
@@ -306,6 +291,7 @@ const PoseDetector = () => {
         <canvas ref={canvasRef} className="absolute object-cover h-full" />
 
         <section className="absolute top-2 left-0 p-2 flex flex-col justify-between gap-4">
+          <DevicePhoneMobileIcon className="h-6 w-6 text-white cursor-pointer rotate-90" onClick={navigateTo}/>
           <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
           <PresentationChartBarIcon className="h-6 w-6 text-white cursor-pointer" onClick={handleGrahpsVisibility}/>
         </section>
@@ -340,10 +326,6 @@ const PoseDetector = () => {
         <PoseSettingsModal 
           isModalOpen={isPoseSettingsModalOpen}
           handleModal={handleSettingsModal}
-          onAngleSmoothingChange={handleAngularHistorySizeChange}
-          onAngularVelocitySmoothingChange={handleVelocityHistorySizeChange}
-          initialAngleSmoothing={settings.angularHistorySize}
-          initialVelocitySmoothing={settings.velocityHistorySize}
           />
       </div> 
 
@@ -364,8 +346,6 @@ const PoseDetector = () => {
                     }
                   : null;
               }}
-              timeWindow={settings.poseTimeWindow}
-              updateInterval={settings.poseUpdateInterval}
               maxPoints={50}
               maxPointsThreshold={60}
               parentStyles="z-0 h-[50dvh] border border-solid border-green-500"
@@ -374,10 +354,6 @@ const PoseDetector = () => {
             <PoseGraphSettingsModal 
               isModalOpen={isPoseGraphSettingsModalOpen}
               handleModal={handleSettingsModal}
-              onTimeWindowChange={handleTimeWindow}
-              onUpdateIntervalChange={handleUpdateInterval}
-              initialTimeWindow={10}
-              initialUpdateInterval={300}
               />
           </>
         )
@@ -386,4 +362,4 @@ const PoseDetector = () => {
   );
 };
 
-export default PoseDetector;
+export default Page;

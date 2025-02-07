@@ -1,31 +1,26 @@
+import { useSettings } from '@/providers/Settings';
 import React, { useState } from 'react'
 
 interface IndexProps {
   isModalOpen: boolean;
-  initialAngleSmoothing: number;
-  initialVelocitySmoothing: number;
   handleModal: () => void;
-  onAngleSmoothingChange?: (value: number) => void;
-  onAngularVelocitySmoothingChange?: (value: number) => void;
 }
 
 const Index = ({
   isModalOpen,
   handleModal,
-  onAngleSmoothingChange,
-  onAngularVelocitySmoothingChange,
-  initialAngleSmoothing = 5,
-  initialVelocitySmoothing = 5,
 }: IndexProps) => {
-  const [angleSmoothing, setAngleSmoothing] = useState(initialAngleSmoothing);
-    const [angleVelocitySmoothing, setVelocitySmoothing] = useState(initialVelocitySmoothing);
+  const { settings, setAngularHistorySize, setVelocityHistorySize } = useSettings();
+
+  const [angleSmoothing, setAngleSmoothing] = useState(settings.angularHistorySize);
+  const [angleVelocitySmoothing, setVelocitySmoothing] = useState(settings.velocityHistorySize);
 
   const handleAngleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
 
     setAngleSmoothing(value);
 
-    if (onAngleSmoothingChange) onAngleSmoothingChange(value);
+    setAngularHistorySize(value);
   };
   
   const handleAngularVelocityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,7 +28,7 @@ const Index = ({
 
     setVelocitySmoothing(value);
 
-    if (onAngularVelocitySmoothingChange) onAngularVelocitySmoothingChange(value);
+    setVelocityHistorySize(value);
   };
 
   if (!isModalOpen) return null;

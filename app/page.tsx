@@ -49,7 +49,7 @@ export default function Home() {
             exit="exit"
             transition={{ ease: "easeInOut", duration: 0.25 }}
           >
-            <Pose />
+            <Pose navigateTo={() => setPage('strength')}/>
           </motion.div>
         ) : (
           <motion.div

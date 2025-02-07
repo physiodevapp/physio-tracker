@@ -23,7 +23,11 @@ const RES_RFD_PEAK = 2;
 const RES_RFD_PEAK_SERIES = 3;
 const RES_LOW_PWR_WARNING = 4;
 
-const StrengthDetector = () => {
+interface PageProps {
+  navigateTo?: () => void;
+}
+
+const Page = ({  }: PageProps) => {
   const [device, setDevice] = useState<BluetoothDevice | null>(null);
   const [sensorData, setSensorData] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -214,4 +218,4 @@ const StrengthDetector = () => {
   );
 };
 
-export default StrengthDetector
+export default Page

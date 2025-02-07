@@ -13,6 +13,7 @@ import {
 } from "chart.js";
 import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
 import { getColorsForJoint } from "@/services/joint";
+import { useSettings } from "@/providers/Settings";
 
 // Registro de componentes de Chart.js
 ChartJS.register(
@@ -31,7 +32,7 @@ interface DataPoint {
   y: number; // Valor medido (por ejemplo, ángulo o velocidad angular)
 }
 
-interface RealTimeGraphProps {
+interface IndexProps {
   joints: CanvasKeypointName[]; // Lista de articulaciones a mostrar
   valueTypes?: Kinematics[]; // Se acepta un arreglo con uno o ambos valores
   // Función que proporciona datos para una articulación; se espera que devuelva ambos valores.
@@ -41,23 +42,21 @@ interface RealTimeGraphProps {
     angularVelocity: number;
     color: JointColors;
   } | null;
-  timeWindow?: number; // Ventana de tiempo en milisegundos (por defecto 10 segundos)
   parentStyles?: string; // Estilos CSS para el contenedor
-  updateInterval?: number; // Intervalo de actualización en milisegundos (por defecto 500ms)
   maxPoints?: number; // Número máximo de puntos a mantener por set de datos (por defecto 50)
   maxPointsThreshold?: number;
 }
 
-export const RealTimeGraph = ({
+const Index = ({
   joints,
   valueTypes = [Kinematics.ANGLE],
   getDataForJoint,
-  timeWindow = 10000,
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
-  updateInterval = 500,
   maxPoints = 50,
   maxPointsThreshold = 80,
-}: RealTimeGraphProps) => {
+}: IndexProps) => {
+  const { settings } = useSettings();
+
   // Estado para almacenar los datos por articulación
   // Para cada articulación se almacenan:
   //   - anglePoints: Array de { x, y } para el ángulo.
@@ -129,7 +128,7 @@ export const RealTimeGraph = ({
   const normalizedMaxX = startTimeRef.current
     ? (currentTime - startTimeRef.current) / 1000
     : currentTime / 1000;
-  const normalizedMinX = normalizedMaxX - timeWindow / 1000;
+  const normalizedMinX = normalizedMaxX - settings.poseTimeWindow;
 
   useEffect(() => {
     let lastUpdate = performance.now();
@@ -139,7 +138,7 @@ export const RealTimeGraph = ({
       const now = performance.now();
       setCurrentTime(now);
   
-      if (now - lastUpdate >= updateInterval) {
+      if (now - lastUpdate >= settings.poseUpdateInterval) {
         joints.forEach((joint) => {
           const newData = getDataForJoint(joint);
           if (newData) {
@@ -209,7 +208,7 @@ export const RealTimeGraph = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [getDataForJoint, joints, updateInterval, maxPoints]);
+  }, [getDataForJoint, joints, settings.poseUpdateInterval, maxPoints]);
 
   useEffect(() => {
     startTimeRef.current = performance.now();
@@ -305,3 +304,5 @@ export const RealTimeGraph = ({
     </div>
   );
 };
+
+export default Index;

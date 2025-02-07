@@ -63,7 +63,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   }
 
   const setPoseUpdateInterval = (timeInMiliseconds: number) => {
-    setSettings(prev => ({...prev, setPoseUpdateInterval: timeInMiliseconds}))
+    setSettings(prev => ({...prev, poseUpdateInterval: timeInMiliseconds}))
   }
 
   useEffect(() => {

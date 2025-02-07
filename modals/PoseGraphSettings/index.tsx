@@ -1,33 +1,26 @@
+import { useSettings } from '@/providers/Settings';
 import React, { useState } from 'react'
 
 interface IndexProps {
   isModalOpen: boolean;
-  initialTimeWindow: number;
-  initialUpdateInterval: number;
   handleModal: () => void;
-  onTimeWindowChange?: (value: number) => void;
-  onUpdateIntervalChange?: (value: number) => void;
 }
 
 const Index = ({
   isModalOpen,
   handleModal,
-  onTimeWindowChange,
-  onUpdateIntervalChange,
-  initialTimeWindow = 10,
-  initialUpdateInterval = 300,
 }: IndexProps) => {
-  const [timeWindow, setTimeWindow] = useState(initialTimeWindow);
-  const [updateInterval, setUpdateInterval] = useState(initialUpdateInterval);
+  const { settings, setPoseTimeWindow, setPoseUpdateInterval } = useSettings();
+
+  const [timeWindow, setTimeWindow] = useState(settings.poseTimeWindow);
+  const [updateInterval, setUpdateInterval] = useState(settings.poseUpdateInterval);
 
   const handleTimeWindowChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
 
     setTimeWindow(value);
 
-    if (onTimeWindowChange) {
-      onTimeWindowChange(value);
-    }
+    setPoseTimeWindow(value);
   };
 
   const handleUpdateIntervalChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,9 +28,7 @@ const Index = ({
 
     setUpdateInterval(value);
 
-    if (onUpdateIntervalChange) {
-      onUpdateIntervalChange(value);
-    }
+    setPoseUpdateInterval(value);
   };
 
   if (!isModalOpen) return null;
