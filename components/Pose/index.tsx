@@ -7,7 +7,7 @@ import { JointDataMap, JointConfigMap, CanvasKeypointName, CanvasKeypointData, P
 import { drawKeypointConnections, drawKeypoints } from "@/services/draw";
 import { updateKeypointVelocity } from "@/services/keypoint";
 import { updateJoint } from "@/services/joint";
-import RealTimeGraph from "../PoseGraph";
+import PoseGraph from "../PoseGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
 import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon } from "@heroicons/react/24/solid";
@@ -283,20 +283,20 @@ const Index = ({ navigateTo }: IndexProps) => {
       <div className={`relative z-0 flex flex-col items-center justify-start ${displayGraphs ? "h-[50dvh]" : "h-dvh"}`}>
         <Webcam
           ref={webcamRef}
-          className="relative object-cover h-full"
+          className={`relative object-cover h-full w-full border border-red-500`}
           videoConstraints={videoConstraints}
           muted
           mirrored={videoConstraints.facingMode === "user"}
         />
-        <canvas ref={canvasRef} className="absolute object-cover h-full" />
+        <canvas ref={canvasRef} className={`absolute object-cover h-full w-full`} />
 
-        <section className="absolute top-2 left-0 p-2 flex flex-col justify-between gap-4">
+        <section className="absolute top-2 left-0 p-2 flex flex-col justify-between gap-6">
           <DevicePhoneMobileIcon className="h-6 w-6 text-white cursor-pointer rotate-90" onClick={() => navigateTo('strength')}/>
           <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
           <PresentationChartBarIcon className="h-6 w-6 text-white cursor-pointer" onClick={handleGrahpsVisibility}/>
         </section>
         
-        <section className="absolute top-2 right-0 p-2 flex flex-col justify-between gap-4">
+        <section className="absolute top-2 right-0 p-2 flex flex-col justify-between gap-6">
           <UserIcon className="h-6 w-6 text-white cursor-pointer" onClick={handlePoseModal}/>
           { 
             maxKinematicsAllowed > 1 && (
@@ -332,7 +332,7 @@ const Index = ({ navigateTo }: IndexProps) => {
       {
         displayGraphs && (
           <>
-            <RealTimeGraph 
+            <PoseGraph 
               joints={settings.selectedJoints}
               valueTypes={visibleKinematics}
               getDataForJoint={(joint) => {
