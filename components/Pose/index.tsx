@@ -348,7 +348,7 @@ const Index = ({ navigateTo }: IndexProps) => {
               }}
               maxPoints={50}
               maxPointsThreshold={60}
-              parentStyles="z-0 h-[50dvh] border border-solid border-green-500"
+              parentStyles="z-0 h-[50dvh]"
               />
 
             <PoseGraphSettingsModal 
