@@ -35,11 +35,11 @@ const Index = ({
 
   return (
     <div 
-      className='fixed z-10 bottom-0 left-0 w-full h-[15dvh] bg-gradient-to-b from-black/40 to-black rounded-t-lg'
+      className='fixed z-10 bottom-0 left-0 w-full h-[15dvh] flex items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg'
       data-element="modal"
       onClick={handleModal}
       >
-        <form className='flex flex-col justify-center px-4 py-2 gap-4'>
+        <form className='w-full flex flex-col justify-center px-8 py-2 gap-4'>
           <div className='w-full flex justify-between'>
             <label
               htmlFor='time-window'
