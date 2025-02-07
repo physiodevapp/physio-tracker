@@ -7,7 +7,7 @@ import { JointDataMap, JointConfigMap, CanvasKeypointName, CanvasKeypointData, P
 import { drawKeypointConnections, drawKeypoints } from "@/services/draw";
 import { updateKeypointVelocity } from "@/services/keypoint";
 import { updateJoint } from "@/services/joint";
-import RealTimeGraph from "../PoseGraph";
+import PoseGraph from "../PoseGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
 import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon } from "@heroicons/react/24/solid";
@@ -332,7 +332,7 @@ const Index = ({ navigateTo }: IndexProps) => {
       {
         displayGraphs && (
           <>
-            <RealTimeGraph 
+            <PoseGraph 
               joints={settings.selectedJoints}
               valueTypes={visibleKinematics}
               getDataForJoint={(joint) => {

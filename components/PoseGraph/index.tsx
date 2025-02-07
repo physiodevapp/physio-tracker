@@ -219,7 +219,7 @@ const Index = ({
   return (
     <div className={parentStyles}>
       <Line
-        className="pb-2"
+        className="pb-2 bg-white"
         data={{
           // Al usar puntos con x e y, no se requiere definir "labels"
           datasets: datasets,
