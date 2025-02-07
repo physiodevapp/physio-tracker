@@ -1,11 +1,12 @@
-import { Keypoint, KeypointData } from "@/interfaces/pose";
+import { CanvasKeypointName, CanvasKeypointData } from "@/interfaces/pose";
 import * as poseDetection from "@tensorflow-models/pose-detection";
+import { getColorsForJoint } from "./joint";
 
 interface DrawKeypointsOptions {
   ctx: CanvasRenderingContext2D;
   keypoints: poseDetection.Keypoint[];
-  selectedKeypoint?: Keypoint | null;
-  keypointData?: KeypointData | null;
+  selectedKeypoint?: CanvasKeypointName | null;
+  keypointData?: CanvasKeypointData | null;
   pointColor?: string;
   pointRadius?: number;
   mirror?: boolean;
@@ -14,9 +15,9 @@ interface DrawKeypointsOptions {
 export const drawKeypoints = ({
   ctx,
   keypoints,
+  pointColor,
   selectedKeypoint = null,  
-  keypointData = null,      
-  pointColor = "white",     
+  keypointData = null,   
   pointRadius = 5,         
   mirror = false,           
 }: DrawKeypointsOptions) => {
@@ -43,7 +44,7 @@ export const drawKeypoints = ({
     // Dibujar el punto del keypoint  
     ctx.beginPath();
     ctx.arc(x, y, pointRadius, 0, 2 * Math.PI);
-    ctx.fillStyle = pointColor;
+    ctx.fillStyle = pointColor ?? getColorsForJoint(kp.name ?? null).borderColor;
     ctx.fill();
   });
 };
@@ -51,7 +52,7 @@ export const drawKeypoints = ({
 interface DrawKeypointConnectionsOptions {
   ctx: CanvasRenderingContext2D;
   keypoints: poseDetection.Keypoint[];
-  keypointPairs: [Keypoint, Keypoint][];
+  keypointPairs: [CanvasKeypointName, CanvasKeypointName][];
   strokeStyle?: string;
   lineWidth?: number;
   mirror?: boolean;

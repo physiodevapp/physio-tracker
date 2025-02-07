@@ -1,6 +1,6 @@
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { drawAngle, drawAngularVelocity } from "./draw";
-import { JointData, Keypoint, UpdateJointParams } from "../interfaces/pose";
+import { JointColors, JointData, CanvasKeypointName, UpdateJointParams } from "../interfaces/pose";
 
 const calculateJointAngleDegrees = (
   A: poseDetection.Keypoint,
@@ -37,34 +37,34 @@ const calculateJointAngleDegrees = (
 };
 
 const getJointPoints = (
-  jointName: Keypoint
-): [Keypoint, Keypoint, Keypoint] | null => {
+  jointName: CanvasKeypointName
+): [CanvasKeypointName, CanvasKeypointName, CanvasKeypointName] | null => {
   switch (jointName) {
-    case Keypoint.RIGHT_ELBOW:
+    case CanvasKeypointName.RIGHT_ELBOW:
       return [
-        Keypoint.RIGHT_SHOULDER,
-        Keypoint.RIGHT_ELBOW,
-        Keypoint.RIGHT_WRIST,
+        CanvasKeypointName.RIGHT_SHOULDER,
+        CanvasKeypointName.RIGHT_ELBOW,
+        CanvasKeypointName.RIGHT_WRIST,
       ];
-    case Keypoint.RIGHT_KNEE:
-      return [Keypoint.RIGHT_HIP, Keypoint.RIGHT_KNEE, Keypoint.RIGHT_ANKLE];
-    case Keypoint.RIGHT_SHOULDER:
+    case CanvasKeypointName.RIGHT_KNEE:
+      return [CanvasKeypointName.RIGHT_HIP, CanvasKeypointName.RIGHT_KNEE, CanvasKeypointName.RIGHT_ANKLE];
+    case CanvasKeypointName.RIGHT_SHOULDER:
       return [
-        Keypoint.RIGHT_HIP,
-        Keypoint.RIGHT_SHOULDER,
-        Keypoint.RIGHT_ELBOW,
+        CanvasKeypointName.RIGHT_HIP,
+        CanvasKeypointName.RIGHT_SHOULDER,
+        CanvasKeypointName.RIGHT_ELBOW,
       ];
-    case Keypoint.RIGHT_HIP:
-      return [Keypoint.RIGHT_SHOULDER, Keypoint.RIGHT_HIP, Keypoint.RIGHT_KNEE];
+    case CanvasKeypointName.RIGHT_HIP:
+      return [CanvasKeypointName.RIGHT_SHOULDER, CanvasKeypointName.RIGHT_HIP, CanvasKeypointName.RIGHT_KNEE];
 
-    case Keypoint.LEFT_ELBOW:
-      return [Keypoint.LEFT_SHOULDER, Keypoint.LEFT_ELBOW, Keypoint.LEFT_WRIST];
-    case Keypoint.LEFT_KNEE:
-      return [Keypoint.LEFT_HIP, Keypoint.LEFT_KNEE, Keypoint.LEFT_ANKLE];
-    case Keypoint.LEFT_SHOULDER:
-      return [Keypoint.LEFT_HIP, Keypoint.LEFT_SHOULDER, Keypoint.LEFT_ELBOW];
-    case Keypoint.LEFT_HIP:
-      return [Keypoint.LEFT_SHOULDER, Keypoint.LEFT_HIP, Keypoint.LEFT_KNEE];
+    case CanvasKeypointName.LEFT_ELBOW:
+      return [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.LEFT_ELBOW, CanvasKeypointName.LEFT_WRIST];
+    case CanvasKeypointName.LEFT_KNEE:
+      return [CanvasKeypointName.LEFT_HIP, CanvasKeypointName.LEFT_KNEE, CanvasKeypointName.LEFT_ANKLE];
+    case CanvasKeypointName.LEFT_SHOULDER:
+      return [CanvasKeypointName.LEFT_HIP, CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.LEFT_ELBOW];
+    case CanvasKeypointName.LEFT_HIP:
+      return [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.LEFT_HIP, CanvasKeypointName.LEFT_KNEE];
 
     default:
       return null; // Si la articulación no es reconocida, devolver null
@@ -72,7 +72,7 @@ const getJointPoints = (
 };
 
 const getJointKeypoints = (
-  jointName: Keypoint,
+  jointName: CanvasKeypointName,
   keypoints: poseDetection.Keypoint[]
 ):
   | [poseDetection.Keypoint, poseDetection.Keypoint, poseDetection.Keypoint]
@@ -90,6 +90,69 @@ const getJointKeypoints = (
 
   return [kpA, kpB, kpC];
 };
+
+// export enum CanvasKeypointName {
+//   LEFT_SHOULDER = "left_shoulder",
+//   LEFT_ELBOW = "left_elbow",
+//   LEFT_WRIST = "left_wrist",
+//   LEFT_HIP = "left_hip",
+//   LEFT_KNEE = "left_knee",
+//   LEFT_ANKLE = "left_ankle",
+//   RIGHT_SHOULDER = "right_shoulder",
+//   RIGHT_ELBOW = "right_elbow",
+//   RIGHT_WRIST = "right_wrist",
+//   RIGHT_HIP = "right_hip",
+//   RIGHT_KNEE = "right_knee",
+//   RIGHT_ANKLE = "right_ankle",
+// }
+
+// export interface JointColors {
+//   borderColor: string;
+//   backgroundColor: string;
+// }
+
+export const getColorsForJoint = (jointName: string | null): JointColors => {
+  // Si es null o no está en el enum, retorna blanco
+  if (
+    jointName === null ||
+    !(Object.values(CanvasKeypointName) as string[]).includes(jointName)
+  ) {
+    return {
+      borderColor: "white",
+      backgroundColor: "white"
+    };
+  }
+
+  // Calculamos un hash basado en el string
+  let hash = 0;
+  for (let i = 0; i < jointName.length; i++) {
+    hash = jointName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const absHash = Math.abs(hash);
+
+  // Determinamos si el nombre contiene "right" o "left"
+  const lowerName = jointName.toLowerCase();
+  const isRight = lowerName.includes("right") && !lowerName.includes("left");
+  const isLeft = lowerName.includes("left") && !lowerName.includes("right");
+
+  let baseHue: number;
+  if (isRight) {
+    // Para articulaciones del lado derecho, hue en [0, 180)
+    baseHue = absHash % 180;
+  } else if (isLeft) {
+    // Para articulaciones del lado izquierdo, hue en [180, 360)
+    baseHue = (absHash % 180) + 180;
+  } else {
+    // Si no se especifica lado, usamos el rango completo
+    baseHue = absHash % 360;
+  }
+
+  return {
+    borderColor: `hsl(${baseHue}, 70%, 50%)`,
+    backgroundColor: `hsla(${baseHue}, 70%, 50%, 0.2)`
+  };
+};
+
 
 export const updateJoint = ({
   ctx,
@@ -113,6 +176,7 @@ export const updateJoint = ({
         angularVelocity: 0,
         angularVelocityHistory: [],
         angleHistory: [],
+        color: getColorsForJoint(null),
       }
     );
   }
@@ -131,6 +195,7 @@ export const updateJoint = ({
         angularVelocity: 0,
         angularVelocityHistory: [],
         angleHistory: [],
+        color: getColorsForJoint(null),
       };
     } else {
       const prevData = jointData;
@@ -171,6 +236,7 @@ export const updateJoint = ({
         angularVelocity: smoothedAngularVelocity,
         angularVelocityHistory: prevData.angularVelocityHistory,
         angleHistory: prevData.angleHistory,
+        color: getColorsForJoint(jointName),
       };
     }
   } else {
@@ -182,12 +248,14 @@ export const updateJoint = ({
         angularVelocity: 0,
         angularVelocityHistory: [],
         angleHistory: [],
+        color: getColorsForJoint(null),
       };
     } else {
       jointData = {
         ...jointData,
         angle: angleNow,
         lastTimestamp: timeNow,
+        color: getColorsForJoint(jointName)
       };
     }
   }

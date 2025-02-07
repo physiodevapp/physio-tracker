@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { TensorFlowProvider } from "@/providers/TensorFlowContext";
 import ClientProvidersWrapper from "@/providers/ClientProvidersWrapper";
 
 const geistSans = Geist({
@@ -29,11 +28,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <TensorFlowProvider>
-          <ClientProvidersWrapper>
-            {children}
-          </ClientProvidersWrapper> 
-        </TensorFlowProvider>
+        <ClientProvidersWrapper>
+          {children}
+        </ClientProvidersWrapper> 
       </body>
     </html>
   );

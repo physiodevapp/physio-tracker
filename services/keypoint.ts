@@ -1,15 +1,15 @@
-import { Keypoint, KeypointData } from "@/interfaces/pose";
+import { CanvasKeypointName, CanvasKeypointData } from "@/interfaces/pose";
 // import { RefObject } from "react";
 import * as poseDetection from "@tensorflow-models/pose-detection";
 
 
 export const updateKeypointVelocity = (
     keypoints: poseDetection.Keypoint[],
-    selectedKeypoint: Keypoint | null,
-    keypointData: KeypointData | null,
+    selectedKeypoint: CanvasKeypointName | null,
+    keypointData: CanvasKeypointData | null,
     velocityHistorySize: number,
     movementThreshold: number = 2 // Umbral para ignorar fluctuaciones pequeñas
-  ): KeypointData | null => {
+  ): CanvasKeypointData | null => {
     let velocity = null;
     let smoothedVelocity = null;
   

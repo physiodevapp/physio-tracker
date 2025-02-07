@@ -1,4 +1,4 @@
-export interface CheckboxItem {
+export interface checkbox {
   label: string;
   value: string;
   defaultChecked?: boolean; // Si es true (o está sin definir), el checkbox se marcará por defecto
