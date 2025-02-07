@@ -267,14 +267,11 @@ export const RealTimeGraph = ({
               title: { display: true, text: "Time (seconds)" },
               ticks: {
                 stepSize: 1,
-                // stepSize: Math.max(
-                //   1,
-                //   Math.ceil((normalizedMaxX - normalizedMinX) / 10)
-                // ),
                 maxTicksLimit: 12,
                 callback: (value) => {
                   // Si el valor es negativo, no se muestra nada.
                   if (Number(value) < 0) return "";
+                  
                   return Number(value).toFixed(0);
                 },
               },

@@ -5,53 +5,27 @@ import { checkbox } from "@/interfaces/checkbox";
 import { CanvasKeypointName } from "@/interfaces/pose";
 import { StopIcon } from "@heroicons/react/24/solid";
 
-interface PoseModalProps {
+interface IndexProps {
   isModalOpen: boolean;
   handleModal: () => void;
   onSelectionChange: (selectedItems: string[]) => void;
   maxSelected?: number;
   jointOptions: checkbox[];
   initialSelectedJoints?: CanvasKeypointName[];
-  initialAngleSmoothing?: number;
-  initialVelocitySmoothing?: number;
-  onAngleSmoothingChange?: (value: number) => void;
-  onAngularVelocitySmoothingChange?: (value: number) => void;
 }
 
-const PoseModal = ({
+const Index = ({
   isModalOpen,
   handleModal,
   onSelectionChange,
   maxSelected = 6,
   jointOptions,
-  onAngleSmoothingChange,
-  onAngularVelocitySmoothingChange,
   initialSelectedJoints = [],
-  initialAngleSmoothing = 5,
-  initialVelocitySmoothing = 5,
-}: PoseModalProps) => {
+}: IndexProps) => {
   // Estado de cada checkbox (por defecto, todos sin marcar)
   const [checkboxStates, setCheckboxStates] = useState<boolean[]>(
     jointOptions.map((joint) => initialSelectedJoints.includes(joint.value as CanvasKeypointName))
   );
-  const [angleSmoothing, setAngleSmoothing] = useState(initialAngleSmoothing);
-  const [angleVelocitySmoothing, setVelocitySmoothing] = useState(initialVelocitySmoothing);
-
-  const handleAngleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Number(event.target.value);
-
-    setAngleSmoothing(value);
-
-    if (onAngleSmoothingChange) onAngleSmoothingChange(value);
-  };
-
-  const handleAngularVelocityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Number(event.target.value);
-
-    setVelocitySmoothing(value);
-
-    if (onAngularVelocitySmoothingChange) onAngularVelocitySmoothingChange(value);
-  };
 
   // Número actual de checkboxes seleccionados
   const selectedCount = checkboxStates.filter(Boolean).length;
@@ -97,27 +71,18 @@ const PoseModal = ({
   return (
     <div
       id="pose-modal"
+      data-element="modal"
       className="fixed w-full h-dvh inset-0 z-50 flex items-center justify-center"
       style={{ backdropFilter: "blur(30px)" }}
       onClick={handleModal}
     >
       <p
-        className="absolute text-white"
-        style={{ top: "1rem", fontSize: "1.6em" }}
+        className="absolute top-4 text-white text-lg bg-black/40 px-4 py-2 rounded-md"
       >
         Track joints
       </p>
       <div
-        className="relative"
-        style={{
-          height: "70vh",
-          backgroundImage: "url('/human.png')",
-          backgroundPosition: "center",
-          backgroundSize: "contain",
-          backgroundRepeat: "no-repeat",
-          aspectRatio: "806/2000",
-          marginBottom: "4rem"
-        }}
+        className="relative h-[70vh] bg-[url('/human.png')] bg-center bg-contain bg-no-repeat aspect-[806/2000]"
         onClick={(e) => {
           e.stopPropagation();
 
@@ -163,45 +128,8 @@ const PoseModal = ({
           </label>
         ))}
       </div>
-      <form className="absolute bottom-0 w-full px-8 py-4 bg-black/40 text-white">
-        <div style={{marginBottom: "0.6rem"}}>
-          <label
-            htmlFor="angle-range"
-            className="block mb-1 text-sm font-medium text-white dark:text-white"
-          >
-            Angle smoothing: {angleSmoothing}
-          </label>
-          <input
-            id="angle-range"
-            type="range"
-            value={angleSmoothing}
-            min="5"
-            max="15"
-            onChange={handleAngleChange}
-            onDragStartCapture={(e) => e.nativeEvent.stopImmediatePropagation()}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-          />
-        </div>
-        <div>
-          <label
-            htmlFor="angularVelocity-range"
-            className="block mb-1 text-sm font-medium text-white dark:text-white"
-          >
-            Velocity smoothing: {angleVelocitySmoothing}
-          </label>
-          <input
-            id="angularVelocity-range"
-            type="range"
-            value={angleVelocitySmoothing}
-            min="5"
-            max="25"
-            onChange={handleAngularVelocityChange}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-          />
-        </div>
-      </form>
     </div>
   );
 };
 
-export default PoseModal;
+export default Index;

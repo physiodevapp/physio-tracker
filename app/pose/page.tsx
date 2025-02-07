@@ -7,16 +7,18 @@ import { JointDataMap, JointConfigMap, CanvasKeypointName, CanvasKeypointData, P
 import { drawKeypointConnections, drawKeypoints } from "@/services/draw";
 import { updateKeypointVelocity } from "@/services/keypoint";
 import { updateJoint } from "@/services/joint";
-import { RealTimeGraph } from "../../components/RealTimeGraph";
+import { RealTimeGraph } from "../../components/PoseGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
-import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon } from "@heroicons/react/24/solid";
+import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon } from "@heroicons/react/24/solid";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
-import PoseModal from "@/modals";
+import PoseModal from "@/modals/Pose";
+import PoseGraphSettingsModal from "@/modals/PoseGraphSettings";
+import PoseSettingsModal from "@/modals/PoseSettings"
 
 const PoseDetector = () => {
-  const { settings, setSelectedJoints, setVelocityHistorySize, setAngularHistorySize } = useSettings();
+  const { settings, setSelectedJoints, setVelocityHistorySize, setAngularHistorySize, setPoseTimeWindow, setPoseUpdateInterval } = useSettings();
 
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
@@ -28,7 +30,9 @@ const PoseDetector = () => {
   const [visibleKinematics, setVisibleKinematics] = useState<Kinematics[]>([Kinematics.ANGLE]);
   const [displayGraphs, setDisplayGraphs] = useState(false);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPoseModalOpen, setIsPoseModalOpen] = useState(false);
+  const [isPoseSettingsModalOpen, setIsPoseSettingsModalOpen] = useState(false);
+  const [isPoseGraphSettingsModalOpen, setIsPoseGraphSettingsModalOpen] = useState(false);
 
   const jointVelocityHistorySizeRef = useRef(settings.velocityHistorySize);
   const jointAngleHistorySizeRef = useRef(settings.angularHistorySize);
@@ -95,25 +99,31 @@ const PoseDetector = () => {
     { label: "Left Knee", value: CanvasKeypointName.LEFT_KNEE },
   ], []);
 
-  const handleAngularHistorySizeChange = (newSize: number) => {
+  const handleAngularHistorySizeChange = useCallback((newSize: number) => {
     if (newSize >= 1 && newSize <= 20) {
       setAngularHistorySize(newSize);
     }
-  };
+  }, []);
   
-  const handleVelocityHistorySizeChange = (newSize: number) => {
+  const handleVelocityHistorySizeChange = useCallback((newSize: number) => {
     if (newSize >= 1 && newSize <= 20) {
       setVelocityHistorySize(newSize);
     }
-  };
+  }, []);
 
   const handleJointSelection = useCallback((selectedJoints: string[]) => {
-    // setVisibleJoints(selectedJoints as CanvasKeypointName[]);
     setSelectedJoints(selectedJoints as CanvasKeypointName[]);
   }, []);
 
+  const handleTimeWindow = useCallback((timeInSeconds: number) => {
+    setPoseTimeWindow(timeInSeconds);
+  }, []);
+  
+  const handleUpdateInterval = useCallback((timeInMiliseconds: number) => {
+    setPoseUpdateInterval(timeInMiliseconds);
+  }, []);
+
   const handleKinematicsSelection = (selectedKinematic: Kinematics) => {
-    // setVisibleKinematics(selectedKinematics as Kinematics[]);
     setVisibleKinematics((prevKinematics) =>
       prevKinematics.includes(selectedKinematic)
         ? prevKinematics.filter((kinematic) => kinematic !== selectedKinematic)
@@ -125,9 +135,25 @@ const PoseDetector = () => {
     setDisplayGraphs((prev) =>!prev);
   };
   
-  const handleModal = () => {
-    setIsModalOpen((prev) => !prev);
+  const handlePoseModal = () => {
+    setIsPoseModalOpen((prev) => !prev);
   }
+
+  const handleSettingsModal = () => {
+    console.log('object -> ', displayGraphs);
+    if (displayGraphs) {
+      setIsPoseGraphSettingsModalOpen((prev) => !prev);
+    } else {
+      setIsPoseSettingsModalOpen((prev) => !prev);
+    }
+  }
+  useEffect(() => {
+    if (displayGraphs) {
+      setIsPoseSettingsModalOpen(false);
+    } else {
+      setIsPoseGraphSettingsModalOpen(false);
+    }
+  }, [displayGraphs])
 
   const updateMultipleJoints = (
     ctx: CanvasRenderingContext2D,
@@ -221,19 +247,17 @@ const PoseDetector = () => {
               const keypoints = poses[0].keypoints.filter(
                 (kp) => kp.score && kp.score > poseSettings.scoreThreshold
               );
-
-              // if (jointOptions.length > 0) {
-
-              // }
               
               // Mostrar velocidad en píxeles de un keypoint seleccionado (virtual)
-              keypointDataRef.current = updateKeypointVelocity(
-                keypoints,
-                selectedKeypointRef.current,
-                keypointDataRef.current,
-                jointVelocityHistorySizeRef.current,
-                2 // Umbral opcional para ignorar fluctuaciones pequeñas
-              );
+              if (selectedKeypointRef.current) {
+                keypointDataRef.current = updateKeypointVelocity(
+                  keypoints,
+                  selectedKeypointRef.current,
+                  keypointDataRef.current,
+                  jointVelocityHistorySizeRef.current,
+                  2 // Umbral opcional para ignorar fluctuaciones pequeñas
+                );
+              }
 
               // Dibujar keypoints en el canvas
               drawKeypoints({ctx, keypoints, selectedKeypoint, keypointData: keypointDataRef.current, mirror: videoConstraintsRef.current.facingMode === "user"});
@@ -287,7 +311,7 @@ const PoseDetector = () => {
         </section>
         
         <section className="absolute top-2 right-0 p-2 flex flex-col justify-between gap-4">
-          <UserIcon className="h-6 w-6 text-white cursor-pointer" onClick={handleModal}/>
+          <UserIcon className="h-6 w-6 text-white cursor-pointer" onClick={handlePoseModal}/>
           { 
             maxKinematicsAllowed > 1 && (
               <ChevronDoubleDownIcon 
@@ -298,44 +322,64 @@ const PoseDetector = () => {
                 />
             )
           }
+          <Cog6ToothIcon 
+            className="h-6 w-6 text-white cursor-pointer"
+            onClick={handleSettingsModal}
+            />
         </section>
 
         <PoseModal 
-          isModalOpen={isModalOpen} 
-          handleModal={handleModal} 
+          isModalOpen={isPoseModalOpen} 
+          handleModal={handlePoseModal} 
           jointOptions={jointOptions}
           maxSelected={maxJointsAllowed }
           initialSelectedJoints={settings.selectedJoints} 
-          initialAngleSmoothing={settings.angularHistorySize}
-          initialVelocitySmoothing={settings.velocityHistorySize}
           onSelectionChange={handleJointSelection} 
+          />
+
+        <PoseSettingsModal 
+          isModalOpen={isPoseSettingsModalOpen}
+          handleModal={handleSettingsModal}
           onAngleSmoothingChange={handleAngularHistorySizeChange}
           onAngularVelocitySmoothingChange={handleVelocityHistorySizeChange}
+          initialAngleSmoothing={settings.angularHistorySize}
+          initialVelocitySmoothing={settings.velocityHistorySize}
           />
       </div> 
 
       {
         displayGraphs && (
-          <RealTimeGraph
-            joints={settings.selectedJoints}
-            valueTypes={visibleKinematics}
-            getDataForJoint={(joint) => {
-              const data = jointDataRef.current[joint];
-              return data
-                ? { 
-                    timestamp: data.lastTimestamp, 
-                    angle: data.angle, 
-                    angularVelocity: data.angularVelocity ,
-                    color: data.color
-                  }
-                : null;
-            }}
-            timeWindow={10000}
-            updateInterval={300}
-            maxPoints={50}
-            maxPointsThreshold={60}
-            parentStyles="z-0 h-[50dvh] border border-solid border-green-500"
-            />
+          <>
+            <RealTimeGraph 
+              joints={settings.selectedJoints}
+              valueTypes={visibleKinematics}
+              getDataForJoint={(joint) => {
+                const data = jointDataRef.current[joint];
+                return data
+                  ? { 
+                      timestamp: data.lastTimestamp, 
+                      angle: data.angle, 
+                      angularVelocity: data.angularVelocity ,
+                      color: data.color
+                    }
+                  : null;
+              }}
+              timeWindow={settings.poseTimeWindow}
+              updateInterval={settings.poseUpdateInterval}
+              maxPoints={50}
+              maxPointsThreshold={60}
+              parentStyles="z-0 h-[50dvh] border border-solid border-green-500"
+              />
+
+            <PoseGraphSettingsModal 
+              isModalOpen={isPoseGraphSettingsModalOpen}
+              handleModal={handleSettingsModal}
+              onTimeWindowChange={handleTimeWindow}
+              onUpdateIntervalChange={handleUpdateInterval}
+              initialTimeWindow={10}
+              initialUpdateInterval={300}
+              />
+          </>
         )
       }
     </>

@@ -8,6 +8,8 @@ interface Settings {
   selectedJoints: CanvasKeypointName[];
   angularHistorySize: number;
   velocityHistorySize: number;
+  poseTimeWindow: number;
+  poseUpdateInterval: number;
 }
 
 // Definimos la interfaz del contexto para incluir el estado y las funciones de actualización
@@ -16,6 +18,8 @@ interface SettingsContextProps {
   setSelectedJoints: (joints: CanvasKeypointName[]) => void;
   setAngularHistorySize: (size: number) => void;
   setVelocityHistorySize: (size: number) => void;
+  setPoseTimeWindow: (timeInSeconds: number) => void;
+  setPoseUpdateInterval: (timeInMiliseconds: number) => void;
 }
 
 // Creamos el contexto
@@ -33,9 +37,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
       return stored
         ? JSON.parse(stored)
-        : { selectedJoints: [], angularHistorySize: 5, velocityHistorySize: 1 };
+        : { selectedJoints: [], angularHistorySize: 5, velocityHistorySize: 5, poseTimeWindow: 10, poseUpdateInterval: 300 };
     }
-    return { selectedJoints: [], angularHistorySize: 5, velocityHistorySize: 1 };
+    return { selectedJoints: [], angularHistorySize: 5, velocityHistorySize: 5, poseTimeWindow: 10, poseUpdateInterval: 300 };
   });
 
   const setSelectedJoints = (joints: CanvasKeypointName[]) => {
@@ -54,6 +58,14 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     }
   };
 
+  const setPoseTimeWindow = (timeInSeconds: number) => {
+    setSettings(prev => ({...prev, poseTimeWindow: timeInSeconds}));
+  }
+
+  const setPoseUpdateInterval = (timeInMiliseconds: number) => {
+    setSettings(prev => ({...prev, setPoseUpdateInterval: timeInMiliseconds}))
+  }
+
   useEffect(() => {
     localStorage.setItem("poseSettings", JSON.stringify(settings));
   }, [settings]);
@@ -65,6 +77,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setSelectedJoints,
         setAngularHistorySize,
         setVelocityHistorySize,
+        setPoseTimeWindow,
+        setPoseUpdateInterval
       }}
     >
       {children}
