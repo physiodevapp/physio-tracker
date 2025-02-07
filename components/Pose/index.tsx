@@ -1,13 +1,13 @@
 "use client";
 
-import { Fragment, RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam"; // Importación del convertidor de modelos
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { JointDataMap, JointConfigMap, CanvasKeypointName, CanvasKeypointData, PoseSettings, Kinematics } from "@/interfaces/pose";
 import { drawKeypointConnections, drawKeypoints } from "@/services/draw";
 import { updateKeypointVelocity } from "@/services/keypoint";
 import { updateJoint } from "@/services/joint";
-import RealTimeGraph from "../../components/PoseGraph";
+import RealTimeGraph from "../PoseGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
 import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon } from "@heroicons/react/24/solid";
@@ -15,14 +15,14 @@ import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Pose";
 import PoseGraphSettingsModal from "@/modals/PoseGraphSettings";
-import PoseSettingsModal from "@/modals/PoseSettings"
+import PoseSettingsModal from "@/modals/PoseSettings";
 
-interface PageProps {
-  navigateTo?: () => void;
+interface IndexProps {
+  navigateTo: (path: 'pose' | 'strength') => void;
 }
 
-const Page = ({ navigateTo }: PageProps) => {
-  const { settings, setSelectedJoints, setVelocityHistorySize, setAngularHistorySize } = useSettings();
+const Index = ({ navigateTo }: IndexProps) => {
+  const { settings, setSelectedJoints } = useSettings();
 
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
@@ -291,7 +291,7 @@ const Page = ({ navigateTo }: PageProps) => {
         <canvas ref={canvasRef} className="absolute object-cover h-full" />
 
         <section className="absolute top-2 left-0 p-2 flex flex-col justify-between gap-4">
-          <DevicePhoneMobileIcon className="h-6 w-6 text-white cursor-pointer rotate-90" onClick={navigateTo}/>
+          <DevicePhoneMobileIcon className="h-6 w-6 text-white cursor-pointer rotate-90" onClick={() => navigateTo('strength')}/>
           <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
           <PresentationChartBarIcon className="h-6 w-6 text-white cursor-pointer" onClick={handleGrahpsVisibility}/>
         </section>
@@ -362,4 +362,4 @@ const Page = ({ navigateTo }: PageProps) => {
   );
 };
 
-export default Page;
+export default Index;

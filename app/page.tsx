@@ -4,11 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { useSwipeable } from 'react-swipeable';
-const Pose = dynamic(() => import('./pose/page').then(mod => mod.default), { ssr: false });
-const Strength = dynamic(() => import('./strength/page').then(mod => mod.default), { ssr: false });
+
+const Pose = dynamic(() => import('../components/Pose').then(mod => mod.default), { ssr: false });
+const Strength = dynamic(() => import('../components/Strength').then(mod => mod.default), { ssr: false });
 
 export default function Home() {
-  const [page, setPage] = useState('pose');
+  const [page, setPage] = useState<'pose' | 'strength'>('pose');
 
   const handlers = useSwipeable({
     onSwipedLeft: (eventData) => {
@@ -36,6 +37,10 @@ export default function Home() {
     animate: { opacity: 1, x: 0 },
     exit: { opacity: 0, x: 10 }
   };
+
+  const navigateTo = (page: 'pose' | 'strength') => { 
+    setPage(page) 
+  };
   
   return (
     <main {...handlers} className='h-dvh overflow-hidden relative'>
@@ -49,7 +54,7 @@ export default function Home() {
             exit="exit"
             transition={{ ease: "easeInOut", duration: 0.25 }}
           >
-            <Pose navigateTo={() => setPage('strength')}/>
+            <Pose navigateTo={navigateTo}/>
           </motion.div>
         ) : (
           <motion.div
