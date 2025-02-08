@@ -10,7 +10,7 @@ import { updateJoint } from "@/services/joint";
 import PoseGraph from "../PoseGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
-import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon, VideoCameraIcon, PlayIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon, VideoCameraIcon, XMarkIcon, PlayPauseIcon } from "@heroicons/react/24/solid";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Pose";
@@ -383,7 +383,7 @@ const Index = ({ navigateTo }: IndexProps) => {
             />
           {
             videoUrl && !showVideo && (
-              <PlayIcon 
+              <PlayPauseIcon 
                 className="h-6 w-6 text-white cursor-pointer"
                 onClick={() => setShowVideo(true)}
                 />
