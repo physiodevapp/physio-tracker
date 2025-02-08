@@ -10,8 +10,8 @@ import { updateJoint } from "@/services/joint";
 import PoseGraph from "../PoseGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
-import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon, VideoCameraIcon, XMarkIcon, PlayPauseIcon } from "@heroicons/react/24/solid";
-import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon, VideoCameraIcon, XMarkIcon, PlayPauseIcon, PlayIcon, PauseIcon } from "@heroicons/react/24/solid";
+import { ArrowPathIcon, BackwardIcon, ForwardIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Pose";
 import PoseGraphSettingsModal from "@/modals/PoseGraphSettings";
@@ -32,6 +32,9 @@ const Index = ({ navigateTo }: IndexProps) => {
   const [capturedChunks, setCapturedChunks] = useState<Blob[]>([]);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [showVideo, setShowVideo] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [estimatedFps, setEstimatedFps] = useState<number | null>(null);
+  const [supportedMediaRecorderType, setSupportedMediaRecorderType] = useState<string>("");
   
   const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
   const [selectedKeypoint] = useState<CanvasKeypointName | null>(null);
@@ -57,6 +60,7 @@ const Index = ({ navigateTo }: IndexProps) => {
   const webcamRef = useRef<Webcam>(null);
   const videoConstraintsRef = useRef(videoConstraints);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const toggleCamera = useCallback(() => {
     setVideoConstraints((prev) => ({
@@ -138,29 +142,69 @@ const Index = ({ navigateTo }: IndexProps) => {
     }
   }
 
-  const handleStartRecording = () => {
+  const handleStartRecording = async () => {
+    setVideoUrl(null);
+
+    // Reinicia los chunks grabados
     setCapturedChunks([]);
 
-    const stream = webcamRef.current?.stream;
+    // Solicita acceso a la cámara con ciertas restricciones
+    await navigator.mediaDevices.getUserMedia({
+      video: {
+        frameRate: { ideal: 60, max: 60 }, // Intenta fijar a 60 fps
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: false,
+    });
 
+    // Obtiene el stream desde el componente react-webcam
+    const stream = webcamRef.current?.stream;
     if (!stream) {
-      console.error('No se pudo acceder al stream de la cámara.');
+      console.error("No se pudo acceder al stream de la cámara.");
       return;
     }
 
+    // Obtiene la pista de video y sus settings para extraer el fps real
+    const videoTrack = stream.getVideoTracks()[0];
+    const settings = videoTrack.getSettings();
+    if (settings.frameRate) {
+      setEstimatedFps(settings.frameRate);
+    } else {
+      setEstimatedFps(null);
+    }
+
+    // Verifica qué tipo de MediaRecorder es soportado y lo guarda en el estado
+    let recorderType = "";
+    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) {
+      recorderType = "video/webm;codecs=vp9";
+    } else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) {
+      recorderType = "video/webm;codecs=vp8";
+    } else {
+      console.warn("Ningún formato compatible encontrado.");
+      recorderType = "video/webm";
+    }
+    setSupportedMediaRecorderType(recorderType);
+
+    // Define las opciones del MediaRecorder (incluyendo el bitrate)
+    const options = {
+      mimeType: recorderType,
+      videoBitsPerSecond: 2500000, // 2.5 Mbps
+    };
+
     try {
-      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      mediaRecorderRef.current = new MediaRecorder(stream, options);
     } catch (e) {
-      console.error('Error al crear MediaRecorder:', e);
+      console.error("Error al crear MediaRecorder:", e);
       return;
     }
 
     if (!mediaRecorderRef.current) {
-      console.error('No se pudo acceder al MediaRecorder.');
-      return ;
+      console.error("No se pudo acceder al MediaRecorder.");
+      return;
     }
 
-    mediaRecorderRef.current.addEventListener('dataavailable', handleDataAvailable);
+    mediaRecorderRef.current.addEventListener("dataavailable", handleDataAvailable);
     mediaRecorderRef.current.start();
 
     setRecording(true);
@@ -188,11 +232,43 @@ const Index = ({ navigateTo }: IndexProps) => {
     }
   };
 
+  const togglePlayback = () => {
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play();
+        setIsPlaying(true);
+      } else {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      }
+    }
+  };
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+  };
+
+  const rewindStep = () => {
+    if (videoRef.current && estimatedFps) {
+      const stepTime = 1 / estimatedFps;
+
+      videoRef.current.currentTime = Math.max(videoRef.current.currentTime - stepTime, 0);
+    }
+  };
+
+  const forwardStep = () => {
+    if (videoRef.current && estimatedFps) {
+      const stepTime = 1 / estimatedFps;
+
+      videoRef.current.currentTime = Math.min(videoRef.current.currentTime + stepTime, videoRef.current.duration);
+    }
+  };
+
   const handleRemoveRecord = () => {
     setShowVideo(false);
 
     setVideoUrl(null);
-  }
+  };
 
   const updateMultipleJoints = (
     ctx: CanvasRenderingContext2D,
@@ -343,7 +419,7 @@ const Index = ({ navigateTo }: IndexProps) => {
     <>
       {
         !detector && (
-          <div className="fixed w-full h-dvh z-100 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
+          <div className="fixed w-full h-dvh z-50 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
             <p>Setting up...</p>
             <ArrowPathIcon className="w-8 h-8 animate-spin"/>
           </div>
@@ -364,23 +440,31 @@ const Index = ({ navigateTo }: IndexProps) => {
         {
           showVideo && videoUrl && (
             <video 
-              src={videoUrl} 
-              controls
-              className={`relative object-cover h-full w-full`}
+              ref={videoRef}
+              src={videoUrl}               
+              className={`relative object-cover h-full w-full ${videoConstraints.facingMode === "user" ? 'scale-x-[-1]' : 'scale-x-[1]'}`}
+              onEnded={handleEnded}
               />
           )
         }
         <canvas ref={canvasRef} className={`absolute object-cover h-full w-full`} />
 
-        <section className="absolute top-1 left-1 p-2 flex flex-col justify-between gap-6 bg-black/40 rounded-full">
+        <section className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-black/40 rounded-full">
           <DevicePhoneMobileIcon 
             className="h-6 w-6 text-white cursor-pointer rotate-90" 
             onClick={() => navigateTo('strength')}
             />
-          <VideoCameraIcon 
-            className={`h-6 w-6 cursor-pointer ${recording ? 'text-red-500 animate-pulse ' : 'text-white'}`}
-            onClick={recording ? handleStopRecording : handleStartRecording}
-            />
+          {
+            !showVideo && (
+              <div>
+                <VideoCameraIcon 
+                  className={`h-6 w-6 cursor-pointer ${recording ? 'text-red-500 animate-pulse ' : 'text-white'}`}
+                  onClick={recording ? handleStopRecording : handleStartRecording}
+                  />
+                  <p className="text-white text-xs text-center">{estimatedFps ?? "FPS"}</p>
+              </div>
+            )
+          }
           {
             videoUrl && !showVideo && (
               <PlayPauseIcon 
@@ -403,7 +487,7 @@ const Index = ({ navigateTo }: IndexProps) => {
             />
         </section>
         
-        <section className="absolute top-1 right-1 p-2 flex flex-col justify-between gap-6 bg-black/40 rounded-full">
+        <section className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full">
           <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
           <UserIcon className="h-6 w-6 text-white cursor-pointer" onClick={handlePoseModal}/>
           { 
@@ -421,6 +505,29 @@ const Index = ({ navigateTo }: IndexProps) => {
             onClick={handleSettingsModal}
             />
         </section>
+        {
+          videoUrl && showVideo && (
+            <section className="absolute bottom-2 z-10 flex gap-4 bg-black/40 rounded-full p-2">
+              <BackwardIcon 
+                className="h-8 w-8 text-white cursor-pointer"
+                onClick={rewindStep}/>
+              {
+                isPlaying
+                ? <PauseIcon 
+                className="h-8 w-8 text-white cursor-pointer"
+                onClick={togglePlayback}
+                />
+                : <PlayIcon 
+                className="h-8 w-8 text-white cursor-pointer"
+                onClick={togglePlayback}
+                />
+              }              
+              <ForwardIcon 
+                className="h-8 w-8 text-white cursor-pointer"
+                onClick={forwardStep}/>
+            </section>
+          )
+        }
 
         <PoseModal 
           isModalOpen={isPoseModalOpen} 
