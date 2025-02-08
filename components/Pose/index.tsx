@@ -345,14 +345,20 @@ const Index = ({ navigateTo }: IndexProps) => {
   }, [displayGraphs]);
 
   useEffect(() => {
-    if (!detector || !webcamRef.current || showVideo) return;
+    if (!detector || (!webcamRef.current && !showVideo) || (!videoRef.current && showVideo)) return;
 
     const analyzeFrame = async () => {
-      if (!detector || !webcamRef.current || !canvasRef.current) return;
+      if (!detector || !canvasRef.current || (!webcamRef.current && !showVideo) || (!videoRef.current && showVideo)) return;
       
       try {
         // Captura el fotograma actual de la webcam
-        const videoElement = webcamRef.current.video;
+        let videoElement;
+        if (showVideo && videoRef.current) {
+          console.log('object');
+          videoElement = videoRef.current;
+        } else if (!showVideo && webcamRef.current) {
+          videoElement = webcamRef.current.video;
+        }
         
         if (videoElement &&
             videoElement.readyState === 4 &&
