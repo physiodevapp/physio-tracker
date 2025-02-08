@@ -10,7 +10,7 @@ import { updateJoint } from "@/services/joint";
 import PoseGraph from "../PoseGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
-import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon } from "@heroicons/react/24/solid";
+import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon, VideoCameraIcon, PlayIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Pose";
@@ -28,29 +28,35 @@ const Index = ({ navigateTo }: IndexProps) => {
     facingMode: "user",
   });
 
+  const [recording, setRecording] = useState(false);
+  const [capturedChunks, setCapturedChunks] = useState<Blob[]>([]);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [showVideo, setShowVideo] = useState(false);
+  
   const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
   const [selectedKeypoint] = useState<CanvasKeypointName | null>(null);
-
+  
   const [visibleKinematics, setVisibleKinematics] = useState<Kinematics[]>([Kinematics.ANGLE]);
   const [displayGraphs, setDisplayGraphs] = useState(false);
-
+  
   const [isPoseModalOpen, setIsPoseModalOpen] = useState(false);
   const [isPoseSettingsModalOpen, setIsPoseSettingsModalOpen] = useState(false);
   const [isPoseGraphSettingsModalOpen, setIsPoseGraphSettingsModalOpen] = useState(false);
-
+  
   const jointVelocityHistorySizeRef = useRef(settings.velocityHistorySize);
   const jointAngleHistorySizeRef = useRef(settings.angularHistorySize);
   
   const selectedKeypointRef = useRef(selectedKeypoint);
   const jointDataRef = useRef<JointDataMap>({});
   const keypointDataRef = useRef<CanvasKeypointData | null>(null);
-
+  
   const visibleJointsRef = useRef(settings.selectedJoints);
   const visibleKinematicsRef = useRef(visibleKinematics);
-
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webcamRef = useRef<Webcam>(null);
   const videoConstraintsRef = useRef(videoConstraints);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
   const toggleCamera = useCallback(() => {
     setVideoConstraints((prev) => ({
@@ -132,6 +138,62 @@ const Index = ({ navigateTo }: IndexProps) => {
     }
   }
 
+  const handleStartRecording = () => {
+    setCapturedChunks([]);
+
+    const stream = webcamRef.current?.stream;
+
+    if (!stream) {
+      console.error('No se pudo acceder al stream de la cámara.');
+      return;
+    }
+
+    try {
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    } catch (e) {
+      console.error('Error al crear MediaRecorder:', e);
+      return;
+    }
+
+    if (!mediaRecorderRef.current) {
+      console.error('No se pudo acceder al MediaRecorder.');
+      return ;
+    }
+
+    mediaRecorderRef.current.addEventListener('dataavailable', handleDataAvailable);
+    mediaRecorderRef.current.start();
+
+    setRecording(true);
+  };
+
+  const handleDataAvailable = (event: BlobEvent) => {
+    if (event.data && event.data.size > 0) {
+      setCapturedChunks((prev) => prev.concat(event.data));
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+    }
+    
+    setRecording(false);
+  };
+  
+  const handlePreview = () => {
+    if (capturedChunks.length) {
+      const blob = new Blob(capturedChunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      setVideoUrl(url);
+    }
+  };
+
+  const handleRemoveRecord = () => {
+    setShowVideo(false);
+
+    setVideoUrl(null);
+  }
+
   const updateMultipleJoints = (
     ctx: CanvasRenderingContext2D,
     keypoints: poseDetection.Keypoint[],
@@ -174,6 +236,13 @@ const Index = ({ navigateTo }: IndexProps) => {
   };
 
   useEffect(() => {
+    if (!recording && capturedChunks.length > 0) {
+      // Se asegura de que la grabación haya terminado y que existan datos
+      handlePreview();
+    }
+  }, [capturedChunks, recording]);
+
+  useEffect(() => {
     selectedKeypointRef.current = selectedKeypoint;
   }, [selectedKeypoint]);
   
@@ -200,7 +269,7 @@ const Index = ({ navigateTo }: IndexProps) => {
   }, [displayGraphs]);
 
   useEffect(() => {
-    if (!detector || !webcamRef.current) return;
+    if (!detector || !webcamRef.current || showVideo) return;
 
     const analyzeFrame = async () => {
       if (!detector || !webcamRef.current || !canvasRef.current) return;
@@ -264,7 +333,7 @@ const Index = ({ navigateTo }: IndexProps) => {
 
     analyzeFrame();
 
-  }, [detector]);
+  }, [detector, showVideo]);
 
   useEffect(() => {
     showMyWebcam();
@@ -274,29 +343,68 @@ const Index = ({ navigateTo }: IndexProps) => {
     <>
       {
         !detector && (
-          <div className="fixed w-full h-dvh z-10 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
+          <div className="fixed w-full h-dvh z-100 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
             <p>Setting up...</p>
             <ArrowPathIcon className="w-8 h-8 animate-spin"/>
           </div>
         )
       }
       <div className={`relative z-0 flex flex-col items-center justify-start ${displayGraphs ? "h-[50dvh]" : "h-dvh"}`}>
-        <Webcam
-          ref={webcamRef}
-          className={`relative object-cover h-full w-full border border-red-500`}
-          videoConstraints={videoConstraints}
-          muted
-          mirrored={videoConstraints.facingMode === "user"}
-        />
+        {
+          !showVideo && (
+            <Webcam
+              ref={webcamRef}
+              className={`relative object-cover h-full w-full`}
+              videoConstraints={videoConstraints}
+              muted
+              mirrored={videoConstraints.facingMode === "user"}
+              />
+          )
+        }
+        {
+          showVideo && videoUrl && (
+            <video 
+              src={videoUrl} 
+              controls
+              className={`relative object-cover h-full w-full`}
+              />
+          )
+        }
         <canvas ref={canvasRef} className={`absolute object-cover h-full w-full`} />
 
-        <section className="absolute top-2 left-0 p-2 flex flex-col justify-between gap-6">
-          <DevicePhoneMobileIcon className="h-6 w-6 text-white cursor-pointer rotate-90" onClick={() => navigateTo('strength')}/>
-          <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
-          <PresentationChartBarIcon className="h-6 w-6 text-white cursor-pointer" onClick={handleGrahpsVisibility}/>
+        <section className="absolute top-1 left-1 p-2 flex flex-col justify-between gap-6 bg-black/40 rounded-full">
+          <DevicePhoneMobileIcon 
+            className="h-6 w-6 text-white cursor-pointer rotate-90" 
+            onClick={() => navigateTo('strength')}
+            />
+          <VideoCameraIcon 
+            className={`h-6 w-6 cursor-pointer ${recording ? 'text-red-500 animate-pulse ' : 'text-white'}`}
+            onClick={recording ? handleStopRecording : handleStartRecording}
+            />
+          {
+            videoUrl && !showVideo && (
+              <PlayIcon 
+                className="h-6 w-6 text-white cursor-pointer"
+                onClick={() => setShowVideo(true)}
+                />
+            )
+          }
+          {
+            videoUrl && showVideo && (
+              <XMarkIcon 
+                className="h-6 w-6 text-white cursor-pointer"
+                onClick={handleRemoveRecord}
+                />
+            )
+          }
+          <PresentationChartBarIcon 
+            className="h-6 w-6 text-white cursor-pointer" 
+            onClick={handleGrahpsVisibility}
+            />
         </section>
         
-        <section className="absolute top-2 right-0 p-2 flex flex-col justify-between gap-6">
+        <section className="absolute top-1 right-1 p-2 flex flex-col justify-between gap-6 bg-black/40 rounded-full">
+          <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
           <UserIcon className="h-6 w-6 text-white cursor-pointer" onClick={handlePoseModal}/>
           { 
             maxKinematicsAllowed > 1 && (
