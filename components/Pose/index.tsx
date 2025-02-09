@@ -10,7 +10,7 @@ import { updateJoint } from "@/services/joint";
 import PoseGraph from "../PoseGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
-import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon, VideoCameraIcon, XMarkIcon, PlayPauseIcon, PlayIcon, PauseIcon } from "@heroicons/react/24/solid";
+import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon, VideoCameraIcon, PlayPauseIcon, PlayIcon, PauseIcon, TrashIcon } from "@heroicons/react/24/solid";
 import { ArrowPathIcon, BackwardIcon, ForwardIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Pose";
@@ -35,6 +35,7 @@ const Index = ({ navigateTo }: IndexProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [estimatedFps, setEstimatedFps] = useState<number | null>(null);
   const [supportedMediaRecorderType, setSupportedMediaRecorderType] = useState<string>("");
+  const [videoFinished, setVideoFinished] = useState(false);
   
   const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
   const [selectedKeypoint] = useState<CanvasKeypointName | null>(null);
@@ -228,14 +229,26 @@ const Index = ({ navigateTo }: IndexProps) => {
     if (capturedChunks.length) {
       const blob = new Blob(capturedChunks, { type: 'video/webm' });
       const url = URL.createObjectURL(blob);
+
       setVideoUrl(url);
+
+      setIsPoseModalOpen(true);
     }
   };
+
+  const handleFirstPlay = () => {
+    if (visibleJointsRef.current.length > 0) {
+      setShowVideo(true);
+    } else {
+      setIsPoseModalOpen(true);
+    }
+  }
 
   const togglePlayback = () => {
     if (videoRef.current) {
       if (videoRef.current.paused) {
         videoRef.current.play();
+
         setIsPlaying(true);
       } else {
         videoRef.current.pause();
@@ -246,6 +259,10 @@ const Index = ({ navigateTo }: IndexProps) => {
 
   const handleEnded = () => {
     setIsPlaying(false);
+
+    if (!videoFinished) {
+      setVideoFinished(true);
+    }
   };
 
   const rewindStep = () => {
@@ -319,6 +336,12 @@ const Index = ({ navigateTo }: IndexProps) => {
   }, [capturedChunks, recording]);
 
   useEffect(() => {
+    if (!videoFinished && settings.selectedJoints.length > 0) {
+      togglePlayback();
+    }
+  }, [showVideo])
+
+  useEffect(() => {
     selectedKeypointRef.current = selectedKeypoint;
   }, [selectedKeypoint]);
   
@@ -345,16 +368,15 @@ const Index = ({ navigateTo }: IndexProps) => {
   }, [displayGraphs]);
 
   useEffect(() => {
-    if (!detector || (!webcamRef.current && !showVideo) || (!videoRef.current && showVideo)) return;
+    if (!detector || (showVideo ? !videoRef.current : !webcamRef.current)) return;
 
     const analyzeFrame = async () => {
-      if (!detector || !canvasRef.current || (!webcamRef.current && !showVideo) || (!videoRef.current && showVideo)) return;
+      if (!detector || !canvasRef.current || (showVideo ? !videoRef.current : !webcamRef.current)) return;
       
       try {
         // Captura el fotograma actual de la webcam
         let videoElement;
         if (showVideo && videoRef.current) {
-          console.log('object');
           videoElement = videoRef.current;
         } else if (!showVideo && webcamRef.current) {
           videoElement = webcamRef.current.video;
@@ -464,7 +486,7 @@ const Index = ({ navigateTo }: IndexProps) => {
             !showVideo && (
               <div>
                 <VideoCameraIcon 
-                  className={`h-6 w-6 cursor-pointer ${recording ? 'text-red-500 animate-pulse ' : 'text-white'}`}
+                  className={`h-6 w-6 cursor-pointer ${recording ? 'text-green-500 animate-pulse ' : 'text-white'}`}
                   onClick={recording ? handleStopRecording : handleStartRecording}
                   />
                   <p className="text-white text-xs text-center">{estimatedFps ?? "FPS"}</p>
@@ -475,14 +497,14 @@ const Index = ({ navigateTo }: IndexProps) => {
             videoUrl && !showVideo && (
               <PlayPauseIcon 
                 className="h-6 w-6 text-white cursor-pointer"
-                onClick={() => setShowVideo(true)}
+                onClick={handleFirstPlay}
                 />
             )
           }
           {
             videoUrl && showVideo && (
-              <XMarkIcon 
-                className="h-6 w-6 text-white cursor-pointer"
+              <TrashIcon 
+                className="h-6 w-6 text-red-500 cursor-pointer"
                 onClick={handleRemoveRecord}
                 />
             )
@@ -512,7 +534,7 @@ const Index = ({ navigateTo }: IndexProps) => {
             />
         </section>
         {
-          videoUrl && showVideo && (
+          videoFinished && videoUrl && showVideo && (
             <section className="absolute bottom-2 z-10 flex gap-4 bg-black/40 rounded-full p-2">
               <BackwardIcon 
                 className="h-8 w-8 text-white cursor-pointer"
@@ -569,6 +591,7 @@ const Index = ({ navigateTo }: IndexProps) => {
               }}
               maxPoints={50}
               maxPointsThreshold={60}
+              pauseUpdates={videoFinished}
               parentStyles="z-0 h-[50dvh]"
               />
 

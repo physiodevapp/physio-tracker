@@ -45,6 +45,7 @@ interface IndexProps {
   parentStyles?: string; // Estilos CSS para el contenedor
   maxPoints?: number; // Número máximo de puntos a mantener por set de datos (por defecto 50)
   maxPointsThreshold?: number;
+  pauseUpdates?: boolean;
 }
 
 const Index = ({
@@ -54,6 +55,7 @@ const Index = ({
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
   maxPoints = 50,
   maxPointsThreshold = 80,
+  pauseUpdates = false,
 }: IndexProps) => {
   const { settings } = useSettings();
 
@@ -138,7 +140,7 @@ const Index = ({
       const now = performance.now();
       setCurrentTime(now);
   
-      if (now - lastUpdate >= settings.poseUpdateInterval) {
+      if (!pauseUpdates && now - lastUpdate >= settings.poseUpdateInterval) {
         joints.forEach((joint) => {
           const newData = getDataForJoint(joint);
           if (newData) {
@@ -208,7 +210,7 @@ const Index = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [getDataForJoint, joints, settings.poseUpdateInterval, maxPoints]);
+  }, [getDataForJoint, joints, settings.poseUpdateInterval, maxPoints, pauseUpdates]);
 
   useEffect(() => {
     startTimeRef.current = performance.now();
