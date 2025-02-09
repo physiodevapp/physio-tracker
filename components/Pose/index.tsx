@@ -135,7 +135,6 @@ const Index = ({ navigateTo }: IndexProps) => {
   }
 
   const handleSettingsModal = () => {
-    console.log('object -> ', displayGraphs);
     if (displayGraphs) {
       setIsPoseGraphSettingsModalOpen((prev) => !prev);
     } else {
@@ -264,6 +263,12 @@ const Index = ({ navigateTo }: IndexProps) => {
 
     if (!videoFinished) {
       setVideoFinished(true);
+    }
+  };
+
+  const handlePointClick = (time: number) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = time;
     }
   };
 
@@ -483,7 +488,9 @@ const Index = ({ navigateTo }: IndexProps) => {
         }
         <canvas ref={canvasRef} className={`absolute object-cover h-full w-full`} />
 
-        <section className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-black/40 rounded-full">
+        <section 
+          data-element="non-swipeable"
+          className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-black/40 rounded-full">
           <DevicePhoneMobileIcon 
             className="h-6 w-6 text-white cursor-pointer rotate-90" 
             onClick={() => navigateTo('strength')}
@@ -516,12 +523,16 @@ const Index = ({ navigateTo }: IndexProps) => {
             )
           }
           <PresentationChartBarIcon 
+            data-element="non-swipeable"
             className="h-6 w-6 text-white cursor-pointer" 
             onClick={handleGrahpsVisibility}
             />
         </section>
         
-        <section className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full">
+        <section 
+          data-element="non-swipeable"
+          className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
+          >
           <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
           <UserIcon className="h-6 w-6 text-white cursor-pointer" onClick={handlePoseModal}/>
           { 
@@ -598,6 +609,7 @@ const Index = ({ navigateTo }: IndexProps) => {
                     }
                   : null;
               }}
+              onPointClick={handlePointClick}
               maxPoints={50}
               maxPointsThreshold={60}
               pauseUpdates={videoFinished}

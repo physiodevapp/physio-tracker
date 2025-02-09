@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
+  ActiveElement,
   CategoryScale,
   LinearScale,
   PointElement,
@@ -10,6 +11,7 @@ import {
   Tooltip,
   Legend,
   ChartDataset,
+  ChartEvent,
 } from "chart.js";
 import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
 import { getColorsForJoint } from "@/services/joint";
@@ -42,6 +44,7 @@ interface IndexProps {
     angularVelocity: number;
     color: JointColors;
   } | null;
+  onPointClick: (time: number) => void;
   parentStyles?: string; // Estilos CSS para el contenedor
   maxPoints?: number; // Número máximo de puntos a mantener por set de datos (por defecto 50)
   maxPointsThreshold?: number;
@@ -52,6 +55,7 @@ const Index = ({
   joints,
   valueTypes = [Kinematics.ANGLE],
   getDataForJoint,
+  onPointClick, 
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
   maxPoints = 50,
   maxPointsThreshold = 80,
@@ -76,6 +80,8 @@ const Index = ({
   const [currentTime, setCurrentTime] = useState(performance.now());
   // Ref para almacenar el tiempo inicial global (se fija la primera vez que se recibe un dato)
   const startTimeRef = useRef<number | null>(null);
+
+  const chartRef = useRef<ChartJS<"line", DataPoint[], unknown>>(null);
 
   const transformJointName = (joint: string): string => {
     const words = joint.split("_");
@@ -132,6 +138,24 @@ const Index = ({
     : currentTime / 1000;
   const normalizedMinX = normalizedMaxX - settings.poseTimeWindow;
 
+  const handleChartClick = (
+    activeElements: ActiveElement[],
+    chart: ChartJS<"line", DataPoint[], unknown>
+  ) => {
+    // Verificamos si se hizo click sobre algún punto
+    if (activeElements && activeElements.length > 0) {
+      // Suponemos que tomamos el primer elemento activo
+      const firstElement = activeElements[0];
+      const index = firstElement.index;
+      // Asumimos que queremos el dato del primer dataset; ajusta según tus necesidades
+      const dataPoint = chart.data.datasets[0].data[index] as DataPoint;
+      if (dataPoint && typeof dataPoint.x === "number") {
+        // Llamamos al callback pasando el valor de x (tiempo en segundos)
+        onPointClick(dataPoint.x);
+      }
+    }
+  };
+
   useEffect(() => {
     // Si está en modo pausa, no iniciamos el ciclo de actualización.
     if (pauseUpdates) {
@@ -144,7 +168,7 @@ const Index = ({
     const update = () => {
       const now = performance.now();
       setCurrentTime(now);
-      console.log('pauseUpdates -> ', pauseUpdates);
+
       if (now - lastUpdate >= settings.poseUpdateInterval) {
         joints.forEach((joint) => {
           const newData = getDataForJoint(joint);
@@ -226,6 +250,7 @@ const Index = ({
   return (
     <div className={parentStyles}>
       <Line
+        ref={chartRef}
         className="pb-2 bg-white"
         data={{
           // Al usar puntos con x e y, no se requiere definir "labels"
@@ -235,6 +260,13 @@ const Index = ({
           responsive: true,
           animation: false,
           maintainAspectRatio: false,
+          onClick: (
+            event:ChartEvent,
+            activeElements: ActiveElement[], 
+            chart: ChartJS<"line", DataPoint[], unknown> 
+          ) => {
+            handleChartClick(activeElements, chart);
+          },
           plugins: {
             legend: {
               display: true,
