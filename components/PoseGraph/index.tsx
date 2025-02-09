@@ -133,14 +133,19 @@ const Index = ({
   const normalizedMinX = normalizedMaxX - settings.poseTimeWindow;
 
   useEffect(() => {
+    // Si está en modo pausa, no iniciamos el ciclo de actualización.
+    if (pauseUpdates) {
+      return;
+    }
+
     let lastUpdate = performance.now();
     let animationFrameId: number;
 
     const update = () => {
       const now = performance.now();
       setCurrentTime(now);
-  
-      if (!pauseUpdates && now - lastUpdate >= settings.poseUpdateInterval) {
+      console.log('pauseUpdates -> ', pauseUpdates);
+      if (now - lastUpdate >= settings.poseUpdateInterval) {
         joints.forEach((joint) => {
           const newData = getDataForJoint(joint);
           if (newData) {

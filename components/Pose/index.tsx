@@ -238,6 +238,8 @@ const Index = ({ navigateTo }: IndexProps) => {
 
   const handleFirstPlay = () => {
     if (visibleJointsRef.current.length > 0) {
+      setDisplayGraphs(true);
+
       setShowVideo(true);
     } else {
       setIsPoseModalOpen(true);
@@ -285,6 +287,10 @@ const Index = ({ navigateTo }: IndexProps) => {
     setShowVideo(false);
 
     setVideoUrl(null);
+
+    setVideoFinished(false);
+
+    setDisplayGraphs(false);
   };
 
   const updateMultipleJoints = (
@@ -335,7 +341,7 @@ const Index = ({ navigateTo }: IndexProps) => {
     }
   }, [capturedChunks, recording]);
 
-  useEffect(() => {
+  useEffect(() => {    
     if (!videoFinished && settings.selectedJoints.length > 0) {
       togglePlayback();
     }
@@ -535,7 +541,10 @@ const Index = ({ navigateTo }: IndexProps) => {
         </section>
         {
           videoFinished && videoUrl && showVideo && (
-            <section className="absolute bottom-2 z-10 flex gap-4 bg-black/40 rounded-full p-2">
+            <section 
+              data-element="non-swipeable"
+              className="absolute bottom-2 z-10 flex gap-4 bg-black/40 rounded-full p-2"
+              >
               <BackwardIcon 
                 className="h-8 w-8 text-white cursor-pointer"
                 onClick={rewindStep}/>
@@ -592,7 +601,7 @@ const Index = ({ navigateTo }: IndexProps) => {
               maxPoints={50}
               maxPointsThreshold={60}
               pauseUpdates={videoFinished}
-              parentStyles="z-0 h-[50dvh]"
+              parentStyles="relative z-0 h-[50dvh]"
               />
 
             <PoseGraphSettingsModal 

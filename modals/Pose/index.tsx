@@ -70,8 +70,7 @@ const Index = ({
 
   return (
     <div
-      id="pose-modal"
-      data-element="modal"
+      data-element="non-swipeable"
       className="fixed w-full h-dvh inset-0 z-50 flex items-center justify-center"
       style={{ backdropFilter: "blur(30px)" }}
       onClick={handleModal}

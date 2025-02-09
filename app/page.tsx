@@ -14,7 +14,7 @@ export default function Home() {
   const handlers = useSwipeable({
     onSwipedLeft: (eventData) => {
       const targetElement = eventData.event.target as HTMLElement;
-      const isSwipeable = !Boolean(targetElement.closest('[data-element="modal"]'));
+      const isSwipeable = !Boolean(targetElement.closest('[data-element="non-swipeable"]'));
 
 
       if (!isSwipeable) return;
@@ -23,7 +23,7 @@ export default function Home() {
     },
     onSwipedRight: (eventData) => {
       const targetElement = eventData.event.target as HTMLElement;
-      const isSwipeable = !Boolean(targetElement.closest('[data-element="modal"]'));
+      const isSwipeable = !Boolean(targetElement.closest('[data-element="non-swipeable"]'));
 
       if (!isSwipeable) return;
 

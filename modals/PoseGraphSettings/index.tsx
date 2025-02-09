@@ -36,7 +36,7 @@ const Index = ({
   return (
     <div 
       className='fixed z-10 bottom-0 left-0 w-full h-[15dvh] flex items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg'
-      data-element="modal"
+      data-element="non-swipeable"
       onClick={handleModal}
       >
         <form className='w-full flex flex-col justify-center px-8 py-2 gap-4'>
