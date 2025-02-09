@@ -233,6 +233,7 @@ const Index = ({
         }}
         options={{
           responsive: true,
+          animation: false,
           maintainAspectRatio: false,
           plugins: {
             legend: {
@@ -244,6 +245,7 @@ const Index = ({
                 generateLabels: (chart) => {
                   const defaultLabels =
                     ChartJS.defaults.plugins.legend.labels.generateLabels(chart);
+
                   return defaultLabels
                     .filter((label) =>
                       label.text.toLowerCase().includes("angle")
@@ -261,9 +263,44 @@ const Index = ({
               samples: maxPoints,
               threshold: maxPointsThreshold,
             },
+            tooltip: {
+              enabled: pauseUpdates,
+              callbacks: {
+                title: () => "", // Desactiva el título del tooltip
+                // Formatea cada tooltip (cuando se pincha o se hace hover en un punto)
+                label: function (context) {
+                  // Recupera el label original del dataset
+                  const originalLabel = context.dataset.label || "";
+                  // Si el label contiene la palabra "angle" (sin distinción de mayúsculas), la quitamos
+                  const cleanedLabel = originalLabel.toLowerCase().includes("angle")
+                    ? originalLabel.split("angle")[0].trim()
+                    : originalLabel;
+      
+                  // Formatea el valor del eje x (tiempo)
+                  // Aquí lo mostramos con dos decimales y le añadimos " s"
+                  const xValue = Number(context.parsed.x).toFixed(2) + " s";
+      
+                  // Formatea el valor del eje y
+                  // Redondeamos a entero
+                  const yRounded = Math.round(context.parsed.y);
+                  // Si el label original contenía "angle", añadimos la unidad de grados
+                  const yValue = originalLabel.toLowerCase().includes("angle")
+                    ? yRounded + " º"
+                    : yRounded.toString();
+      
+                  // Puedes retornar un array para que se muestren varias líneas en el tooltip,
+                  // o una cadena con un salto de línea
+                  return [xValue, `${cleanedLabel}: ${yValue}`];
+                },
+              },
+            },
           },
           elements: {
-            point: { radius: 0 },
+            point: { 
+              radius: pauseUpdates ? 3 : 0,
+              hitRadius: pauseUpdates ? 3 : 0,
+              hoverRadius: pauseUpdates ? 3 : 0,
+            },
           },
           scales: {
             x: {
@@ -299,7 +336,7 @@ const Index = ({
                 })(),
               },
               suggestedMin: 0,
-              suggestedMax: 90,
+              suggestedMax: 180,
               ticks: {
                 display: joints.length > 0,
                 callback: (value) => Number(value).toFixed(0),
