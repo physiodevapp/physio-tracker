@@ -16,6 +16,7 @@ import {
 import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
 import { getColorsForJoint } from "@/services/joint";
 import { useSettings } from "@/providers/Settings";
+import { lttbDownsample } from "@/services/chart";
 
 // Registro de componentes de Chart.js
 ChartJS.register(
@@ -25,7 +26,7 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
 );
 
 // Definimos la interfaz para cada punto de datos
@@ -33,6 +34,15 @@ interface DataPoint {
   x: number; // Tiempo normalizado en segundos
   y: number; // Valor medido (por ejemplo, ángulo o velocidad angular)
 }
+
+type RecordedPositions = {
+  [joint in CanvasKeypointName]?: {
+    timestamp: number;
+    angle: number;
+    angularVelocity: number;
+    color: JointColors;
+  }[];
+};
 
 interface IndexProps {
   joints: CanvasKeypointName[]; // Lista de articulaciones a mostrar
@@ -49,12 +59,14 @@ interface IndexProps {
   maxPoints?: number; // Número máximo de puntos a mantener por set de datos (por defecto 50)
   maxPointsThreshold?: number;
   pauseUpdates?: boolean;
+  recordedPositions?: RecordedPositions;
 }
 
 const Index = ({
   joints,
   valueTypes = [Kinematics.ANGLE],
   getDataForJoint,
+  recordedPositions = undefined,
   onPointClick, 
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
   maxPoints = 50,
@@ -112,10 +124,15 @@ const Index = ({
       const baseBackgroundColor = jointData.color.backgroundColor;
   
       valueTypes.forEach((vType) => {
-        const dataPoints =
+        let dataPoints =
           vType === Kinematics.ANGLE
             ? jointData.anglePoints
             : jointData.angularVelocityPoints;
+
+        // Si la cantidad de puntos es mayor que el threshold deseado, los reducimos.
+        if (dataPoints.length > maxPointsThreshold) {
+          dataPoints = lttbDownsample(dataPoints, maxPoints);
+        }
   
         result.push({
           label: `${transformJointName(joint)} ${transformKinematicsLabel(vType)}`,
@@ -124,19 +141,32 @@ const Index = ({
           backgroundColor: baseBackgroundColor,
           borderWidth: vType === Kinematics.ANGLE ? 2 : 1,
           tension: 0.6,
+          parsing: false,
           ...(vType === Kinematics.ANGULAR_VELOCITY && { borderDash: [2, 2] }),
         });
       });
     });
+    if (chartData) {
+      console.log('useMemo -> ', result)
+    }
     return result;
   }, [chartData, joints, valueTypes]);
 
 
   // Calculamos el rango del eje X usando el tiempo normalizado
-  const normalizedMaxX = startTimeRef.current
+  let normalizedMaxX;
+  let normalizedMinX;
+  if (recordedPositions) {
+    const allXValues = Object.values(chartData)
+    .flatMap(data => data.anglePoints.map(point => point.x));
+    normalizedMaxX = allXValues.length > 0 ? Math.max(...allXValues) : 0;
+    normalizedMinX = 0;
+  } else {
+    normalizedMaxX = startTimeRef.current
     ? (currentTime - startTimeRef.current) / 1000
     : currentTime / 1000;
-  const normalizedMinX = normalizedMaxX - settings.poseTimeWindow;
+    normalizedMinX = normalizedMaxX - settings.poseTimeWindow;
+  }
 
   const handleChartClick = (
     activeElements: ActiveElement[],
@@ -158,9 +188,7 @@ const Index = ({
 
   useEffect(() => {
     // Si está en modo pausa, no iniciamos el ciclo de actualización.
-    if (pauseUpdates) {
-      return;
-    }
+    if (pauseUpdates) return;
 
     let lastUpdate = performance.now();
     let animationFrameId: number;
@@ -242,10 +270,75 @@ const Index = ({
   }, [getDataForJoint, joints, settings.poseUpdateInterval, maxPoints, pauseUpdates]);
 
   useEffect(() => {
-    startTimeRef.current = performance.now();
+    if (recordedPositions) {
+      const newChartData: {
+        [joint: string]: {
+          anglePoints: DataPoint[];
+          angularVelocityPoints: DataPoint[];
+          color: JointColors;
+        };
+      } = {};
+  
+      Object.entries(recordedPositions).forEach(([joint, dataArray]) => {
+        if (dataArray && dataArray.length > 0) {
+          // Tomamos el primer timestamp como referencia (cero segundos)
+          const start = dataArray[0].timestamp;
+          const anglePoints = dataArray.map((d: { timestamp: number; angle: number; }) => ({
+            x: (d.timestamp - start) / 1000,
+            y: d.angle,
+          }));
+          const angularVelocityPoints = dataArray.map((d: { timestamp: number; angularVelocity: number; }) => ({
+            x: (d.timestamp - start) / 1000,
+            y: d.angularVelocity,
+          }));
+          newChartData[joint] = {
+            anglePoints,
+            angularVelocityPoints,
+            // Puedes elegir el color del primer dato o utilizar una función de colores:
+            color: dataArray[0].color,
+          };
+        }
+      });
+      setChartData(newChartData);
+      console.log('newChartData -> ', newChartData);
+    }
+  }, [recordedPositions]);
+  
 
-    setCurrentTime(performance.now());
-  }, [])
+  // useEffect(() => {
+  //   startTimeRef.current = performance.now();
+
+  //   setCurrentTime(performance.now());
+  // }, [])
+  useEffect(() => {
+    if (!recordedPositions) {
+      const now = performance.now();
+      startTimeRef.current = now;
+      setCurrentTime(now);
+    } else {
+      // Suponiendo que recordedPositions es un objeto con claves correspondientes a cada articulación
+      // y que quieres usar el primer dato de la primera articulación como referencia:
+      const joints = Object.keys(recordedPositions) as CanvasKeypointName[];
+      if (joints.length > 0 && recordedPositions[joints[0]] && recordedPositions[joints[0]]!.length > 0) {
+        const firstTimestamp = recordedPositions[joints[0]]![0].timestamp;
+        startTimeRef.current = firstTimestamp;
+        setCurrentTime(firstTimestamp);
+      }
+    }
+  }, [recordedPositions]);
+
+  useEffect(() => {
+    if (chartRef.current) {
+      // Iteramos sobre cada dataset del gráfico
+      chartRef.current.data.datasets.forEach((_, index) => {
+        const meta = chartRef.current!.getDatasetMeta(index);
+        console.log(`Dataset ${index}:`);
+        console.log(`  Número de puntos renderizados: ${meta.data.length}`);
+        console.log(`  Número de puntos en el dataset original: ${chartRef.current!.data.datasets[index].data.length}`);
+      });
+    }
+  }, [chartData]);
+  
 
   return (
     <div className={parentStyles}>
@@ -289,12 +382,6 @@ const Index = ({
                 },
               },
             },
-            decimation: {
-              enabled: true,
-              algorithm: "lttb",
-              samples: maxPoints,
-              threshold: maxPointsThreshold,
-            },
             tooltip: {
               enabled: pauseUpdates,
               callbacks: {
@@ -329,7 +416,7 @@ const Index = ({
           },
           elements: {
             point: { 
-              radius: pauseUpdates ? 3 : 0,
+              radius: pauseUpdates ? 1 : 0,
               hitRadius: pauseUpdates ? 3 : 0,
               hoverRadius: pauseUpdates ? 3 : 0,
             },

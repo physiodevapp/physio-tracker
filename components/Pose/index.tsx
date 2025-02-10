@@ -3,7 +3,7 @@
 import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam"; // Importación del convertidor de modelos
 import * as poseDetection from "@tensorflow-models/pose-detection";
-import { JointDataMap, JointConfigMap, CanvasKeypointName, CanvasKeypointData, PoseSettings, Kinematics } from "@/interfaces/pose";
+import { JointDataMap, JointConfigMap, CanvasKeypointName, CanvasKeypointData, PoseSettings, Kinematics, JointColors } from "@/interfaces/pose";
 import { drawKeypointConnections, drawKeypoints } from "@/services/draw";
 import { updateKeypointVelocity } from "@/services/keypoint";
 import { updateJoint } from "@/services/joint";
@@ -35,7 +35,8 @@ const Index = ({ navigateTo }: IndexProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [estimatedFps, setEstimatedFps] = useState<number | null>(null);
   const [supportedMediaRecorderType, setSupportedMediaRecorderType] = useState<string>("");
-  const [videoFinished, setVideoFinished] = useState(false);
+  const [videoProcessed, setVideoProcessed] = useState(false);
+  const videoProcessedRef = useRef(videoProcessed);
   
   const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
   const [selectedKeypoint] = useState<CanvasKeypointName | null>(null);
@@ -62,6 +63,15 @@ const Index = ({ navigateTo }: IndexProps) => {
   const videoConstraintsRef = useRef(videoConstraints);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Definimos el contenedor para almacenar los datos por articulación.
+  const recordedPositionsRef = useRef<{
+    [joint in CanvasKeypointName]?: {
+      timestamp: number;
+      angle: number;
+      angularVelocity: number;
+      color: JointColors;
+    }[];
+  }>({});
 
   const toggleCamera = useCallback(() => {
     setVideoConstraints((prev) => ({
@@ -237,8 +247,6 @@ const Index = ({ navigateTo }: IndexProps) => {
 
   const handleFirstPlay = () => {
     if (visibleJointsRef.current.length > 0) {
-      setDisplayGraphs(true);
-
       setShowVideo(true);
     } else {
       setIsPoseModalOpen(true);
@@ -261,9 +269,11 @@ const Index = ({ navigateTo }: IndexProps) => {
   const handleEnded = () => {
     setIsPlaying(false);
 
-    if (!videoFinished) {
-      setVideoFinished(true);
+    if (!videoProcessed) {
+      setVideoProcessed(true);
+
     }
+    console.log('recordedPositionsRef.current -> ', recordedPositionsRef.current)
   };
 
   const handlePointClick = (time: number) => {
@@ -290,12 +300,6 @@ const Index = ({ navigateTo }: IndexProps) => {
 
   const handleRemoveRecord = () => {
     setShowVideo(false);
-
-    setVideoUrl(null);
-
-    setVideoFinished(false);
-
-    setDisplayGraphs(false);
   };
 
   const updateMultipleJoints = (
@@ -306,13 +310,12 @@ const Index = ({ navigateTo }: IndexProps) => {
     jointConfigMap: JointConfigMap
   ) => {
     if (!visibleJointsRef.current.length) return; 
-
     jointNames.forEach((jointName) => {
       const jointConfig = jointConfigMap[jointName] ?? { invert: false };
 
       const jointData = jointDataRef.current[jointName] ?? null;
 
-      jointDataRef.current[jointName] = updateJoint({
+      const updatedData = updateJoint({
         ctx,
         keypoints,
         jointData,
@@ -323,6 +326,20 @@ const Index = ({ navigateTo }: IndexProps) => {
         withVelocity: visibleKinematicsRef.current.includes(Kinematics.ANGULAR_VELOCITY),
         mirror: videoConstraintsRef.current.facingMode === "user",
       });
+      jointDataRef.current[jointName] = updatedData;
+  
+      if (videoRef.current && !videoProcessedRef.current) {
+        // Almacenamos el dato actualizado en recordedPositionsRef.
+        if (!recordedPositionsRef.current[jointName]) {
+          recordedPositionsRef.current[jointName] = [];
+        }
+        recordedPositionsRef.current[jointName]!.push({
+          timestamp: updatedData.lastTimestamp,
+          angle: updatedData.angle,
+          angularVelocity: updatedData.angularVelocity,
+          color: updatedData.color
+        });
+      }
     });
   };
 
@@ -347,10 +364,28 @@ const Index = ({ navigateTo }: IndexProps) => {
   }, [capturedChunks, recording]);
 
   useEffect(() => {    
-    if (!videoFinished && settings.selectedJoints.length > 0) {
-      togglePlayback();
+    if (showVideo) {
+      if (!videoProcessed && settings.selectedJoints.length > 0) {
+        togglePlayback();
+      }
+    } else {
+      setVideoUrl(null);
+
+      setVideoProcessed(false);
+
+      setDisplayGraphs(false);
     }
-  }, [showVideo])
+  }, [showVideo]);
+
+  useEffect(() => {
+    if (videoUrl === null) {
+      recordedPositionsRef.current = {};
+    }
+  }, [videoUrl]);
+
+  useEffect(() => {
+    videoProcessedRef.current = videoProcessed;
+  }, [videoProcessed])
 
   useEffect(() => {
     selectedKeypointRef.current = selectedKeypoint;
@@ -551,7 +586,7 @@ const Index = ({ navigateTo }: IndexProps) => {
             />
         </section>
         {
-          videoFinished && videoUrl && showVideo && (
+          videoProcessed && videoUrl && showVideo && (
             <section 
               data-element="non-swipeable"
               className="absolute bottom-2 z-10 flex gap-4 bg-black/40 rounded-full p-2"
@@ -600,19 +635,20 @@ const Index = ({ navigateTo }: IndexProps) => {
               valueTypes={visibleKinematics}
               getDataForJoint={(joint) => {
                 const data = jointDataRef.current[joint];
-                return data
-                  ? { 
-                      timestamp: data.lastTimestamp, 
-                      angle: data.angle, 
-                      angularVelocity: data.angularVelocity ,
-                      color: data.color
-                    }
-                  : null;
+                  return data
+                    ? { 
+                        timestamp: data.lastTimestamp, 
+                        angle: data.angle, 
+                        angularVelocity: data.angularVelocity ,
+                        color: data.color
+                      }
+                    : null;
               }}
+              recordedPositions={videoProcessed ? recordedPositionsRef.current : undefined}
               onPointClick={handlePointClick}
               maxPoints={50}
-              maxPointsThreshold={60}
-              pauseUpdates={videoFinished}
+              maxPointsThreshold={100}
+              pauseUpdates={videoProcessed}
               parentStyles="relative z-0 h-[50dvh]"
               />
 
