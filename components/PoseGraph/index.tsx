@@ -31,6 +31,15 @@ ChartJS.register(
   annotationPlugin
 );
 
+interface VerticalLineAnnotation {
+  xMin: number;
+  xMax: number;
+  label: {
+    content: string;
+  };
+  // Puedes agregar más propiedades según necesites, como borderColor, borderWidth, etc.
+}
+
 // Definimos la interfaz para cada punto de datos
 interface DataPoint {
   x: number; // Tiempo normalizado en segundos
@@ -57,6 +66,7 @@ interface IndexProps {
     color: JointColors;
   } | null;
   onPointClick: (time: number) => void;
+  onVerticalLineChange: (newValue: number) => void;
   parentStyles?: string; // Estilos CSS para el contenedor
   maxPoints?: number; // Número máximo de puntos a mantener por set de datos (por defecto 50)
   maxPointsThreshold?: number;
@@ -70,6 +80,7 @@ const Index = ({
   getDataForJoint,
   recordedPositions = undefined,
   onPointClick, 
+  onVerticalLineChange,
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
   maxPoints = 50,
   maxPointsThreshold = 80,
@@ -321,10 +332,120 @@ const Index = ({
       }
     }
   }, [realTime]);
+
+  useEffect(() => {
+    const canvas = chartRef.current?.canvas;
+    if (!canvas) return;
+  
+    let isDragging = false;
+    let newXValue = verticalLineValue;
+  
+    // Función para convertir coordenadas de mouse a valor en el eje x usando la escala del gráfico
+    const getXValueFromEvent = (event: MouseEvent | TouchEvent): number | null => {
+      const rect = canvas.getBoundingClientRect();
+      // Para eventos de touch, usamos touches[0].clientX
+      const clientX = 'clientX' in event ? event.clientX : event.touches[0].clientX;
+      const mouseX = clientX - rect.left;
+      const xScale = chartRef.current?.scales['x'];
+      if (!xScale) return null;
+      return xScale.getValueForPixel(mouseX) ?? null;
+    };
+  
+    const handleMouseDown = (event: MouseEvent) => {
+      const valueAtMouse = getXValueFromEvent(event);
+      if (valueAtMouse === null) return;
+      if (Math.abs(valueAtMouse - verticalLineValue) < 5) {
+        isDragging = true;
+      }
+    };
+  
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!isDragging) return;
+      const valueAtMouse = getXValueFromEvent(event);
+      if (valueAtMouse === null) return;
+      newXValue = valueAtMouse;
+      // Accedemos a la anotación usando nuestro tipo definido
+      const annotationOptions = chartRef.current?.options.plugins?.annotation?.annotations as
+        | Record<string, VerticalLineAnnotation>
+        | undefined;
+      if (annotationOptions && annotationOptions.verticalLine) {
+        const annotation = annotationOptions.verticalLine;
+        annotation.xMin = newXValue;
+        annotation.xMax = newXValue;
+        annotation.label.content = `${newXValue.toFixed(2)} s`;
+        chartRef.current?.update('none');
+      }
+    };
+  
+    const handleMouseUp = () => {
+      if (isDragging) {
+        isDragging = false;
+        onVerticalLineChange(newXValue);
+      }
+    };
+  
+    const handleTouchStart = (event: TouchEvent) => {
+      const valueAtTouch = getXValueFromEvent(event);
+      if (valueAtTouch === null) return;
+      if (Math.abs(valueAtTouch - verticalLineValue) < 5) {
+        isDragging = true;
+      }
+    };
+  
+    const handleTouchMove = (event: TouchEvent) => {
+      if (!isDragging) return;
+      const valueAtTouch = getXValueFromEvent(event);
+      if (valueAtTouch === null) return;
+      newXValue = valueAtTouch;
+      const annotationOptions = chartRef.current?.options.plugins?.annotation?.annotations as
+        | Record<string, VerticalLineAnnotation>
+        | undefined;
+      if (annotationOptions && annotationOptions.verticalLine) {
+        const annotation = annotationOptions.verticalLine;
+        annotation.xMin = newXValue;
+        annotation.xMax = newXValue;
+        annotation.label.content = `${newXValue.toFixed(2)} s`;
+        chartRef.current?.update('none');
+      }
+    };
+  
+    const handleTouchEnd = () => {
+      if (isDragging) {
+        isDragging = false;
+        onVerticalLineChange(newXValue);
+      }
+    };
+  
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('mouseleave', handleMouseUp);
+  
+    canvas.addEventListener('touchstart', handleTouchStart);
+    canvas.addEventListener('touchmove', handleTouchMove);
+    canvas.addEventListener('touchend', handleTouchEnd);
+    canvas.addEventListener('touchcancel', handleTouchEnd);
+  
+    return () => {
+      canvas.removeEventListener('mousedown', handleMouseDown);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mouseup', handleMouseUp);
+      canvas.removeEventListener('mouseleave', handleMouseUp);
+  
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.removeEventListener('touchmove', handleTouchMove);
+      canvas.removeEventListener('touchend', handleTouchEnd);
+      canvas.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [verticalLineValue, onVerticalLineChange, chartRef]); 
+  
   
 
   return (
-    <div className={parentStyles}>
+    <div 
+      data-element="non-swipeable"
+      className={parentStyles}
+      >
       <Line
         ref={chartRef}
         className="pb-2 bg-white"
@@ -416,16 +537,17 @@ const Index = ({
             annotation: {
               annotations: {
                 verticalLine: {
+                  display: !realTime,
                   type: 'line',
                   xMin: verticalLineValue,
                   xMax: verticalLineValue,
                   borderColor: 'gray',
                   borderWidth: 2,
                   label: {
-                    display: !realTime,
-                    content: 'Línea vertical',
-                    position: 'start',
-                  },
+                    display: true,
+                    content: `${verticalLineValue.toFixed(2)} s`,
+                    position: "end",
+                  },                                    
                 },
               },
             },

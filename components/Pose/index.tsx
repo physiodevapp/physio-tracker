@@ -227,6 +227,13 @@ const Index = ({ navigateTo }: IndexProps) => {
     mediaRecorderRef.current.start();
 
     setRecording(true);
+
+    // Establece un límite de grabación de 10 segundos
+    setTimeout(() => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        handleStopRecording();
+      }
+    }, 10000);
   };
 
   const handleDataAvailable = (event: BlobEvent) => {
@@ -264,8 +271,11 @@ const Index = ({ navigateTo }: IndexProps) => {
     }
   }
 
-  const togglePlayback = () => {
+  const togglePlayback = (restart: boolean = false) => {
     if (videoRef.current) {
+      if (restart) {
+        videoRef.current.currentTime = 0;
+      }
       if (videoRef.current.paused) {
         videoRef.current.play();
       } else {
@@ -280,7 +290,7 @@ const Index = ({ navigateTo }: IndexProps) => {
     }
   };
 
-  const handlePointClick = (time: number) => {
+  const handleChartValueX = (time: number) => {
     if (videoRef.current) {
       videoRef.current.currentTime = time;
     }
@@ -375,9 +385,7 @@ const Index = ({ navigateTo }: IndexProps) => {
 
       recordedPositionsRef.current = {};
 
-      togglePlayback();
-      // if (!videoProcessed && settings.selectedJoints.length > 0) {
-      // }
+      togglePlayback(true);
     }
   }, [showVideo, processVideo]);
 
@@ -580,11 +588,15 @@ const Index = ({ navigateTo }: IndexProps) => {
                       />
                   )
                 }
-                <PresentationChartBarIcon 
-                  data-element="non-swipeable"
-                  className="h-6 w-6 text-white cursor-pointer" 
-                  onClick={handleGrahpsVisibility}
-                  />
+                {
+                  ((videoUrl && showVideo && videoProcessed) || !showVideo) && (
+                    <PresentationChartBarIcon 
+                      data-element="non-swipeable"
+                      className="h-6 w-6 text-white cursor-pointer" 
+                      onClick={handleGrahpsVisibility}
+                      />
+                  )
+                }
               </section>
               <section 
                 data-element="non-swipeable"
@@ -671,10 +683,11 @@ const Index = ({ navigateTo }: IndexProps) => {
                     : null;
               }}
               recordedPositions={videoProcessed ? recordedPositionsRef.current : undefined}
-              onPointClick={handlePointClick}
+              onPointClick={handleChartValueX}
+              onVerticalLineChange={handleChartValueX}
               verticalLineValue={videoCurrentTime}
-              maxPoints={60}
-              maxPointsThreshold={100}
+              maxPoints={50}
+              maxPointsThreshold={60}
               parentStyles="relative z-0 h-[50dvh]"
               />
 
