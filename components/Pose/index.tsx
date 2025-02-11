@@ -10,8 +10,8 @@ import { updateJoint } from "@/services/joint";
 import PoseGraph from "../PoseGraph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
-import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon, VideoCameraIcon, PlayPauseIcon, PlayIcon, PauseIcon, TrashIcon } from "@heroicons/react/24/solid";
-import { ArrowPathIcon, BackwardIcon, ForwardIcon } from "@heroicons/react/24/outline";
+import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon, VideoCameraIcon, TrashIcon, CubeTransparentIcon, CloudArrowDownIcon } from "@heroicons/react/24/solid";
+import { BackwardIcon, ForwardIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Pose";
 import PoseGraphSettingsModal from "@/modals/PoseGraphSettings";
@@ -32,11 +32,11 @@ const Index = ({ navigateTo }: IndexProps) => {
   const [capturedChunks, setCapturedChunks] = useState<Blob[]>([]);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [showVideo, setShowVideo] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [estimatedFps, setEstimatedFps] = useState<number | null>(null);
-  const [supportedMediaRecorderType, setSupportedMediaRecorderType] = useState<string>("");
+  const [processVideo, setProcessVideo] = useState(0);
   const [videoProcessed, setVideoProcessed] = useState(false);
   const videoProcessedRef = useRef(videoProcessed);
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   
   const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
   const [selectedKeypoint] = useState<CanvasKeypointName | null>(null);
@@ -124,6 +124,16 @@ const Index = ({ navigateTo }: IndexProps) => {
     { label: "Left Knee", value: CanvasKeypointName.LEFT_KNEE },
   ], []);
 
+  const handleClickOnCanvas = () => {
+    if (videoProcessed && videoUrl && showVideo) {
+      togglePlayback();
+    }
+
+    setIsPoseSettingsModalOpen(false);
+
+    setIsPoseGraphSettingsModalOpen(false);
+  }
+
   const handleJointSelection = useCallback((selectedJoints: string[]) => {
     setSelectedJoints(selectedJoints as CanvasKeypointName[]);
   }, []);
@@ -194,7 +204,6 @@ const Index = ({ navigateTo }: IndexProps) => {
       console.warn("Ningún formato compatible encontrado.");
       recorderType = "video/webm";
     }
-    setSupportedMediaRecorderType(recorderType);
 
     // Define las opciones del MediaRecorder (incluyendo el bitrate)
     const options = {
@@ -245,9 +254,11 @@ const Index = ({ navigateTo }: IndexProps) => {
     }
   };
 
-  const handleFirstPlay = () => {
+  const handleProcessVideo = () => {
     if (visibleJointsRef.current.length > 0) {
       setShowVideo(true);
+
+      setProcessVideo((prev) => prev * (-1));
     } else {
       setIsPoseModalOpen(true);
     }
@@ -257,23 +268,16 @@ const Index = ({ navigateTo }: IndexProps) => {
     if (videoRef.current) {
       if (videoRef.current.paused) {
         videoRef.current.play();
-
-        setIsPlaying(true);
       } else {
         videoRef.current.pause();
-        setIsPlaying(false);
       }
     }
   };
 
   const handleEnded = () => {
-    setIsPlaying(false);
-
     if (!videoProcessed) {
       setVideoProcessed(true);
-
     }
-    console.log('recordedPositionsRef.current -> ', recordedPositionsRef.current)
   };
 
   const handlePointClick = (time: number) => {
@@ -365,10 +369,20 @@ const Index = ({ navigateTo }: IndexProps) => {
 
   useEffect(() => {    
     if (showVideo) {
-      if (!videoProcessed && settings.selectedJoints.length > 0) {
-        togglePlayback();
-      }
-    } else {
+      setDisplayGraphs(false);
+
+      setVideoProcessed(false);
+
+      recordedPositionsRef.current = {};
+
+      togglePlayback();
+      // if (!videoProcessed && settings.selectedJoints.length > 0) {
+      // }
+    }
+  }, [showVideo, processVideo]);
+
+  useEffect(() => {    
+    if (!showVideo) {
       setVideoUrl(null);
 
       setVideoProcessed(false);
@@ -494,12 +508,12 @@ const Index = ({ navigateTo }: IndexProps) => {
       {
         !detector && (
           <div className="fixed w-full h-dvh z-50 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
+            <CloudArrowDownIcon className="w-8 h-8 animate-bounce"/>
             <p>Setting up...</p>
-            <ArrowPathIcon className="w-8 h-8 animate-spin"/>
           </div>
         )
       }
-      <div className={`relative z-0 flex flex-col items-center justify-start ${displayGraphs ? "h-[50dvh]" : "h-dvh"}`}>
+      <div className={`relative z-10 flex flex-col items-center justify-start ${displayGraphs ? "h-[50dvh]" : "h-dvh"}`}>
         {
           !showVideo && (
             <Webcam
@@ -517,97 +531,109 @@ const Index = ({ navigateTo }: IndexProps) => {
               ref={videoRef}
               src={videoUrl}               
               className={`relative object-cover h-full w-full ${videoConstraints.facingMode === "user" ? 'scale-x-[-1]' : 'scale-x-[1]'}`}
+              onTimeUpdate={(e: React.SyntheticEvent<HTMLVideoElement, Event>) => setVideoCurrentTime(e.currentTarget.currentTime)}
               onEnded={handleEnded}
               />
           )
         }
-        <canvas ref={canvasRef} className={`absolute object-cover h-full w-full`} />
+        <canvas 
+          ref={canvasRef} 
+          className={`absolute object-cover h-full w-full`} 
+          onClick={handleClickOnCanvas}/>
 
-        <section 
-          data-element="non-swipeable"
-          className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-black/40 rounded-full">
-          <DevicePhoneMobileIcon 
-            className="h-6 w-6 text-white cursor-pointer rotate-90" 
-            onClick={() => navigateTo('strength')}
-            />
-          {
-            !showVideo && (
-              <div>
-                <VideoCameraIcon 
-                  className={`h-6 w-6 cursor-pointer ${recording ? 'text-green-500 animate-pulse ' : 'text-white'}`}
-                  onClick={recording ? handleStopRecording : handleStartRecording}
-                  />
-                  <p className="text-white text-xs text-center">{estimatedFps ?? "FPS"}</p>
-              </div>
-            )
-          }
-          {
-            videoUrl && !showVideo && (
-              <PlayPauseIcon 
-                className="h-6 w-6 text-white cursor-pointer"
-                onClick={handleFirstPlay}
-                />
-            )
-          }
-          {
-            videoUrl && showVideo && (
-              <TrashIcon 
-                className="h-6 w-6 text-red-500 cursor-pointer"
-                onClick={handleRemoveRecord}
-                />
-            )
-          }
-          <PresentationChartBarIcon 
-            data-element="non-swipeable"
-            className="h-6 w-6 text-white cursor-pointer" 
-            onClick={handleGrahpsVisibility}
-            />
-        </section>
-        
-        <section 
-          data-element="non-swipeable"
-          className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
-          >
-          <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
-          <UserIcon className="h-6 w-6 text-white cursor-pointer" onClick={handlePoseModal}/>
-          { 
-            maxKinematicsAllowed > 1 && (
-              <ChevronDoubleDownIcon 
-                className={`h-6 w-6 text-white cursor-pointer ${
-                  visibleKinematics.length > 1 ? 'border-2 rounded-full p-[0.1rem] animate-pulse' : ''
-                }`} 
-                onClick={() => handleKinematicsSelection(Kinematics.ANGULAR_VELOCITY)}
-                />
-            )
-          }
-          <Cog6ToothIcon 
-            className="h-6 w-6 text-white cursor-pointer"
-            onClick={handleSettingsModal}
-            />
-        </section>
         {
-          videoProcessed && videoUrl && showVideo && (
+          ((videoUrl && showVideo && videoProcessed) || !showVideo) && (
+            <>
+              <section 
+                data-element="non-swipeable"
+                className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-black/40 rounded-full">
+                <DevicePhoneMobileIcon 
+                  className="h-6 w-6 text-white cursor-pointer rotate-90" 
+                  onClick={() => navigateTo('strength')}
+                  />
+                {
+                  !showVideo && (
+                    <div 
+                      className="relative cursor-pointer"
+                      onClick={recording ? handleStopRecording : handleStartRecording}
+                      >
+                      <VideoCameraIcon 
+                        className={`h-6 w-6 cursor-pointer ${recording ? 'text-green-500 animate-pulse ' : 'text-white'}`}
+                        />
+                        <p className="absolute top-[60%] bg-black/40 rounded-[0.2rem] px-[0.2rem] py-0 text-white text-xs text-center">{estimatedFps ?? "FPS"}</p>
+                    </div>
+                  )
+                }
+                {
+                  videoUrl && showVideo && (
+                    <TrashIcon 
+                    className="h-6 w-6 text-red-500 cursor-pointer"
+                    onClick={handleRemoveRecord}
+                    />
+                  )
+                }
+                {
+                  videoUrl && (
+                    <CubeTransparentIcon 
+                      className="h-6 w-6 text-white cursor-pointer"
+                      onClick={handleProcessVideo}
+                      />
+                  )
+                }
+                <PresentationChartBarIcon 
+                  data-element="non-swipeable"
+                  className="h-6 w-6 text-white cursor-pointer" 
+                  onClick={handleGrahpsVisibility}
+                  />
+              </section>
+              <section 
+                data-element="non-swipeable"
+                className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
+                >
+                <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
+                <UserIcon className="h-6 w-6 text-white cursor-pointer" onClick={handlePoseModal}/>
+                { 
+                  maxKinematicsAllowed > 1 && (
+                    <ChevronDoubleDownIcon 
+                      className={`h-6 w-6 text-white cursor-pointer ${
+                        visibleKinematics.length > 1 ? 'border-2 rounded-full p-[0.1rem] animate-pulse' : ''
+                      }`} 
+                      onClick={() => handleKinematicsSelection(Kinematics.ANGULAR_VELOCITY)}
+                      />
+                  )
+                }
+                <Cog6ToothIcon 
+                  className="h-6 w-6 text-white cursor-pointer"
+                  onClick={handleSettingsModal}
+                  />
+              </section>
+            </>
+          )
+        }
+        {
+          videoUrl && showVideo && (
             <section 
               data-element="non-swipeable"
               className="absolute bottom-2 z-10 flex gap-4 bg-black/40 rounded-full p-2"
               >
-              <BackwardIcon 
-                className="h-8 w-8 text-white cursor-pointer"
-                onClick={rewindStep}/>
-              {
-                isPlaying
-                ? <PauseIcon 
-                className="h-8 w-8 text-white cursor-pointer"
-                onClick={togglePlayback}
-                />
-                : <PlayIcon 
-                className="h-8 w-8 text-white cursor-pointer"
-                onClick={togglePlayback}
-                />
-              }              
-              <ForwardIcon 
-                className="h-8 w-8 text-white cursor-pointer"
-                onClick={forwardStep}/>
+                {
+                  videoProcessed && (
+                    <>
+                      <BackwardIcon 
+                        className="h-8 w-8 text-white cursor-pointer"
+                        onClick={rewindStep}/>
+                        <p className="flex items-center text-white">{ videoCurrentTime.toFixed(2) } s</p>
+                      <ForwardIcon 
+                        className="h-8 w-8 text-white cursor-pointer"
+                        onClick={forwardStep}/>
+                    </>
+                  )
+                }
+                {
+                  !videoProcessed && (
+                    <CubeTransparentIcon className="w-8 h-8 text-white animate-spin"/>
+                  )
+                }
             </section>
           )
         }
@@ -648,7 +674,6 @@ const Index = ({ navigateTo }: IndexProps) => {
               onPointClick={handlePointClick}
               maxPoints={50}
               maxPointsThreshold={100}
-              pauseUpdates={videoProcessed}
               parentStyles="relative z-0 h-[50dvh]"
               />
 

@@ -37,9 +37,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
       return stored
         ? JSON.parse(stored)
-        : { selectedJoints: [], angularHistorySize: 5, velocityHistorySize: 5, poseTimeWindow: 10, poseUpdateInterval: 300 };
+        : { selectedJoints: [], angularHistorySize: 5, velocityHistorySize: 10, poseTimeWindow: 10, poseUpdateInterval: 300 };
     }
-    return { selectedJoints: [], angularHistorySize: 5, velocityHistorySize: 5, poseTimeWindow: 10, poseUpdateInterval: 300 };
+    
+    return { selectedJoints: [], angularHistorySize: 5, velocityHistorySize: 10, poseTimeWindow: 10, poseUpdateInterval: 300 };
   });
 
   const setSelectedJoints = (joints: CanvasKeypointName[]) => {

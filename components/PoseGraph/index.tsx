@@ -58,7 +58,6 @@ interface IndexProps {
   parentStyles?: string; // Estilos CSS para el contenedor
   maxPoints?: number; // Número máximo de puntos a mantener por set de datos (por defecto 50)
   maxPointsThreshold?: number;
-  pauseUpdates?: boolean;
   recordedPositions?: RecordedPositions;
 }
 
@@ -71,9 +70,10 @@ const Index = ({
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
   maxPoints = 50,
   maxPointsThreshold = 80,
-  pauseUpdates = false,
 }: IndexProps) => {
   const { settings } = useSettings();
+
+  const realTime = recordedPositions === undefined;
 
   // Estado para almacenar los datos por articulación
   // Para cada articulación se almacenan:
@@ -146,9 +146,7 @@ const Index = ({
         });
       });
     });
-    if (chartData) {
-      console.log('useMemo -> ', result)
-    }
+
     return result;
   }, [chartData, joints, valueTypes]);
 
@@ -156,7 +154,7 @@ const Index = ({
   // Calculamos el rango del eje X usando el tiempo normalizado
   let normalizedMaxX;
   let normalizedMinX;
-  if (recordedPositions) {
+  if (!realTime) {
     const allXValues = Object.values(chartData)
     .flatMap(data => data.anglePoints.map(point => point.x));
     normalizedMaxX = allXValues.length > 0 ? Math.max(...allXValues) : 0;
@@ -188,7 +186,7 @@ const Index = ({
 
   useEffect(() => {
     // Si está en modo pausa, no iniciamos el ciclo de actualización.
-    if (pauseUpdates) return;
+    if (!realTime) return;
 
     let lastUpdate = performance.now();
     let animationFrameId: number;
@@ -267,7 +265,7 @@ const Index = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [getDataForJoint, joints, settings.poseUpdateInterval, maxPoints, pauseUpdates]);
+  }, [getDataForJoint, joints, settings.poseUpdateInterval, maxPoints, realTime]);
 
   useEffect(() => {
     if (recordedPositions) {
@@ -300,18 +298,11 @@ const Index = ({
         }
       });
       setChartData(newChartData);
-      console.log('newChartData -> ', newChartData);
     }
   }, [recordedPositions]);
   
-
-  // useEffect(() => {
-  //   startTimeRef.current = performance.now();
-
-  //   setCurrentTime(performance.now());
-  // }, [])
   useEffect(() => {
-    if (!recordedPositions) {
+    if (realTime) {
       const now = performance.now();
       startTimeRef.current = now;
       setCurrentTime(now);
@@ -325,19 +316,7 @@ const Index = ({
         setCurrentTime(firstTimestamp);
       }
     }
-  }, [recordedPositions]);
-
-  useEffect(() => {
-    if (chartRef.current) {
-      // Iteramos sobre cada dataset del gráfico
-      chartRef.current.data.datasets.forEach((_, index) => {
-        const meta = chartRef.current!.getDatasetMeta(index);
-        console.log(`Dataset ${index}:`);
-        console.log(`  Número de puntos renderizados: ${meta.data.length}`);
-        console.log(`  Número de puntos en el dataset original: ${chartRef.current!.data.datasets[index].data.length}`);
-      });
-    }
-  }, [chartData]);
+  }, [realTime]);
   
 
   return (
@@ -381,9 +360,26 @@ const Index = ({
                     }));
                 },
               },
+              // Sobreescribimos onClick para que oculte/muestre ambos datasets
+              onClick: (e, legendItem, legend) => {
+                const chart = legend.chart;
+                // Obtenemos la etiqueta base, por ejemplo "Left elbow"
+                const baseLabel = legendItem.text.toLowerCase();
+                // Iteramos sobre todos los datasets
+                chart.data.datasets.forEach((ds, i) => {
+                  // Si el label del dataset (convertido a minúsculas) incluye la etiqueta base
+                  // (asumimos que ambos datasets tienen, por ejemplo, "Left elbow angle" y "Left elbow angular velocity")
+                  if (ds.label?.toLowerCase().includes(baseLabel)) {
+                    // Alternamos la visibilidad: si estaba oculto, se muestra, y viceversa.
+                    const meta = chart.getDatasetMeta(i);
+                    meta.hidden = meta.hidden === null ? !chart.data.datasets[i].hidden : !meta.hidden;
+                  }
+                });
+                chart.update();
+              },
             },
             tooltip: {
-              enabled: pauseUpdates,
+              enabled: !realTime,
               callbacks: {
                 title: () => "", // Desactiva el título del tooltip
                 // Formatea cada tooltip (cuando se pincha o se hace hover en un punto)
@@ -393,7 +389,7 @@ const Index = ({
                   // Si el label contiene la palabra "angle" (sin distinción de mayúsculas), la quitamos
                   const cleanedLabel = originalLabel.toLowerCase().includes("angle")
                     ? originalLabel.split("angle")[0].trim()
-                    : originalLabel;
+                    : originalLabel.split("angular velocity")[0].trim();
       
                   // Formatea el valor del eje x (tiempo)
                   // Aquí lo mostramos con dos decimales y le añadimos " s"
@@ -405,7 +401,7 @@ const Index = ({
                   // Si el label original contenía "angle", añadimos la unidad de grados
                   const yValue = originalLabel.toLowerCase().includes("angle")
                     ? yRounded + " º"
-                    : yRounded.toString();
+                    : yRounded + " º/s";
       
                   // Puedes retornar un array para que se muestren varias líneas en el tooltip,
                   // o una cadena con un salto de línea
@@ -416,9 +412,9 @@ const Index = ({
           },
           elements: {
             point: { 
-              radius: pauseUpdates ? 1 : 0,
-              hitRadius: pauseUpdates ? 3 : 0,
-              hoverRadius: pauseUpdates ? 3 : 0,
+              radius: !realTime ? 3 : 0,
+              hitRadius: !realTime ? 3 : 0,
+              hoverRadius: !realTime ? 3 : 0,
             },
           },
           scales: {
