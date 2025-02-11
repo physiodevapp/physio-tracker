@@ -672,7 +672,8 @@ const Index = ({ navigateTo }: IndexProps) => {
               }}
               recordedPositions={videoProcessed ? recordedPositionsRef.current : undefined}
               onPointClick={handlePointClick}
-              maxPoints={50}
+              verticalLineValue={videoCurrentTime}
+              maxPoints={60}
               maxPointsThreshold={100}
               parentStyles="relative z-0 h-[50dvh]"
               />

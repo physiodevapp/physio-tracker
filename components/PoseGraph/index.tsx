@@ -17,6 +17,7 @@ import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
 import { getColorsForJoint } from "@/services/joint";
 import { useSettings } from "@/providers/Settings";
 import { lttbDownsample } from "@/services/chart";
+import annotationPlugin from 'chartjs-plugin-annotation';
 
 // Registro de componentes de Chart.js
 ChartJS.register(
@@ -27,6 +28,7 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
+  annotationPlugin
 );
 
 // Definimos la interfaz para cada punto de datos
@@ -59,6 +61,7 @@ interface IndexProps {
   maxPoints?: number; // Número máximo de puntos a mantener por set de datos (por defecto 50)
   maxPointsThreshold?: number;
   recordedPositions?: RecordedPositions;
+  verticalLineValue?: number;
 }
 
 const Index = ({
@@ -70,6 +73,7 @@ const Index = ({
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
   maxPoints = 50,
   maxPointsThreshold = 80,
+  verticalLineValue = 0,
 }: IndexProps) => {
   const { settings } = useSettings();
 
@@ -406,6 +410,22 @@ const Index = ({
                   // Puedes retornar un array para que se muestren varias líneas en el tooltip,
                   // o una cadena con un salto de línea
                   return [xValue, `${cleanedLabel}: ${yValue}`];
+                },
+              },
+            },
+            annotation: {
+              annotations: {
+                verticalLine: {
+                  type: 'line',
+                  xMin: verticalLineValue,
+                  xMax: verticalLineValue,
+                  borderColor: 'gray',
+                  borderWidth: 2,
+                  label: {
+                    display: !realTime,
+                    content: 'Línea vertical',
+                    position: 'start',
+                  },
                 },
               },
             },
