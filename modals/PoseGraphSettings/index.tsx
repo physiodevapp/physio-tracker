@@ -39,15 +39,25 @@ const Index = ({
 
   const handleSampleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
+    // Si el nuevo valor de sample supera el valor de threshold, se ajusta threshold a ese valor
+    if (value > threshold) {
+      setThreshold(value);
+      setPoseGraphSampleThreshold(value);
+    }
     setSample(value);
     setPoseGraphSample(value);
   };
-
-  const handleThresholdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  
+  const handleSampleThresholdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
+    // Si el nuevo valor de threshold es menor que el valor actual de sample, se ajusta sample a ese valor
+    if (value < sample) {
+      setSample(value);
+      setPoseGraphSample(value);
+    }
     setThreshold(value);
     setPoseGraphSampleThreshold(value);
-  };
+  };  
 
   if (!isModalOpen) return null;
 
@@ -101,16 +111,16 @@ const Index = ({
               />
             </div>
             <div className="w-full flex justify-between">
-              <label htmlFor="threshold" className="text-white">
+              <label htmlFor="sample-threshold" className="text-white">
                 Threshold (lttb): {threshold}
               </label>
               <input
-                id="threshold"
+                id="sample-threshold"
                 type="range"
                 value={threshold}
                 min="60"
                 max="100"
-                onChange={handleThresholdChange}
+                onChange={handleSampleThresholdChange}
               />
             </div>
           </>
