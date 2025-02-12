@@ -10,6 +10,8 @@ interface Settings {
   velocityHistorySize: number;
   poseTimeWindow: number;
   poseUpdateInterval: number;
+  poseGraphSample: number;
+  poseGraphThreshold: number;
 }
 
 // Definimos la interfaz del contexto para incluir el estado y las funciones de actualización
@@ -20,6 +22,8 @@ interface SettingsContextProps {
   setVelocityHistorySize: (size: number) => void;
   setPoseTimeWindow: (timeInSeconds: number) => void;
   setPoseUpdateInterval: (timeInMiliseconds: number) => void;
+  setPoseGraphSample: (sample: number) => void;
+  setPoseGraphThreshold: (sample: number) => void;
 }
 
 // Creamos el contexto
@@ -31,16 +35,26 @@ interface SettingsProviderProps {
 
 // Implementamos el provider
 export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) => {
+  const defaultConfig = { 
+    selectedJoints: [], 
+    angularHistorySize: 5, 
+    velocityHistorySize: 10, 
+    poseTimeWindow: 10, 
+    poseUpdateInterval: 300,
+    poseGraphSample: 50,
+    poseGraphThreshold: 60, 
+  };
+
   const [settings, setSettings] = useState<Settings>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("poseSettings");
 
       return stored
         ? JSON.parse(stored)
-        : { selectedJoints: [], angularHistorySize: 5, velocityHistorySize: 10, poseTimeWindow: 10, poseUpdateInterval: 300 };
+        : defaultConfig;
     }
     
-    return { selectedJoints: [], angularHistorySize: 5, velocityHistorySize: 10, poseTimeWindow: 10, poseUpdateInterval: 300 };
+    return defaultConfig;
   });
 
   const setSelectedJoints = (joints: CanvasKeypointName[]) => {

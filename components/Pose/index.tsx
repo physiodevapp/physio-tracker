@@ -31,7 +31,6 @@ const Index = ({ navigateTo }: IndexProps) => {
   const [recording, setRecording] = useState(false);
   const [capturedChunks, setCapturedChunks] = useState<Blob[]>([]);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [showVideo, setShowVideo] = useState(false);
   const [estimatedFps, setEstimatedFps] = useState<number | null>(null);
   const [processVideo, setProcessVideo] = useState(0);
   const [videoProcessed, setVideoProcessed] = useState(false);
@@ -125,7 +124,7 @@ const Index = ({ navigateTo }: IndexProps) => {
   ], []);
 
   const handleClickOnCanvas = () => {
-    if (videoProcessed && videoUrl && showVideo) {
+    if (videoProcessed && videoUrl) {
       togglePlayback();
     }
 
@@ -164,6 +163,8 @@ const Index = ({ navigateTo }: IndexProps) => {
 
   const handleStartRecording = async () => {
     setVideoUrl(null);
+
+    setDisplayGraphs(false);
 
     // Reinicia los chunks grabados
     setCapturedChunks([]);
@@ -262,8 +263,8 @@ const Index = ({ navigateTo }: IndexProps) => {
   };
 
   const handleProcessVideo = () => {
-    if (visibleJointsRef.current.length > 0) {
-      setShowVideo(true);
+    if (visibleJointsRef.current.length > 0 && videoRef.current) {  
+      // setShowVideo(true);
 
       setProcessVideo((prev) => prev * (-1));
     } else {
@@ -276,6 +277,7 @@ const Index = ({ navigateTo }: IndexProps) => {
       if (restart) {
         videoRef.current.currentTime = 0;
       }
+
       if (videoRef.current.paused) {
         videoRef.current.play();
       } else {
@@ -313,7 +315,7 @@ const Index = ({ navigateTo }: IndexProps) => {
   };
 
   const handleRemoveRecord = () => {
-    setShowVideo(false);
+    setVideoUrl(null);
   };
 
   const updateMultipleJoints = (
@@ -378,7 +380,7 @@ const Index = ({ navigateTo }: IndexProps) => {
   }, [capturedChunks, recording]);
 
   useEffect(() => {    
-    if (showVideo) {
+    if (videoRef.current) {
       setDisplayGraphs(false);
 
       setVideoProcessed(false);
@@ -387,21 +389,25 @@ const Index = ({ navigateTo }: IndexProps) => {
 
       togglePlayback(true);
     }
-  }, [showVideo, processVideo]);
+  }, [processVideo]);
 
-  useEffect(() => {    
-    if (!showVideo) {
-      setVideoUrl(null);
+  // useEffect(() => {    
+  //   if (!showVideo) {
+  //     setVideoUrl(null);
 
-      setVideoProcessed(false);
+  //     setVideoProcessed(false);
 
-      setDisplayGraphs(false);
-    }
-  }, [showVideo]);
+  //     setDisplayGraphs(false);
+  //   }
+  // }, [showVideo]);
 
   useEffect(() => {
     if (videoUrl === null) {
       recordedPositionsRef.current = {};
+
+      setVideoProcessed(false);
+
+      setDisplayGraphs(false);
     }
   }, [videoUrl]);
 
@@ -436,17 +442,17 @@ const Index = ({ navigateTo }: IndexProps) => {
   }, [displayGraphs]);
 
   useEffect(() => {
-    if (!detector || (showVideo ? !videoRef.current : !webcamRef.current)) return;
+    if (!detector || (videoUrl ? !videoRef.current : !webcamRef.current)) return;
 
     const analyzeFrame = async () => {
-      if (!detector || !canvasRef.current || (showVideo ? !videoRef.current : !webcamRef.current)) return;
+      if (!detector || !canvasRef.current || (videoUrl ? !videoRef.current : !webcamRef.current)) return;
       
       try {
         // Captura el fotograma actual de la webcam
         let videoElement;
-        if (showVideo && videoRef.current) {
+        if (videoUrl && videoRef.current) {
           videoElement = videoRef.current;
-        } else if (!showVideo && webcamRef.current) {
+        } else if (!videoUrl && webcamRef.current) {
           videoElement = webcamRef.current.video;
         }
         
@@ -505,7 +511,7 @@ const Index = ({ navigateTo }: IndexProps) => {
 
     analyzeFrame();
 
-  }, [detector, showVideo]);
+  }, [detector, videoUrl]);
 
   useEffect(() => {
     showMyWebcam();
@@ -523,7 +529,7 @@ const Index = ({ navigateTo }: IndexProps) => {
       }
       <div className={`relative z-10 flex flex-col items-center justify-start ${displayGraphs ? "h-[50dvh]" : "h-dvh"}`}>
         {
-          !showVideo && (
+          !videoUrl && (
             <Webcam
               ref={webcamRef}
               className={`relative object-cover h-full w-full`}
@@ -534,7 +540,7 @@ const Index = ({ navigateTo }: IndexProps) => {
           )
         }
         {
-          showVideo && videoUrl && (
+          videoUrl && (
             <video 
               ref={videoRef}
               src={videoUrl}               
@@ -548,9 +554,8 @@ const Index = ({ navigateTo }: IndexProps) => {
           ref={canvasRef} 
           className={`absolute object-cover h-full w-full`} 
           onClick={handleClickOnCanvas}/>
-
         {
-          ((videoUrl && showVideo && videoProcessed) || !showVideo) && (
+          ((videoUrl && (videoProcessed || videoRef.current?.paused)) || !videoUrl) && (
             <>
               <section 
                 data-element="non-swipeable"
@@ -560,7 +565,7 @@ const Index = ({ navigateTo }: IndexProps) => {
                   onClick={() => navigateTo('strength')}
                   />
                 {
-                  !showVideo && (
+                  !videoUrl && (
                     <div 
                       className="relative cursor-pointer"
                       onClick={recording ? handleStopRecording : handleStartRecording}
@@ -568,12 +573,14 @@ const Index = ({ navigateTo }: IndexProps) => {
                       <VideoCameraIcon 
                         className={`h-6 w-6 cursor-pointer ${recording ? 'text-green-500 animate-pulse ' : 'text-white'}`}
                         />
-                        <p className="absolute top-[60%] bg-black/40 rounded-[0.2rem] px-[0.2rem] py-0 text-white text-xs text-center">{estimatedFps ?? "FPS"}</p>
+                        <p className="absolute top-[60%] bg-black/40 rounded-[0.2rem] px-[0.2rem] py-0 text-white text-xs text-center">
+                          {(recording ? estimatedFps : undefined) ?? "FPS"}
+                        </p>
                     </div>
                   )
                 }
                 {
-                  videoUrl && showVideo && (
+                  videoUrl && (
                     <TrashIcon 
                     className="h-6 w-6 text-red-500 cursor-pointer"
                     onClick={handleRemoveRecord}
@@ -589,7 +596,7 @@ const Index = ({ navigateTo }: IndexProps) => {
                   )
                 }
                 {
-                  ((videoUrl && showVideo && videoProcessed) || !showVideo) && (
+                  ((videoUrl && videoProcessed) || !videoUrl) && (
                     <PresentationChartBarIcon 
                       data-element="non-swipeable"
                       className="h-6 w-6 text-white cursor-pointer" 
@@ -623,7 +630,7 @@ const Index = ({ navigateTo }: IndexProps) => {
           )
         }
         {
-          videoUrl && showVideo && (
+          videoUrl && (
             <section 
               data-element="non-swipeable"
               className="absolute bottom-2 z-10 flex gap-4 bg-black/40 rounded-full p-2"
@@ -642,7 +649,7 @@ const Index = ({ navigateTo }: IndexProps) => {
                   )
                 }
                 {
-                  !videoProcessed && (
+                  (!videoProcessed && !videoRef.current?.paused) && (
                     <CubeTransparentIcon className="w-8 h-8 text-white animate-spin"/>
                   )
                 }
@@ -686,14 +693,15 @@ const Index = ({ navigateTo }: IndexProps) => {
               onPointClick={handleChartValueX}
               onVerticalLineChange={handleChartValueX}
               verticalLineValue={videoCurrentTime}
-              maxPoints={50}
-              maxPointsThreshold={60}
+              maxPoints={settings.poseGraphSample}
+              maxPointsThreshold={settings.poseGraphThreshold}
               parentStyles="relative z-0 h-[50dvh]"
               />
 
             <PoseGraphSettingsModal 
               isModalOpen={isPoseGraphSettingsModalOpen}
               handleModal={handleSettingsModal}
+              videoProcessed={videoProcessed}
               />
           </>
         )

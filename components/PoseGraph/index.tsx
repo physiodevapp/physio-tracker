@@ -172,12 +172,14 @@ const Index = ({
   if (!realTime) {
     const allXValues = Object.values(chartData)
     .flatMap(data => data.anglePoints.map(point => point.x));
-    normalizedMaxX = allXValues.length > 0 ? Math.max(...allXValues) : 0;
+    normalizedMaxX = allXValues.length > 0 
+      ? Math.min(Math.max(...allXValues), settings.poseTimeWindow) 
+      : 0;
     normalizedMinX = 0;
   } else {
     normalizedMaxX = startTimeRef.current
-    ? (currentTime - startTimeRef.current) / 1000
-    : currentTime / 1000;
+      ? (currentTime - startTimeRef.current) / 1000
+      : currentTime / 1000;
     normalizedMinX = normalizedMaxX - settings.poseTimeWindow;
   }
 
