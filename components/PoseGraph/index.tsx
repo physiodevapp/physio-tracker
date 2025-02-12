@@ -68,8 +68,6 @@ interface IndexProps {
   onPointClick: (time: number) => void;
   onVerticalLineChange: (newValue: number) => void;
   parentStyles?: string; // Estilos CSS para el contenedor
-  maxPoints?: number; // Número máximo de puntos a mantener por set de datos (por defecto 50)
-  maxPointsThreshold?: number;
   recordedPositions?: RecordedPositions;
   verticalLineValue?: number;
 }
@@ -82,8 +80,6 @@ const Index = ({
   onPointClick, 
   onVerticalLineChange,
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
-  maxPoints = 50,
-  maxPointsThreshold = 80,
   verticalLineValue = 0,
 }: IndexProps) => {
   const { settings } = useSettings();
@@ -145,8 +141,8 @@ const Index = ({
             : jointData.angularVelocityPoints;
 
         // Si la cantidad de puntos es mayor que el threshold deseado, los reducimos.
-        if (dataPoints.length > maxPointsThreshold) {
-          dataPoints = lttbDownsample(dataPoints, maxPoints);
+        if (dataPoints.length > settings.poseGraphSampleThreshold) {
+          dataPoints = lttbDownsample(dataPoints, settings.poseGraphSample);
         }
   
         result.push({
@@ -250,16 +246,16 @@ const Index = ({
                 return prev;
               }
   
-              // Agregamos el nuevo punto a cada serie y recortamos para mantener solo los últimos maxPoints
+              // Agregamos el nuevo punto a cada serie y recortamos para mantener solo los últimos poseGraphSample
               const updatedAnglePoints = [
                 ...anglePoints,
                 { x: normalizedTime, y: newData.angle },
-              ].slice(-maxPoints);
+              ].slice(-settings.poseGraphSample);
   
               const updatedAngularVelocityPoints = [
                 ...angularVelocityPoints,
                 { x: normalizedTime, y: newData.angularVelocity },
-              ].slice(-maxPoints);
+              ].slice(-settings.poseGraphSample);
   
               return {
                 ...prev,
@@ -282,7 +278,7 @@ const Index = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [getDataForJoint, joints, settings.poseUpdateInterval, maxPoints, realTime]);
+  }, [getDataForJoint, joints, settings.poseUpdateInterval, settings.poseGraphSample, settings.poseGraphSampleThreshold, realTime]);
 
   useEffect(() => {
     if (recordedPositions) {

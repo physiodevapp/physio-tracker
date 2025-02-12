@@ -15,9 +15,7 @@ interface DrawKeypointsOptions {
 export const drawKeypoints = ({
   ctx,
   keypoints,
-  pointColor,
-  selectedKeypoint = null,  
-  keypointData = null,   
+  pointColor,    
   pointRadius = 5,         
   mirror = false,           
 }: DrawKeypointsOptions) => {
@@ -25,21 +23,6 @@ export const drawKeypoints = ({
     // Calcular la coordenada X invertida si es necesario  
     const x = mirror ? ctx.canvas.width - kp.x : kp.x; // MODIFICADO: se utiliza x en lugar de kp.x  
     const y = kp.y; // la coordenada Y se mantiene igual
-
-    // Mostrar velocidad sobre el keypoint seleccionado  
-    if (kp.name === selectedKeypoint && keypointData?.velocityInPixels !== null) {
-      ctx.font = "16px Arial";
-      ctx.fillStyle = "yellow";
-
-      // Ajustamos el offset según el modo mirror: si se invierte, usamos -10 en lugar de +10  
-      const offset = mirror ? -10 : 10; 
-
-      ctx.fillText(
-        `Velocity: ${keypointData?.velocityInPixels.toFixed(0)} px/s`,
-        x + offset,
-        y
-      );
-    }
 
     // Dibujar el punto del keypoint  
     ctx.beginPath();

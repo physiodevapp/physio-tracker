@@ -17,13 +17,13 @@ const Index = ({
     setPoseTimeWindow,
     setPoseUpdateInterval,
     setPoseGraphSample,
-    setPoseGraphThreshold,
+    setPoseGraphSampleThreshold,
   } = useSettings();
 
   const [timeWindow, setTimeWindow] = useState(settings.poseTimeWindow);
   const [updateInterval, setUpdateInterval] = useState(settings.poseUpdateInterval);
   const [sample, setSample] = useState(settings.poseGraphSample ?? 50);
-  const [threshold, setThreshold] = useState(settings.poseGraphThreshold ?? 60);
+  const [threshold, setThreshold] = useState(settings.poseGraphSampleThreshold ?? 60);
 
   const handleTimeWindowChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
@@ -46,7 +46,7 @@ const Index = ({
   const handleThresholdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
     setThreshold(value);
-    setPoseGraphThreshold(value);
+    setPoseGraphSampleThreshold(value);
   };
 
   if (!isModalOpen) return null;

@@ -27,8 +27,6 @@ export interface PoseSettings {
 export interface CanvasKeypointData {
   position: { x: number; y: number };
   lastTimestamp: number;
-  velocityInPixels: number;
-  velocityInPixelsHistory: number[];
 }
 
 export interface JointColors {

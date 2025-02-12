@@ -5,7 +5,6 @@ import Webcam from "react-webcam"; // Importación del convertidor de modelos
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { JointDataMap, JointConfigMap, CanvasKeypointName, CanvasKeypointData, PoseSettings, Kinematics, JointColors } from "@/interfaces/pose";
 import { drawKeypointConnections, drawKeypoints } from "@/services/draw";
-import { updateKeypointVelocity } from "@/services/keypoint";
 import { updateJoint } from "@/services/joint";
 import PoseGraph from "../PoseGraph";
 import { VideoConstraints } from "@/interfaces/camera";
@@ -38,7 +37,6 @@ const Index = ({ navigateTo }: IndexProps) => {
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   
   const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
-  const [selectedKeypoint] = useState<CanvasKeypointName | null>(null);
   
   const [visibleKinematics, setVisibleKinematics] = useState<Kinematics[]>([Kinematics.ANGLE]);
   const [displayGraphs, setDisplayGraphs] = useState(false);
@@ -50,7 +48,6 @@ const Index = ({ navigateTo }: IndexProps) => {
   const jointVelocityHistorySizeRef = useRef(settings.velocityHistorySize);
   const jointAngleHistorySizeRef = useRef(settings.angularHistorySize);
   
-  const selectedKeypointRef = useRef(selectedKeypoint);
   const jointDataRef = useRef<JointDataMap>({});
   const keypointDataRef = useRef<CanvasKeypointData | null>(null);
   
@@ -264,8 +261,6 @@ const Index = ({ navigateTo }: IndexProps) => {
 
   const handleProcessVideo = () => {
     if (visibleJointsRef.current.length > 0 && videoRef.current) {  
-      // setShowVideo(true);
-
       setProcessVideo((prev) => prev * (-1));
     } else {
       setIsPoseModalOpen(true);
@@ -391,16 +386,6 @@ const Index = ({ navigateTo }: IndexProps) => {
     }
   }, [processVideo]);
 
-  // useEffect(() => {    
-  //   if (!showVideo) {
-  //     setVideoUrl(null);
-
-  //     setVideoProcessed(false);
-
-  //     setDisplayGraphs(false);
-  //   }
-  // }, [showVideo]);
-
   useEffect(() => {
     if (videoUrl === null) {
       recordedPositionsRef.current = {};
@@ -414,10 +399,6 @@ const Index = ({ navigateTo }: IndexProps) => {
   useEffect(() => {
     videoProcessedRef.current = videoProcessed;
   }, [videoProcessed])
-
-  useEffect(() => {
-    selectedKeypointRef.current = selectedKeypoint;
-  }, [selectedKeypoint]);
   
   useEffect(() => {
     jointVelocityHistorySizeRef.current = settings.velocityHistorySize;
@@ -479,20 +460,9 @@ const Index = ({ navigateTo }: IndexProps) => {
               const keypoints = poses[0].keypoints.filter(
                 (kp) => kp.score && kp.score > poseSettings.scoreThreshold
               );
-              
-              // Mostrar velocidad en píxeles de un keypoint seleccionado (virtual)
-              if (selectedKeypointRef.current) {
-                keypointDataRef.current = updateKeypointVelocity(
-                  keypoints,
-                  selectedKeypointRef.current,
-                  keypointDataRef.current,
-                  jointVelocityHistorySizeRef.current,
-                  2 // Umbral opcional para ignorar fluctuaciones pequeñas
-                );
-              }
 
               // Dibujar keypoints en el canvas
-              drawKeypoints({ctx, keypoints, selectedKeypoint, keypointData: keypointDataRef.current, mirror: videoConstraintsRef.current.facingMode === "user"});
+              drawKeypoints({ctx, keypoints, mirror: videoConstraintsRef.current.facingMode === "user"});
 
               // Dibujar conexiones entre puntos clave
               drawKeypointConnections({ctx, keypoints, keypointPairs, mirror: videoConstraintsRef.current.facingMode === "user"});
@@ -693,8 +663,6 @@ const Index = ({ navigateTo }: IndexProps) => {
               onPointClick={handleChartValueX}
               onVerticalLineChange={handleChartValueX}
               verticalLineValue={videoCurrentTime}
-              maxPoints={settings.poseGraphSample}
-              maxPointsThreshold={settings.poseGraphThreshold}
               parentStyles="relative z-0 h-[50dvh]"
               />
 

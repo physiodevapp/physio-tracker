@@ -11,7 +11,7 @@ interface Settings {
   poseTimeWindow: number;
   poseUpdateInterval: number;
   poseGraphSample: number;
-  poseGraphThreshold: number;
+  poseGraphSampleThreshold: number;
 }
 
 // Definimos la interfaz del contexto para incluir el estado y las funciones de actualización
@@ -23,7 +23,7 @@ interface SettingsContextProps {
   setPoseTimeWindow: (timeInSeconds: number) => void;
   setPoseUpdateInterval: (timeInMiliseconds: number) => void;
   setPoseGraphSample: (sample: number) => void;
-  setPoseGraphThreshold: (sample: number) => void;
+  setPoseGraphSampleThreshold: (sampleThreshold: number) => void;
 }
 
 // Creamos el contexto
@@ -42,7 +42,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     poseTimeWindow: 10, 
     poseUpdateInterval: 300,
     poseGraphSample: 50,
-    poseGraphThreshold: 60, 
+    poseGraphSampleThreshold: 60, 
   };
 
   const [settings, setSettings] = useState<Settings>(() => {
@@ -81,6 +81,14 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     setSettings(prev => ({...prev, poseUpdateInterval: timeInMiliseconds}))
   }
 
+  const setPoseGraphSample = (sample: number) => {
+    setSettings(prev => ({...prev, poseGraphSample: sample}))
+  }
+
+  const setPoseGraphSampleThreshold = (sampleThreshold: number) => {
+    setSettings(prev => ({...prev, poseGraphSampleThreshold: sampleThreshold}))
+  }
+
   useEffect(() => {
     localStorage.setItem("poseSettings", JSON.stringify(settings));
   }, [settings]);
@@ -93,7 +101,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setAngularHistorySize,
         setVelocityHistorySize,
         setPoseTimeWindow,
-        setPoseUpdateInterval
+        setPoseUpdateInterval,
+        setPoseGraphSample,
+        setPoseGraphSampleThreshold
       }}
     >
       {children}
