@@ -159,7 +159,7 @@ const Index = ({
     });
 
     return result;
-  }, [chartData, joints, valueTypes]);
+  }, [chartData, joints, valueTypes, settings.poseGraphSample, settings.poseGraphSampleThreshold]);
 
 
   // Calculamos el rango del eje X usando el tiempo normalizado
