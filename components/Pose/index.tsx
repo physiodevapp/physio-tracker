@@ -525,7 +525,7 @@ const Index = ({ navigateTo }: IndexProps) => {
           className={`absolute object-cover h-full w-full`} 
           onClick={handleClickOnCanvas}/>
         {
-          ((videoUrl && (videoProcessed || videoRef.current?.paused)) || !videoUrl) && (
+          (!videoUrl || (videoProcessed || videoRef.current?.paused)) && (
             <>
               <section 
                 data-element="non-swipeable"
@@ -533,27 +533,27 @@ const Index = ({ navigateTo }: IndexProps) => {
                 <DevicePhoneMobileIcon 
                   className="h-6 w-6 text-white cursor-pointer rotate-90" 
                   onClick={() => navigateTo('strength')}
-                  />
+                />
                 {
                   !videoUrl && (
                     <div 
                       className="relative cursor-pointer"
                       onClick={recording ? handleStopRecording : handleStartRecording}
-                      >
+                    >
                       <VideoCameraIcon 
                         className={`h-6 w-6 cursor-pointer ${recording ? 'text-green-500 animate-pulse ' : 'text-white'}`}
-                        />
-                        <p className="absolute top-[60%] bg-black/40 rounded-[0.2rem] px-[0.2rem] py-0 text-white text-xs text-center">
-                          {(recording ? estimatedFps : undefined) ?? "FPS"}
-                        </p>
+                      />
+                      <p className="absolute top-[60%] bg-black/40 rounded-[0.2rem] px-[0.2rem] py-0 text-white text-xs text-center">
+                        {(recording ? estimatedFps : undefined) ?? "FPS"}
+                      </p>
                     </div>
                   )
                 }
                 {
                   videoUrl && (
                     <TrashIcon 
-                    className="h-6 w-6 text-red-500 cursor-pointer"
-                    onClick={handleRemoveRecord}
+                      className="h-6 w-6 text-red-500 cursor-pointer"
+                      onClick={handleRemoveRecord}
                     />
                   )
                 }
@@ -562,7 +562,7 @@ const Index = ({ navigateTo }: IndexProps) => {
                     <CubeTransparentIcon 
                       className="h-6 w-6 text-white cursor-pointer"
                       onClick={handleProcessVideo}
-                      />
+                    />
                   )
                 }
                 {
@@ -571,30 +571,34 @@ const Index = ({ navigateTo }: IndexProps) => {
                       data-element="non-swipeable"
                       className="h-6 w-6 text-white cursor-pointer" 
                       onClick={handleGrahpsVisibility}
-                      />
+                    />
                   )
                 }
               </section>
               <section 
                 data-element="non-swipeable"
                 className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
-                >
-                <CameraIcon className="h-6 w-6 text-white cursor-pointer" onClick={toggleCamera}/>
-                <UserIcon className="h-6 w-6 text-white cursor-pointer" onClick={handlePoseModal}/>
+              >
+                <CameraIcon 
+                  className="h-6 w-6 text-white cursor-pointer" 
+                  onClick={toggleCamera}
+                />
+                <UserIcon 
+                  className="h-6 w-6 text-white cursor-pointer" 
+                  onClick={handlePoseModal}
+                />
                 { 
                   maxKinematicsAllowed > 1 && (
                     <ChevronDoubleDownIcon 
-                      className={`h-6 w-6 text-white cursor-pointer ${
-                        visibleKinematics.length > 1 ? 'border-2 rounded-full p-[0.1rem] animate-pulse' : ''
-                      }`} 
+                      className={`h-6 w-6 text-white cursor-pointer ${visibleKinematics.length > 1 ? 'border-2 rounded-full p-[0.1rem] animate-pulse' : ''}`}
                       onClick={() => handleKinematicsSelection(Kinematics.ANGULAR_VELOCITY)}
-                      />
+                    />
                   )
                 }
                 <Cog6ToothIcon 
                   className="h-6 w-6 text-white cursor-pointer"
                   onClick={handleSettingsModal}
-                  />
+                />
               </section>
             </>
           )
