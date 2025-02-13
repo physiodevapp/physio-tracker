@@ -9,7 +9,7 @@ const Pose = dynamic(() => import('../components/Pose').then(mod => mod.default)
 const Strength = dynamic(() => import('../components/Strength').then(mod => mod.default), { ssr: false });
 
 export default function Home() {
-  const [page, setPage] = useState<'pose' | 'strength'>('pose');
+  const [page, setPage] = useState<'pose' | 'strength'>('strength');
 
   const handlers = useSwipeable({
     onSwipedLeft: (eventData) => {

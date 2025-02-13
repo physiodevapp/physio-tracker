@@ -1,334 +1,424 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { CheckCircleIcon, CheckIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon } from "@heroicons/react/24/solid";
+import { useState, useRef, useEffect } from "react";
 
-// Definición de comandos
+// ----------------- Comandos y Códigos -----------------
 const CMD_TARE_SCALE = 100;
 const CMD_START_WEIGHT_MEAS = 101;
 const CMD_STOP_WEIGHT_MEAS = 102;
-// Otros comandos comentados...
 
-// Definición de códigos de respuesta
 const RES_CMD_RESPONSE = 0;
 const RES_WEIGHT_MEAS = 1;
 const RES_RFD_PEAK = 2;
 const RES_RFD_PEAK_SERIES = 3;
 const RES_LOW_PWR_WARNING = 4;
 
-// Parámetros para la validación del ciclo
-const MIN_CYCLE_DURATION = 0.3; // Duración mínima del ciclo (segundos)
-const MAX_CYCLE_DURATION = 5.0; // Duración máxima del ciclo (segundos)
+// ----------------- Parámetros de Validación y Filtrado -----------------
+const MIN_CYCLE_DURATION = 0.3; // segundos
+const MAX_CYCLE_DURATION = 5.0; // segundos
+// const FILTER_WINDOW_SIZE = 5;   // número de muestras para la media móvil
 
-// Parámetros para el filtrado
-const FILTER_WINDOW_SIZE = 5; // Número de muestras para la media móvil
+// ----------------- Parámetros de Gravedad -----------------
+const GRAVITY = 9.81; // m/s²
+
+// Nota: En modo "fixed" el sensor devuelve kg (masa) y se convierte a newtons multiplicando por GRAVITY.
+// En modo "elastic" se usan las tensiones (en kg, que se convierten a newtons) en la posición mínima y máxima.
 
 const Index = () => {
+  // --------------- Estados de conexión y datos básicos -----------------
   const [device, setDevice] = useState<BluetoothDevice | null>(null);
   const [sensorData, setSensorData] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [cycleCount, setCycleCount] = useState(0);
-  const [cycles, setCycles] = useState<Array<{ duration: number; peakForce: number }>>([]);
+  const [cycles, setCycles] = useState<Array<{
+    duration: number;
+    peakForce: number;
+    avgNetForce: number;
+    avgAcceleration: number;
+    deltaV: number;
+  }>>([]);
   const [controlCharacteristic, setControlCharacteristic] = useState<BluetoothRemoteGATTCharacteristic | null>(null);
+  const [taringStatus, setTaringStatus] = useState<-1 | 0 | 1>(-1)
 
-  // Estados para los valores calculados tras la calibración
+  // ------------- Estados para calibración en modo "fixed" -------------
   const [computedBaselineThreshold, setComputedBaselineThreshold] = useState<number | null>(null);
   const [computedMinPeakForce, setComputedMinPeakForce] = useState<number | null>(null);
+  const [calibratedMass, setCalibratedMass] = useState<number | null>(null);
 
-  // UUIDs según la documentación de Progressor
+  // ----------------- Estados para calibración en modo "elastic" -----------------
+  const [elasticMinForce, setElasticMinForce] = useState<number | null>(null);
+  const [elasticMaxForce, setElasticMaxForce] = useState<number | null>(null);
+
+  // Estado para elegir el tipo de calibración: "fixed" (movimiento libre) o "elastic" (goma elástica)
+  const [calibrationType, setCalibrationType] = useState<"fixed" | "elastic">("fixed");
+
+  // Estado para mostrar en la UI el estado actual de calibración (instrucciones y referencias)
+  const [calibrationStatus, setCalibrationStatus] = useState<string>("Calibrando masa...");
+
+  // -------------- UUIDs según la documentación de Progressor ------------
   const PROGRESSOR_SERVICE_UUID = "7e4e1701-1ea6-40c9-9dcc-13d34ffead57";
   const DATA_CHAR_UUID = "7e4e1702-1ea6-40c9-9dcc-13d34ffead57";
   const CTRL_POINT_CHAR_UUID = "7e4e1703-1ea6-40c9-9dcc-13d34ffead57";
 
-  // --- Variables y refs para la calibración ---
-  // Durante los primeros 5 segundos se acumulan datos para determinar los umbrales.
-  const calibrationActiveRef = useRef<boolean>(true);
-  const calibrationStartRef = useRef<number>(0); // Tiempo de inicio de la calibración (ms)
-  const calibrationDataRef = useRef<number[]>([]);
+  // ----------------- Parámetros Ajustables (con sliders) -----------------
+  const [toleranceMargin, setToleranceMargin] = useState(0.05); // margen en kg
+  const [requiredStableCount, setRequiredStableCount] = useState(3); // muestras consecutivas requeridas
+  const [filterWindowSizeState, setFilterWindowSizeState] = useState(5); // tamaño de la ventana para media móvil
 
-  // --- Refs para el filtrado y cálculo de derivada ---
+
+  // ----------------- Refs para la Calibración -----------------
+  // Para "fixed": fases "mass" y "movement"
+  // Para "elastic": fases "elastic-min" y "elastic-max"
+  const calibrationActiveRef = useRef<boolean>(true);
+  const calibrationPhaseRef = useRef<string>(""); // Se asignará según el modo
+  const calibrationStartRef = useRef<number>(0); // Tiempo de inicio de la fase actual (ms)
+  const calibrationDataRef = useRef<number[]>([]); // Datos para la fase actual
+  const massCalibrationDataRef = useRef<number[]>([]); // Datos para calibración de masa (modo fixed)
+
+  // ----------------- Refs para Filtrado y Derivada -----------------
   const filterWindowRef = useRef<number[]>([]);
   const previousForceRef = useRef<number | null>(null);
 
-  // --- Estado interno para el autómata de detección de ciclos ---
-  // Se registra la fase, el tiempo de inicio del ciclo y el pico alcanzado.
+  // ----------------- Estado interno para Detección de Ciclos -----------------
   const detectionStateRef = useRef({
-    phase: "waiting", // Puede ser "waiting", "ascending" o "descending"
-    startTime: 0,     // Tiempo de inicio del ciclo (segundos)
-    peakForce: 0,     // Fuerza máxima alcanzada durante el ciclo
-    peakTime: 0,      // Tiempo en que se alcanzó el pico
+    phase: "waiting", // "waiting", "ascending" o "descending"
+    startTime: 0,     // tiempo de inicio del ciclo (segundos)
+    peakForce: 0,     // pico de fuerza del ciclo
+    peakTime: 0,      // tiempo en que se alcanzó el pico
+    measurementHistory: [] as Array<{ time: number; force: number }>,
+    peakStableCount: 0, // nuevo contador para asegurar que el pico se mantiene
   });
 
-  /**
-   * Función para procesar cada medición:
-   * - Aplica un filtro de media móvil.
-   * - Durante la calibración, acumula datos.
-   * - Después, utiliza la señal filtrada para detectar ciclos, validando la duración.
-   */
+  // ----------------- Función de Procesamiento de Medición -----------------
   const processMeasurement = (force: number, sensorTime: number) => {
-    // --- FILTRADO: Media móvil ---
+    // FILTRADO: Media móvil
     filterWindowRef.current.push(force);
-    if (filterWindowRef.current.length > FILTER_WINDOW_SIZE) {
+    if (filterWindowRef.current.length > filterWindowSizeState) {
       filterWindowRef.current.shift();
     }
     const filteredForce =
       filterWindowRef.current.reduce((acc, val) => acc + val, 0) /
       filterWindowRef.current.length;
 
-    // Cálculo de la derivada (cambio entre la muestra actual y la anterior)
+    // Cálculo de la derivada
     let derivative = 0;
     if (previousForceRef.current !== null) {
       derivative = filteredForce - previousForceRef.current;
     }
     previousForceRef.current = filteredForce;
 
-    // --- CALIBRACIÓN ---
+    // CALIBRACIÓN
     if (calibrationActiveRef.current) {
-      calibrationDataRef.current.push(filteredForce);
-      // Verifica si han pasado 5 segundos desde el inicio de la calibración.
-      if (Date.now() - calibrationStartRef.current >= 5000) {
-        // Calcular la media (baseline) de los datos de calibración.
-        const data = calibrationDataRef.current;
-        const avg = data.reduce((acc, val) => acc + val, 0) / data.length;
-        // Calcular el valor máximo.
-        const maxVal = Math.max(...data);
-        const diff = maxVal - avg;
-        // Calcular la desviación estándar.
-        const variance = data.reduce((acc, val) => acc + Math.pow(val - avg, 2), 0) / data.length;
-        const std = Math.sqrt(variance);
-
-        // Seleccionar la fórmula de umbral en función de la variabilidad.
-        let computedMinPeak;
-        if (diff < 0.5 || std < 0.1) {
-          computedMinPeak = avg + 0.5;
-        } else {
-          computedMinPeak = avg + Math.max(2, 2 * std);
+      if (calibrationType === "fixed") {
+        // Modo "fixed": Fases "mass" y "movement"
+        if (calibrationPhaseRef.current === "") {
+          calibrationPhaseRef.current = "mass";
+          setCalibrationStatus("Calibrando masa: sostén el peso...");
+          calibrationStartRef.current = Date.now();
+          massCalibrationDataRef.current = [];
         }
-        // Ajuste adicional: si computedMinPeak es mayor que el máximo observado, lo adaptamos.
-        if (computedMinPeak > maxVal) {
-          computedMinPeak = avg + diff * 0.9;
+        if (calibrationPhaseRef.current === "mass") {
+          massCalibrationDataRef.current.push(filteredForce);
+          if (Date.now() - calibrationStartRef.current >= 5000) {
+            const avgMassForce = massCalibrationDataRef.current.reduce((acc, val) => acc + val, 0) /
+              massCalibrationDataRef.current.length;
+            // Dado que el sensor ya devuelve kg, la masa se toma como avgMassForce
+            const deducedMass = avgMassForce; // sensor devuelve kg
+            setCalibratedMass(deducedMass);
+            setCalibrationStatus("Calibrando el movimiento del ejercicio...");
+            calibrationPhaseRef.current = "movement";
+            calibrationDataRef.current = [];
+            calibrationStartRef.current = Date.now();
+          }
+        } else if (calibrationPhaseRef.current === "movement") {
+          calibrationDataRef.current.push(filteredForce);
+          if (Date.now() - calibrationStartRef.current >= 5000) {
+            const data = calibrationDataRef.current;
+            const avg = data.reduce((acc, val) => acc + val, 0) / data.length;
+            const maxVal = Math.max(...data);
+            const diff = maxVal - avg;
+            const variance = data.reduce((acc, val) => acc + Math.pow(val - avg, 2), 0) / data.length;
+            const std = Math.sqrt(variance);
+            let computedMinPeak;
+            console.log('===============');
+            console.log('computedMinPeak');
+            console.log('===============');
+            if (diff < 0.5 || std < 0.1) {
+              console.log('diff < 0.5 || std < 0.1');
+              computedMinPeak = avg + 0.5;
+            } else {
+              console.log('diff > 0.5 && std > 0.1');
+              computedMinPeak = avg + Math.max(2, 2 * std);
+            }
+            if (computedMinPeak > maxVal) {
+              console.log('computedMinPeak > maxVal');
+              computedMinPeak = avg + diff * 0.9;
+            }
+            setComputedBaselineThreshold(avg);
+            setComputedMinPeakForce(computedMinPeak);
+            calibrationActiveRef.current = false;
+            setCalibrationStatus("Calibración completada. Recopilando datos...");
+            console.log("Calibración de movimiento completada. Baseline:", avg, "Min Peak:", computedMinPeak);
+          }
         }
-
-        setComputedBaselineThreshold(avg);
-        setComputedMinPeakForce(computedMinPeak);
-        calibrationActiveRef.current = false;
-
-        console.log("===========");
-        console.log("CALIBRATION");
-        console.log("===========");
-        console.log("Media (avg):", avg);
-        console.log("Máximo (maxVal):", maxVal);
-        console.log("Diferencia (diff):", diff);
-        console.log("Desviación estándar (std):", std);
-        console.log("Umbral calculado (computedMinPeak):", computedMinPeak);
-        console.log("Calibración completada. Baseline:", avg, "Min Peak:", computedMinPeak);
+      } else if (calibrationType === "elastic") {
+        // Modo "elastic": Fases "elastic-min" y "elastic-max"
+        if (calibrationPhaseRef.current === "") {
+          calibrationPhaseRef.current = "elastic-min";
+          setCalibrationStatus("Calibrando goma elástica: posición mínima...");
+          calibrationStartRef.current = Date.now();
+          calibrationDataRef.current = [];
+        }
+        if (calibrationPhaseRef.current === "elastic-min") {
+          calibrationDataRef.current.push(filteredForce);
+          if (Date.now() - calibrationStartRef.current >= 5000) {
+            const avgMin = calibrationDataRef.current.reduce((acc, val) => acc + val, 0) / calibrationDataRef.current.length;
+            setElasticMinForce(avgMin);
+            // Guardamos el valor en una variable local para mostrarlo
+            const minRef = avgMin;
+            setCalibrationStatus(`Posición mínima: ${minRef.toFixed(2)}. Ahora, en posición máxima...`);
+            calibrationPhaseRef.current = "elastic-max";
+            calibrationDataRef.current = [];
+            calibrationStartRef.current = Date.now();
+          }
+        } else if (calibrationPhaseRef.current === "elastic-max") {
+          calibrationDataRef.current.push(filteredForce);
+          if (Date.now() - calibrationStartRef.current >= 5000) {
+            const avgMax = calibrationDataRef.current.reduce((acc, val) => acc + val, 0) / calibrationDataRef.current.length;
+            setElasticMaxForce(avgMax);
+            calibrationActiveRef.current = false;
+            // Se usa el valor mínimo ya calibrado para mostrar las referencias
+            setCalibrationStatus(`Calibración completada. Referencias: Min = ${elasticMinForce?.toFixed(2) || "?"} y Max = ${avgMax.toFixed(2)}. Empezar...`);
+            console.log("Calibración de goma elástica completada. Min Force:", elasticMinForce, "Max Force:", avgMax);
+          }
+        }
       }
       // Durante la calibración no se detectan ciclos.
       return;
     }
 
-    // --- DETECCIÓN DE CICLOS ---
-    // Utiliza los umbrales calculados (o valores por defecto si algo falla)
-    const baseline = computedBaselineThreshold !== null ? computedBaselineThreshold : 0.5;
-    const minPeak = computedMinPeakForce !== null ? computedMinPeakForce : 1.0;
-
+    // ACUMULACIÓN de muestras durante el ciclo
     const state = detectionStateRef.current;
+    if (state.phase !== "waiting") {
+      state.measurementHistory.push({ time: sensorTime, force: filteredForce });
+    }
+
+    // DETECCIÓN de CICLOS
+    let baseline = 0.5, minPeak = 1.0;
+    if (calibrationType === "fixed") {
+      baseline = computedBaselineThreshold !== null ? computedBaselineThreshold : 0.5;
+      minPeak = computedMinPeakForce !== null ? computedMinPeakForce : 1.0;
+    } else if (calibrationType === "elastic") {
+      baseline = elasticMinForce !== null ? elasticMinForce : 0.5;
+      if (elasticMinForce !== null && elasticMaxForce !== null) {
+        const diffElastic = elasticMaxForce - elasticMinForce;
+        minPeak = elasticMinForce + diffElastic * 0.8; // umbral al 80% del rango
+      }
+    }
 
     switch (state.phase) {
       case "waiting":
-        // Si la señal filtrada supera el baseline, se inicia el ciclo.
         if (filteredForce > baseline) {
           state.phase = "ascending";
           state.startTime = sensorTime;
           state.peakForce = filteredForce;
           state.peakTime = sensorTime;
+          state.measurementHistory = [{ time: sensorTime, force: filteredForce }];
+          state.peakStableCount = 1;
         }
         break;
-
       case "ascending":
-        // Actualizamos el pico mientras la fuerza siga aumentando.
         if (filteredForce > state.peakForce) {
+          // Si se alcanza un nuevo pico, actualizamos y reiniciamos el contador
           state.peakForce = filteredForce;
           state.peakTime = sensorTime;
-        }
-        // Si la derivada es negativa (la señal empieza a descender), consideramos haber alcanzado el pico.
-        else if (derivative < 0) {
-          if (state.peakForce >= minPeak) {
-            state.phase = "descending";
+          state.peakStableCount = 1;
+        }  else {
+          // Si la fuerza es muy cercana al pico actual (dentro de un margen de tolerancia)
+          if (Math.abs(filteredForce - state.peakForce) < toleranceMargin  && filteredForce >= minPeak) {
+            state.peakStableCount += 1;
           } else {
-            // Si el pico no es significativo, reiniciamos el ciclo.
-            state.phase = "waiting";
+            // Si se aleja demasiado, se puede resetear el contador (opcional)
+            state.peakStableCount = 0;
+          }
+          // Si la derivada es negativa y el pico se ha mantenido estable durante suficientes muestras, transicionamos a descending
+          if (derivative < 0 && state.peakStableCount >= requiredStableCount) {
+            state.phase = "descending";
           }
         }
         break;
-
       case "descending":
-        // Cuando la señal cae por debajo del baseline, consideramos finalizado el ciclo.
         if (filteredForce < baseline) {
-          // Capturamos el valor actual en variables locales antes de reiniciar
-          const detectedPeakForce = state.peakForce;
-          const detectedCycleDuration = sensorTime - state.startTime;
-          // Creamos un nuevo objeto (copia inmutable) con esos valores
-          const newCycle = {
-            duration: detectedCycleDuration,
-            peakForce: detectedPeakForce,
-          };
-          // Validamos que la duración esté dentro de un rango razonable.
-          if (detectedCycleDuration >= MIN_CYCLE_DURATION && detectedCycleDuration <= MAX_CYCLE_DURATION) {
-            setCycles((prevCycles) => [
-              ...prevCycles,
-              newCycle,
-            ]);
-            setCycleCount((prevCount) => prevCount + 1);
-            console.log(
-              "Ciclo válido detectado. Duración:",
-              detectedCycleDuration,
-              "segundos. Peak Force: ",
-              detectedPeakForce,
-              " Total de ciclos:",
-              cycleCount + 1,
-            );
-          } else {
-            console.log("Ciclo descartado por duración no válida:", detectedCycleDuration, "segundos");
+          // Verificación adicional: si el pico acumulado es menor que minPeak, descartamos el ciclo.
+          if (state.peakForce < minPeak) {
+            console.log("Ciclo descartado por no alcanzar el minPeak:", state.peakForce, "<", minPeak);
+            state.phase = "waiting";
+            state.startTime = 0;
+            state.peakForce = 0;
+            state.peakTime = 0;
+            state.measurementHistory = [];
+            break;
           }
-          // Reiniciamos el estado para detectar el siguiente ciclo.
+          const cycleDuration = sensorTime - state.startTime;
+          if (cycleDuration >= MIN_CYCLE_DURATION && cycleDuration <= MAX_CYCLE_DURATION) {
+            let netForceSum = 0;
+            state.measurementHistory.forEach(sample => {
+              if (calibrationType === "fixed") {
+                const currentMass = calibratedMass !== null ? calibratedMass : 1.0;
+                // Convertir la muestra a newtons (kg * GRAVITY) y restar el peso
+                const Fg = currentMass * GRAVITY;
+                netForceSum += ((sample.force * GRAVITY) - Fg);
+              } else if (calibrationType === "elastic") {
+                // En modo elastic se resta la tensión mínima (en kg * GRAVITY)
+                netForceSum += ((sample.force * GRAVITY) - (elasticMinForce !== null ? elasticMinForce * GRAVITY : 0));
+              }
+            });
+            const avgNetForce = netForceSum / state.measurementHistory.length;
+            const currentMass = calibrationType === "fixed"
+              ? (calibratedMass !== null ? calibratedMass : 1.0)
+              : 1.0; // Para elastic se puede usar un valor de referencia
+            const avgAcceleration = avgNetForce / currentMass;
+            const deltaV = avgAcceleration * cycleDuration;
+      
+            const newCycle = {
+              duration: cycleDuration,
+              peakForce: state.peakForce,
+              avgNetForce: avgNetForce,
+              avgAcceleration: avgAcceleration,
+              deltaV: deltaV,
+            };
+      
+            setCycles((prevCycles) => [...prevCycles, newCycle]);
+            setCycleCount((prevCount) => prevCount + 1);
+            console.log("newCycle -> ", newCycle);
+          } else {
+            console.log("Ciclo descartado por duración no válida:", cycleDuration, "segundos");
+          }
           state.phase = "waiting";
           state.startTime = 0;
           state.peakForce = 0;
           state.peakTime = 0;
+          state.measurementHistory = [];
+          state.peakStableCount = 0;
         }
-        break;
-
+        break;        
       default:
         state.phase = "waiting";
         break;
     }
   };
 
-  // Función que recibe los datos del sensor
+  // ----------------- Recepción de Datos del Sensor -----------------
   const handleCharacteristicValueChanged = (event: Event) => {
     const target = event.target as BluetoothRemoteGATTCharacteristic;
     const value = target.value;
     const dataView = new DataView(value.buffer);
-
-    // Leer el primer byte como código de respuesta
     const responseCode = dataView.getUint8(0);
 
     if (responseCode === RES_WEIGHT_MEAS) {
-      // Cada bloque de medición ocupa 8 bytes:
-      // - Bytes 2 a 5: valor de fuerza (float32)
-      // - Bytes 6 a 9: timestamp (uint32) en microsegundos
       for (let i = 2; i < dataView.byteLength; i += 8) {
         if (i + 7 < dataView.byteLength) {
-          const force = dataView.getFloat32(i, true); // Valor de fuerza (por ejemplo, en kg o N)
-          const rawTimestamp = dataView.getUint32(i + 4, true); // Timestamp en microsegundos
-          const timeSec = rawTimestamp / 1000000.0; // Convertir a segundos
-
-          // Actualizamos el estado con la última fuerza recibida
+          const force = dataView.getFloat32(i, true);
+          const rawTimestamp = dataView.getUint32(i + 4, true);
+          const timeSec = rawTimestamp / 1000000.0;
           setSensorData(force);
-          // Procesamos la medición (calibración o detección de ciclo)
           processMeasurement(force, timeSec);
         }
       }
     } else if (responseCode === RES_CMD_RESPONSE) {
-      // Procesar respuesta a comandos según se requiera
+      // Procesar respuesta a comandos
     } else if (responseCode === RES_RFD_PEAK) {
       // Procesar datos del pico RFD
     } else if (responseCode === RES_RFD_PEAK_SERIES) {
       // Procesar la serie de picos RFD
     } else if (responseCode === RES_LOW_PWR_WARNING) {
       // Manejar advertencia de baja potencia
-    } else {
-      // Otros casos
     }
   };
 
-  // Función para conectar al sensor
+  // ----------------- Funciones de Conexión y Control -----------------
   const connectToSensor = async () => {
     try {
       const options = {
         filters: [{ namePrefix: "Progressor" }],
-        optionalServices: [PROGRESSOR_SERVICE_UUID],
+        optionalServices: [ PROGRESSOR_SERVICE_UUID ],
       };
-
       console.log("Requesting Bluetooth device...");
       const device = await navigator.bluetooth.requestDevice(options);
       setDevice(device);
-
       console.log("Connecting to GATT server...");
       const server = await device.gatt!.connect();
-      setIsConnected(true);
-
       const service = await server.getPrimaryService(PROGRESSOR_SERVICE_UUID);
-
-      // Suscribirse a las notificaciones de la característica de datos
       const dataCharacteristic = await service.getCharacteristic(DATA_CHAR_UUID);
       await dataCharacteristic.startNotifications();
       dataCharacteristic.addEventListener("characteristicvaluechanged", handleCharacteristicValueChanged);
-
-      // Obtener la característica de control para enviar comandos
       const controlChar = await service.getCharacteristic(CTRL_POINT_CHAR_UUID);
       setControlCharacteristic(controlChar);
-
       console.log("Connected and listening for notifications...");
+      setIsConnected(true);
     } catch (error) {
       console.error("Error connecting to sensor:", error);
     }
   };
 
-  // Función para tarar el sensor usando CMD_TARE_SCALE (valor 100)
   const tareSensor = async () => {
+    setTaringStatus(0);
     if (!controlCharacteristic) {
       console.error("Control characteristic not available");
+      setTaringStatus(-1);
       return;
     }
     try {
       await controlCharacteristic.writeValue(new Uint8Array([CMD_TARE_SCALE]));
       console.log("Sensor tared");
+      setTaringStatus(1);
     } catch (error) {
       console.error("Error taring sensor:", error);
+      setTaringStatus(-1);
     }
   };
 
-  // Función para iniciar la medición usando CMD_START_WEIGHT_MEAS (valor 101)
   const startMeasurement = async () => {
     if (!controlCharacteristic) {
       console.error("Control characteristic not available");
       return;
     }
     try {
-      // Reiniciamos la calibración cada vez que se inicie la medición.
+      setIsRecording(true);
       calibrationActiveRef.current = true;
+      // Reiniciamos las variables de calibración según el modo seleccionado
+      calibrationPhaseRef.current = "";
+      massCalibrationDataRef.current = [];
       calibrationDataRef.current = [];
       calibrationStartRef.current = Date.now();
       setComputedBaselineThreshold(null);
       setComputedMinPeakForce(null);
-      // Reiniciamos el autómata de detección de ciclos.
-      detectionStateRef.current = { phase: "waiting", startTime: 0, peakForce: 0, peakTime: 0 };
-
-      // También reiniciamos el filtro.
+      setCalibratedMass(null);
+      setCalibrationStatus(calibrationType === "fixed" ? "Calibrando masa..." : "Calibrando goma elástica: posición mínima...");
+      detectionStateRef.current = { phase: "waiting", startTime: 0, peakForce: 0, peakTime: 0, measurementHistory: [], peakStableCount: 0 };
       filterWindowRef.current = [];
       previousForceRef.current = null;
-
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
     } catch (error) {
       console.error("Error starting measurement:", error);
     }
   };
 
-  // Función para detener la medición usando CMD_STOP_WEIGHT_MEAS (valor 102)
   const stopMeasurement = async () => {
     if (!controlCharacteristic) {
       console.error("Control characteristic not available");
       return;
     }
     try {
+      setIsRecording(false);
       await controlCharacteristic.writeValue(new Uint8Array([CMD_STOP_WEIGHT_MEAS]));
     } catch (error) {
       console.error("Error stopping measurement:", error);
     }
   };
 
-  // Función para desconectar el sensor
   const disconnectSensor = () => {
     if (device && device.gatt?.connected) {
       device.gatt.disconnect();
@@ -339,79 +429,179 @@ const Index = () => {
     }
   };
 
+  useEffect(() => {
+    if (isRecording) {
+      setCycleCount(0);
+      setCycles([]);
+    }
+  }, [isRecording])
+
+  // ----------------- Renderizado de la UI -----------------
   return (
-    <div className="p-5 font-sans">
-      <h1 className="text-2xl font-bold mb-4">Next.js MVP with Web Bluetooth</h1>
-      <div className="flex flex-wrap gap-4 mb-4">
-        <button
-          onClick={connectToSensor}
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+    <div 
+      className="p-5 font-sans"
+      >
+      {/* Conexión del dispositivo */}
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Strength tracker</h1>
+          {!isConnected && (
+            <LinkIcon
+              className="w-10 h-10 bg-blue-500 hover:bg-blue-700 text-white font-bold p-2 rounded"
+              onClick={connectToSensor}
+              />        
+          )}
+          {isConnected && (
+            <LinkSlashIcon
+              className="w-10 h-10 bg-red-500 hover:bg-red-700 text-white font-bold p-2 rounded"
+              onClick={disconnectSensor}
+              />
+          )}
+      </div>
+      {/* Selector para elegir el tipo de calibración */}
+      <div className="flex justify-between items-center mb-4">
+        <label className="mr-2 font-bold">Tipo de calibración:</label>
+        <select
+          value={calibrationType}
+          onChange={(e) => setCalibrationType(e.target.value as "fixed" | "elastic")}
+          className="border p-1"
+          disabled={isRecording}
         >
-          Connect to Progressor Sensor
-        </button>
+          <option value="fixed">Peso libre</option>
+          <option value="elastic">Goma Elástica</option>
+        </select>
+      </div>
+      {/* Tara e inicio del registro de ciclos */}
+      <div className="flex justify-evenly items-center flex-wrap gap-4 mb-4">
         {isConnected && (
           <>
-            <button
-              onClick={tareSensor}
-              className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
-            >
-              Tare
-            </button>
-            <button
-              onClick={startMeasurement}
-              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-            >
-              Start
-            </button>
-            <button
-              onClick={stopMeasurement}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded"
-            >
-              Stop
-            </button>
-            <button
-              onClick={disconnectSensor}
-              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-            >
-              Disconnect
-            </button>
+            {!isRecording && (
+              <>
+                <div className="relative" onClick={tareSensor} >
+                  <ScaleIcon
+                    className={`w-10 h-10 bg-purple-500 hover:bg-purple-700 text-white font-bold p-2 rounded ${taringStatus === 0 ? 'animate-pulse' : ''}`}
+                    />
+                  {taringStatus === 1 && (
+                    <CheckCircleIcon className="absolute -bottom-2 -right-2 w-6 h-6 text-white rounded-full bg-green-500 font-bold"/>
+                  )}
+                </div>
+                <PlayIcon
+                  className={`w-10 h-10 ${taringStatus === 1 ? 'bg-green-500 hover:bg-green-700' : 'bg-gray-500'} text-white font-bold p-2 rounded`}
+                  onClick={() => taringStatus === 1 && startMeasurement()}
+                  />
+              </>
+            )}
+            {isRecording && (
+              <StopIcon
+                className="w-10 h-10 bg-yellow-500 hover:bg-yellow-600 text-white font-bold p-2 rounded"
+                onClick={stopMeasurement} 
+                />
+            )}
+            {device && (
+              <div>
+                <p><strong>Dispositivo:</strong> {device.name}</p>
+                <p><strong>Estado:</strong> {isConnected ? "Conectado" : "Desconectado"}</p>
+              </div>
+            )}
           </>
         )}
+        {!isConnected && (
+          <p className="text-gray-500">No device is connected</p>
+        )}
       </div>
-      {device && (
-        <div className="mb-4">
-          <p>
-            <strong>Device:</strong> {device.name}
-          </p>
-          <p>
-            <strong>Status:</strong> {isConnected ? "Connected" : "Disconnected"}
-          </p>
+      {/* Controles para ajustar umbrales de detección de ciclos*/}
+      {(isConnected) && (
+        <div 
+          data-element="non-swipeable"
+          className="flex flex-wrap justify-between mb-4"
+          >
+          <div className="mb-4 flex justify-between items-center flex-1">
+            <label className="mr-2 font-bold flex-[1]">Tolerancia (g):</label>
+            <div className="flex-[1]">
+              <input
+                type="range"
+                min="0.01"
+                max="0.2"
+                step="0.01"
+                value={toleranceMargin}
+                onChange={(e) => setToleranceMargin(parseFloat(e.target.value))}
+              />
+              <span className="ml-2">{(toleranceMargin * 1000).toFixed(0)}</span>
+            </div>
+          </div>
+          <div className="mb-4 flex justify-between items-center flex-1">
+            <label className="mr-2 font-bold flex-[1]">Estabilidad:</label>
+            <div className="flex-[1]">
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="1"
+                value={requiredStableCount}
+                onChange={(e) => setRequiredStableCount(parseInt(e.target.value))}
+              />
+              <span className="ml-2">{requiredStableCount}</span>
+            </div>
+          </div>
+          <div className="mb-4 flex justify-between items-center flex-1">
+            <label className="mr-2 font-bold flex-[1]">Suavizado:</label>
+            <div className="flex-[1]">
+              <input
+                type="range"
+                min="3"
+                max="10"
+                step="1"
+                value={filterWindowSizeState}
+                onChange={(e) => setFilterWindowSizeState(parseInt(e.target.value))}
+              />
+              <span className="ml-2">{filterWindowSizeState}</span>
+            </div>
+          </div>
         </div>
       )}
+      {/* Datos de los ciclos registrados y calibraciones iniciales*/}
       {sensorData !== null && (
-        <div>
-          <p>
-            <strong>Received Force (last value):</strong> {sensorData} kg
-          </p>
-          <p>
-            <strong>Cycle Count:</strong> {cycleCount}
-          </p>
-          {cycles.length > 0 && (
+        <div className="mb-4">
+          {calibrationStatus && (
             <div>
-              <h2 className="font-bold mt-4">Detalles de cada ciclo:</h2>
-              <ul>
+              <p><strong>Estado de calibración:</strong></p>
+              <p>{calibrationStatus}</p>
+            </div>
+          )}
+          <div className="flex gap-6 mt-4">
+            <p><strong>Nº de Ciclos:</strong> {cycleCount}</p>
+            <p><strong>Fuerza actual:</strong> {sensorData.toFixed(2)} kg</p>
+          </div>
+          {cycles.length > 0 && (
+            <div className="h-[20vh] mt-4 pb-6">
+              <h2 className="font-bold">Detalles de cada ciclo:</h2>
+              <ul className="h-full overflow-y-scroll">
                 {cycles.map((cycle, index) => (
                   <li key={index}>
-                    Ciclo {index + 1}: Duración = {cycle.duration.toFixed(2)} seg, Pico = {cycle.peakForce.toFixed(2)}
+                    Ciclo {index + 1}: Duración = {cycle.duration.toFixed(2)} seg, Pico = {cycle.peakForce.toFixed(2)}, 
+                    F_n,prom = {cycle.avgNetForce.toFixed(2)} N, a_prom = {cycle.avgAcceleration.toFixed(2)} m/s², Δv = {cycle.deltaV.toFixed(2)} m/s
                   </li>
                 ))}
               </ul>
             </div>
           )}
-          {computedBaselineThreshold !== null && computedMinPeakForce !== null && (
+          {calibrationType === "fixed" && calibratedMass !== null && (
+            <div className="mt-4">
+              <p><strong>Calibración de masa:</strong> {calibratedMass.toFixed(2)} kg</p>
+            </div>
+          )}
+          {calibrationType === "fixed" && computedBaselineThreshold !== null && computedMinPeakForce !== null && (
+            <div className="mt-4">
+              <p><strong>Calibración de movimiento:</strong></p>
+              <div className="flex gap-6">
+                <p>Baseline = {computedBaselineThreshold.toFixed(2)}</p> 
+                <p>Min Peak = {computedMinPeakForce.toFixed(2)}</p>
+              </div>
+            </div>
+          )}
+          {calibrationType === "elastic" && elasticMinForce !== null && elasticMaxForce !== null && (
             <div className="mt-4">
               <p>
-                <strong>Calibración:</strong> Baseline = {computedBaselineThreshold.toFixed(2)}; Min Peak = {computedMinPeakForce.toFixed(2)}
+                <strong>Calibración de goma elástica:</strong> Posición mínima = {elasticMinForce.toFixed(2)}; Posición máxima = {elasticMaxForce.toFixed(2)}
               </p>
             </div>
           )}
