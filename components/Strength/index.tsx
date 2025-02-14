@@ -134,32 +134,29 @@ const Index = () => {
           }
         } else if (calibrationPhaseRef.current === "movement") {
           calibrationDataRef.current.push(filteredForce);
-          if (Date.now() - calibrationStartRef.current >= 5000) {
+          if (Date.now() - calibrationStartRef.current >= 10000) {
             const data = calibrationDataRef.current;
             const avg = data.reduce((acc, val) => acc + val, 0) / data.length;
             const maxVal = Math.max(...data);
             const diff = maxVal - avg;
             const variance = data.reduce((acc, val) => acc + Math.pow(val - avg, 2), 0) / data.length;
             const std = Math.sqrt(variance);
-            let computedMinPeak;
-            console.log('===============');
-            console.log('computedMinPeak');
-            console.log('===============');
-            if (diff < 0.5 || std < 0.1) {
-              console.log('diff < 0.5 || std < 0.1');
-              computedMinPeak = avg + 0.5;
-            } else {
-              console.log('diff > 0.5 && std > 0.1');
-              computedMinPeak = avg + Math.max(2, 2 * std);
-            }
-            if (computedMinPeak > maxVal) {
-              console.log('computedMinPeak > maxVal');
-              computedMinPeak = avg + diff * 0.9;
-            }
+            
+            // Calculamos el incremento base para el umbral.
+            // Si la variabilidad es baja, usamos un incremento fijo (0.5).
+            // Si la variabilidad es mayor, usamos Math.max(2, 2 * std) para adaptarnos a la dispersión.
+            const increment = (diff < 0.5 || std < 0.1)
+              ? 0.5
+              : Math.max(2, 2 * std);
+            
+            let computedMinPeak = avg + increment;
+            // Ajuste final: aseguramos que computedMinPeak no supere avg + 0.9 * diff (90% del rango)
+            computedMinPeak = Math.min(computedMinPeak, avg + diff * 0.9);
+            
             setComputedBaselineThreshold(avg);
             setComputedMinPeakForce(computedMinPeak);
             calibrationActiveRef.current = false;
-            setCalibrationStatus("Calibration completed. Collecting data...");
+            setCalibrationStatus("Calibración completada. Empieza el ejercicio.");
             console.log("Calibración de movimiento completada. Baseline:", avg, "Min Peak:", computedMinPeak);
           }
         }
@@ -241,6 +238,7 @@ const Index = () => {
             state.peakStableCount += 1;
           } else {
             // Opcional: si la señal se aleja, se podría no resetear a 0 sino disminuir el contador.
+            // state.peakStableCount = 0
             state.peakStableCount = Math.max(0, state.peakStableCount - 1);
           }
           // Si la derivada es negativa y el pico se ha mantenido estable durante suficientes muestras, transicionamos a descending
