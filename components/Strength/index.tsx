@@ -55,7 +55,7 @@ const Index = () => {
   const [calibrationType, setCalibrationType] = useState<"fixed" | "elastic">("fixed");
 
   // Estado para mostrar en la UI el estado actual de calibración (instrucciones y referencias)
-  const [calibrationStatus, setCalibrationStatus] = useState<string>("Calibrando masa...");
+  const [calibrationStatus, setCalibrationStatus] = useState<string>("Mass calibration...");
 
   // -------------- UUIDs según la documentación de Progressor ------------
   const PROGRESSOR_SERVICE_UUID = "7e4e1701-1ea6-40c9-9dcc-13d34ffead57";
@@ -115,7 +115,7 @@ const Index = () => {
         // Modo "fixed": Fases "mass" y "movement"
         if (calibrationPhaseRef.current === "") {
           calibrationPhaseRef.current = "mass";
-          setCalibrationStatus("Calibrando masa: sostén el peso...");
+          setCalibrationStatus("Mass calibration. Hold the weight...");
           calibrationStartRef.current = Date.now();
           massCalibrationDataRef.current = [];
         }
@@ -127,7 +127,7 @@ const Index = () => {
             // Dado que el sensor ya devuelve kg, la masa se toma como avgMassForce
             const deducedMass = avgMassForce; // sensor devuelve kg
             setCalibratedMass(deducedMass);
-            setCalibrationStatus("Calibrando el movimiento del ejercicio...");
+            setCalibrationStatus("Movement calibration...");
             calibrationPhaseRef.current = "movement";
             calibrationDataRef.current = [];
             calibrationStartRef.current = Date.now();
@@ -159,7 +159,7 @@ const Index = () => {
             setComputedBaselineThreshold(avg);
             setComputedMinPeakForce(computedMinPeak);
             calibrationActiveRef.current = false;
-            setCalibrationStatus("Calibración completada. Recopilando datos...");
+            setCalibrationStatus("Calibration completed. Collecting data...");
             console.log("Calibración de movimiento completada. Baseline:", avg, "Min Peak:", computedMinPeak);
           }
         }
@@ -167,7 +167,7 @@ const Index = () => {
         // Modo "elastic": Fases "elastic-min" y "elastic-max"
         if (calibrationPhaseRef.current === "") {
           calibrationPhaseRef.current = "elastic-min";
-          setCalibrationStatus("Calibrando goma elástica: posición mínima...");
+          setCalibrationStatus("Elastic band calibration: minimum position...");
           calibrationStartRef.current = Date.now();
           calibrationDataRef.current = [];
         }
@@ -178,7 +178,7 @@ const Index = () => {
             setElasticMinForce(avgMin);
             // Guardamos el valor en una variable local para mostrarlo
             const minRef = avgMin;
-            setCalibrationStatus(`Posición mínima: ${minRef.toFixed(2)}. Ahora, en posición máxima...`);
+            setCalibrationStatus(`Minimun position: ${minRef.toFixed(2)}. Now, maximum position...`);
             calibrationPhaseRef.current = "elastic-max";
             calibrationDataRef.current = [];
             calibrationStartRef.current = Date.now();
@@ -190,8 +190,8 @@ const Index = () => {
             setElasticMaxForce(avgMax);
             calibrationActiveRef.current = false;
             // Se usa el valor mínimo ya calibrado para mostrar las referencias
-            setCalibrationStatus(`Calibración completada. Referencias: Min = ${elasticMinForce?.toFixed(2) || "?"} y Max = ${avgMax.toFixed(2)}. Empezar...`);
-            console.log("Calibración de goma elástica completada. Min Force:", elasticMinForce, "Max Force:", avgMax);
+            setCalibrationStatus(`Calibration completed. References: Min = ${elasticMinForce?.toFixed(2) || "?"} y Max = ${avgMax.toFixed(2)}. Start...`);
+            console.log("Elastic band calibration completed. Min Force:", elasticMinForce, "Max Force:", avgMax);
           }
         }
       }
@@ -237,11 +237,11 @@ const Index = () => {
           state.peakStableCount = 1;
         }  else {
           // Si la fuerza es muy cercana al pico actual (dentro de un margen de tolerancia)
-          if (Math.abs(filteredForce - state.peakForce) < toleranceMargin  && filteredForce >= minPeak) {
+          if (Math.abs(filteredForce - state.peakForce) < toleranceMargin && filteredForce >= minPeak) {
             state.peakStableCount += 1;
           } else {
-            // Si se aleja demasiado, se puede resetear el contador (opcional)
-            state.peakStableCount = 0;
+            // Opcional: si la señal se aleja, se podría no resetear a 0 sino disminuir el contador.
+            state.peakStableCount = Math.max(0, state.peakStableCount - 1);
           }
           // Si la derivada es negativa y el pico se ha mantenido estable durante suficientes muestras, transicionamos a descending
           if (derivative < 0 && state.peakStableCount >= requiredStableCount) {
@@ -396,7 +396,7 @@ const Index = () => {
       setComputedBaselineThreshold(null);
       setComputedMinPeakForce(null);
       setCalibratedMass(null);
-      setCalibrationStatus(calibrationType === "fixed" ? "Calibrando masa..." : "Calibrando goma elástica: posición mínima...");
+      setCalibrationStatus(calibrationType === "fixed" ? "Mass calibration..." : "Elastic band: minimun position...");
       detectionStateRef.current = { phase: "waiting", startTime: 0, peakForce: 0, peakTime: 0, measurementHistory: [], peakStableCount: 0 };
       filterWindowRef.current = [];
       previousForceRef.current = null;
@@ -413,6 +413,7 @@ const Index = () => {
     }
     try {
       setIsRecording(false);
+      setCalibrationStatus("Data collection completed");
       await controlCharacteristic.writeValue(new Uint8Array([CMD_STOP_WEIGHT_MEAS]));
     } catch (error) {
       console.error("Error stopping measurement:", error);
@@ -459,23 +460,23 @@ const Index = () => {
       </div>
       {/* Selector para elegir el tipo de calibración */}
       <div className="flex justify-between items-center mb-4">
-        <label className="mr-2 font-bold">Tipo de calibración:</label>
+        <label className="mr-2 font-bold">Calibration type:</label>
         <select
           value={calibrationType}
           onChange={(e) => setCalibrationType(e.target.value as "fixed" | "elastic")}
           className="border p-1"
           disabled={isRecording}
         >
-          <option value="fixed">Peso libre</option>
-          <option value="elastic">Goma Elástica</option>
+          <option value="fixed">Free weight</option>
+          <option value="elastic">Elastic band</option>
         </select>
       </div>
       {/* Tara e inicio del registro de ciclos */}
-      <div className="flex justify-evenly items-center flex-wrap gap-4 mb-4">
+      <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
         {isConnected && (
           <>
             {!isRecording && (
-              <>
+              <div className="flex gap-4 flex-[0.6]">
                 <div className="relative" onClick={tareSensor} >
                   <ScaleIcon
                     className={`w-10 h-10 bg-purple-500 hover:bg-purple-700 text-white font-bold p-2 rounded ${taringStatus === 0 ? 'animate-pulse' : ''}`}
@@ -488,18 +489,20 @@ const Index = () => {
                   className={`w-10 h-10 ${taringStatus === 1 ? 'bg-green-500 hover:bg-green-700' : 'bg-gray-500'} text-white font-bold p-2 rounded`}
                   onClick={() => taringStatus === 1 && startMeasurement()}
                   />
-              </>
+              </div>
             )}
             {isRecording && (
-              <StopIcon
-                className="w-10 h-10 bg-yellow-500 hover:bg-yellow-600 text-white font-bold p-2 rounded"
-                onClick={stopMeasurement} 
-                />
+              <div className="flex flex-[0.6]">
+                <StopIcon
+                  className="w-10 h-10 bg-yellow-500 hover:bg-yellow-600 text-white font-bold p-2 rounded"
+                  onClick={stopMeasurement} 
+                  />
+              </div>
             )}
             {device && (
-              <div>
-                <p><strong>Dispositivo:</strong> {device.name}</p>
-                <p><strong>Estado:</strong> {isConnected ? "Conectado" : "Desconectado"}</p>
+              <div className="flex-1">
+                <p><strong>Device:</strong> {device.name}</p>
+                <p><strong>Status:</strong> {isConnected ? "Connected" : "Disconnected"}</p>
               </div>
             )}
           </>
@@ -512,11 +515,11 @@ const Index = () => {
       {(isConnected) && (
         <div 
           data-element="non-swipeable"
-          className="flex flex-wrap justify-between mb-4"
+          className="flex flex-wrap justify-between"
           >
           <div className="mb-4 flex justify-between items-center flex-1">
-            <label className="mr-2 font-bold flex-[1]">Tolerancia (g):</label>
-            <div className="flex-[1]">
+            <label className="mr-2 font-bold flex-[1]">Tolerance (kg):</label>
+            <div className="flex-[0.8] flex items-center">
               <input
                 type="range"
                 min="0.01"
@@ -525,12 +528,12 @@ const Index = () => {
                 value={toleranceMargin}
                 onChange={(e) => setToleranceMargin(parseFloat(e.target.value))}
               />
-              <span className="ml-2">{(toleranceMargin * 1000).toFixed(0)}</span>
+              <span className="ml-2">{toleranceMargin.toFixed(2)}</span>
             </div>
           </div>
           <div className="mb-4 flex justify-between items-center flex-1">
-            <label className="mr-2 font-bold flex-[1]">Estabilidad:</label>
-            <div className="flex-[1]">
+            <label className="mr-2 font-bold flex-[1]">Stability <span className="align-sub uppercase text-[0.6rem]">peak</span> :</label>
+            <div className="flex-[0.8] flex items-center">
               <input
                 type="range"
                 min="1"
@@ -543,8 +546,8 @@ const Index = () => {
             </div>
           </div>
           <div className="mb-4 flex justify-between items-center flex-1">
-            <label className="mr-2 font-bold flex-[1]">Suavizado:</label>
-            <div className="flex-[1]">
+            <label className="mr-2 font-bold flex-[1]">Smoothness:</label>
+            <div className="flex-[0.8] flex items-center">
               <input
                 type="range"
                 min="3"
@@ -563,38 +566,47 @@ const Index = () => {
         <div className="mb-4">
           {calibrationStatus && (
             <div>
-              <p><strong>Estado de calibración:</strong></p>
+              <p><strong>Calibration status:</strong></p>
               <p>{calibrationStatus}</p>
             </div>
           )}
           <div className="flex gap-6 mt-4">
-            <p><strong>Nº de Ciclos:</strong> {cycleCount}</p>
-            <p><strong>Fuerza actual:</strong> {sensorData.toFixed(2)} kg</p>
+            <p><strong>Nº of cycles:</strong> {cycleCount}</p>
+            <p><strong>Current force:</strong> {sensorData.toFixed(2)} kg</p>
           </div>
           {cycles.length > 0 && (
             <div className="h-[20vh] mt-4 pb-6">
-              <h2 className="font-bold">Detalles de cada ciclo:</h2>
+              <h2 className="font-bold">Cycle details:</h2>
               <ul className="h-full overflow-y-scroll">
                 {cycles.map((cycle, index) => (
                   <li key={index}>
-                    Ciclo {index + 1}: Duración = {cycle.duration.toFixed(2)} seg, Pico = {cycle.peakForce.toFixed(2)}, 
-                    F_n,prom = {cycle.avgNetForce.toFixed(2)} N, a_prom = {cycle.avgAcceleration.toFixed(2)} m/s², Δv = {cycle.deltaV.toFixed(2)} m/s
+                    <p className="italic">
+                      <span className="underlined">Cycle {index + 1}:</span> Duration = {cycle.duration.toFixed(2)} s, Peak = {cycle.peakForce.toFixed(2)} kg, 
+                    </p>
+                    <p>
+                      Δv = {cycle.deltaV.toFixed(2)} m/s
+                    </p> 
+                    {/* <p>
+                      F<span className="align-sub text-sm">prom</span> = {cycle.avgNetForce.toFixed(2)} N, a<span className="align-sub text-sm">prom</span> = {cycle.avgAcceleration.toFixed(2)} m/s²
+                    </p> */}
                   </li>
                 ))}
               </ul>
             </div>
           )}
-          {calibrationType === "fixed" && calibratedMass !== null && (
+          {calibrationType === "fixed" && (
             <div className="mt-4">
-              <p><strong>Calibración de masa:</strong> {calibratedMass.toFixed(2)} kg</p>
-            </div>
-          )}
-          {calibrationType === "fixed" && computedBaselineThreshold !== null && computedMinPeakForce !== null && (
-            <div className="mt-4">
-              <p><strong>Calibración de movimiento:</strong></p>
-              <div className="flex gap-6">
-                <p>Baseline = {computedBaselineThreshold.toFixed(2)}</p> 
-                <p>Min Peak = {computedMinPeakForce.toFixed(2)}</p>
+              <p><strong>Calibration (kg):</strong></p>
+              <div className="flex justify-between gap-2">
+                {calibratedMass !== null && (
+                  <p>Mass {calibratedMass.toFixed(2)}</p>
+                )}
+                {(computedBaselineThreshold !== null && computedMinPeakForce !== null) && (
+                  <>
+                    <p>Baseline = {computedBaselineThreshold.toFixed(2)}</p> 
+                    <p>Min <span className="align-sub text-[0.6rem] uppercase">peak</span> = {computedMinPeakForce.toFixed(2)}</p>
+                  </>
+                )}
               </div>
             </div>
           )}
