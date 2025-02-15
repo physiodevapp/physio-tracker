@@ -2,7 +2,8 @@
 
 import { Battery0Icon, CheckCircleIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon } from "@heroicons/react/24/solid";
 import { useState, useRef, useEffect } from "react";
-import ForceChart, { DataPoint } from "../ForceGraph";
+import ForceChart, { DataPoint } from "./Graph";
+import ForceCycleDetector from "./CycleDetector"
 
 // ----------------- Comandos y Códigos -----------------
 const CMD_TARE_SCALE = 100;
@@ -44,13 +45,13 @@ const Index = () => {
   const previousFilteredForceRef = useRef<number | null>(null);
 
   // ----------------- Función de Procesamiento de Medición -----------------
-  const processMeasurement = (force: number, sensorTime: number) => {
+  const processMeasurement = (sensorForce: number, sensorTime: number) => {
     // 1. Filtrado avanzado con EMA
     const alpha = 0.1; // Factor de suavizado (ajustable)
     const filteredForce =
       previousFilteredForceRef.current === null
-        ? force
-        : alpha * force + (1 - alpha) * previousFilteredForceRef.current;
+        ? sensorForce
+        : alpha * sensorForce + (1 - alpha) * previousFilteredForceRef.current;
     previousFilteredForceRef.current = filteredForce;
 
     // Ventana de tiempo de 10 segundos en milisegundos
@@ -59,7 +60,7 @@ const Index = () => {
     // Actualizar sensorData y el valor máximo: conservar solo datos de los últimos 10 segundos
     setSensorData((prev) => {
       // Filtrar los datos para conservar solo los últimos 10 segundos
-      const newData = prev.filter((dataPoint) => dataPoint.time >= sensorTime - timeWindow);
+      const newData = prev.filter((dataPoint) => dataPoint.time >= (sensorTime / 1000) - timeWindow);
       // Agregar el nuevo dato
       const updatedData = [...newData, { time: sensorTime, force: filteredForce }];
 
@@ -86,9 +87,7 @@ const Index = () => {
       for (let i = 2; i < dataView.byteLength; i += 8) {
         if (i + 7 < dataView.byteLength) {
           const force = dataView.getFloat32(i, true);
-          const rawTimestamp = dataView.getUint32(i + 4, true);
-          // Convertir el timestamp a milisegundos (asumiendo que rawTimestamp viene en µs)
-          const sensorTime = rawTimestamp / 1000.0;
+          const sensorTime = dataView.getUint32(i + 4, true);
           processMeasurement(force, sensorTime);
         }
       }
@@ -173,6 +172,7 @@ const Index = () => {
     try {      
       previousFilteredForceRef.current = null;     
       setSensorData([]); 
+      setMaxForce(0);
       sensorRawDataLogRef.current = ["timestamp,force"];
       sensorProcessedDataLogRef.current = ["timestamp,force,derivative"];
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
@@ -247,10 +247,10 @@ const Index = () => {
   return (
     <div 
       data-element="non-swipeable"
-      className="p-5 font-sans"
+      className="p-5 font-sans space-y-2"
       >
       {/* Conexión del dispositivo */}
-      <div className="flex justify-between items-start mb-4">
+      <div className="flex justify-between items-start">
         <div className="flex-col">
           <h1 className="text-2xl font-bold">Strength tracker</h1>
           {device && isConnected && (
@@ -265,40 +265,38 @@ const Index = () => {
             </div>
           )}
         </div>
-        {!isConnected && (
-          <LinkIcon
-            className="w-10 h-10 bg-blue-500 hover:bg-blue-700 text-white font-bold p-2 rounded"
-            onClick={connectToSensor}
-            />        
-        )}
         {isConnected && (
           <LinkSlashIcon
-            className="w-10 h-10 bg-red-500 hover:bg-red-700 text-white font-bold p-2 rounded"
+            className="w-8 h-8 bg-red-500 hover:bg-red-700 text-white font-bold p-1 rounded"
             onClick={disconnectSensor}
             />
         )}
+        <LinkIcon
+          className="w-8 h-8 bg-blue-500 hover:bg-blue-700 text-white font-bold p-1 rounded"
+          onClick={connectToSensor}
+          />
       </div>
       {/* Tara e inicio del registro de ciclos */}
-      <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         {device && isConnected && (
           <div className="flex-1 flex justify-between items-center gap-4">
             <div className="relative" onClick={tareSensor} >
               <ScaleIcon
-                className={`w-10 h-10 bg-purple-500 hover:bg-purple-700 text-white font-bold p-2 rounded ${taringStatus === 0 ? 'animate-pulse' : ''}`}
+                className={`w-8 h-8 bg-purple-500 hover:bg-purple-700 text-white font-bold p-1 rounded ${taringStatus === 0 ? 'animate-pulse' : ''}`}
                 />
               {taringStatus === 1 && (
-                <CheckCircleIcon className="absolute -bottom-2 -right-2 w-6 h-6 text-white rounded-full bg-green-500 font-bold"/>
+                <CheckCircleIcon className="absolute -bottom-2 -right-2 w-5 h-5 text-white rounded-full bg-green-500 font-bold"/>
               )}
             </div>
             {!isRecording && (
               <PlayIcon
-                className={`w-10 h-10 ${taringStatus === 1 ? 'bg-green-500 hover:bg-green-700' : 'bg-gray-300'} text-white font-bold p-2 rounded`}
+                className={`w-8 h-8 ${taringStatus === 1 ? 'bg-green-500 hover:bg-green-700' : 'bg-gray-300'} text-white font-bold p-1 rounded`}
                 onClick={startMeasurement}
                 />
             )}
             {isRecording && (
               <StopIcon
-                className="w-10 h-10 bg-orange-500 hover:bg-orange-700 text-white font-bold p-2 rounded"
+                className="w-8 h-8 bg-orange-500 hover:bg-orange-700 text-white font-bold p-1 rounded"
                 onClick={stopMeasurement}
                 />
             )}
@@ -306,12 +304,12 @@ const Index = () => {
               <p>
                 Now: {sensorData.length > 0 
                 ? `${sensorData[sensorData.length - 1].force.toFixed(1)}` 
-                : "-"} kg
+                : "0.0"} kg
               </p>
               <p>
                 Max: {maxForce
                 ? `${maxForce.toFixed(1)}`
-                : '-'} kg
+                : '0.0'} kg
               </p>
             </div>
           </div>
@@ -322,6 +320,8 @@ const Index = () => {
       </div>
       {/* Gráfico */}
       <ForceChart sensorData={sensorData} />
+      {/* Ciclos */}
+      {sensorData && <ForceCycleDetector dataPoint={sensorData[sensorData.length - 1]} reset={!Boolean(sensorData.length)} />}
     </div>
   );
 };

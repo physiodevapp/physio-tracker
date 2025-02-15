@@ -436,8 +436,6 @@ const Index = ({
       canvas.removeEventListener('touchcancel', handleTouchEnd);
     };
   }, [verticalLineValue, onVerticalLineChange, chartRef]); 
-  
-  
 
   return (
     <div 
