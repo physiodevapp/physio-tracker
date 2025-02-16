@@ -12,9 +12,10 @@ import {
   Legend,
   ChartOptions,
 } from 'chart.js';
+import annotationPlugin from 'chartjs-plugin-annotation';
 
-// Registrar los componentes necesarios de Chart.js
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+// Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, annotationPlugin);
 
 // Define el tipo para cada punto de datos
 export interface DataPoint {
@@ -22,22 +23,25 @@ export interface DataPoint {
   force: number; // Fuerza en kg
 }
 
+// Ahora ampliamos las props para recibir los umbrales
 interface IndexProps {
   sensorData: DataPoint[];
+  thresholdLow: number;  // valor de umbral bajo
+  thresholdHigh: number; // valor de umbral alto
 }
 
-const Index: React.FC<IndexProps> = ({ sensorData }) => {
+const Index: React.FC<IndexProps> = ({ sensorData, thresholdLow, thresholdHigh }) => {
   // Convertir los tiempos de microsegundos a milisegundos
   const convertedData = sensorData.map(point => ({
     time: point.time / 1000,
     force: point.force,
   }));
 
-  // Si existen datos, se toma el último timestamp (en ms) para definir la ventana de 10 seg.
-  const timeWindow = 10000; // 10 segundos en milisegundos
+  // Ventana de tiempo de 10 segundos
+  const timeWindow = 10000; // 10 segundos en ms
   const lastTime = convertedData.length > 0 ? convertedData[convertedData.length - 1].time : 0;
-  const minTime = convertedData.length > 0 ? lastTime - timeWindow : 0;
-  const maxTime = convertedData.length > 0 ? lastTime : 0;
+  const minTime = convertedData.length > 0 ? lastTime - timeWindow : undefined;
+  const maxTime = convertedData.length > 0 ? lastTime : undefined;
 
   // Configuración de datos para la gráfica
   const chartData = {
@@ -47,6 +51,7 @@ const Index: React.FC<IndexProps> = ({ sensorData }) => {
         label: 'Force (kg)',
         data: convertedData.map(point => point.force),
         fill: false,
+        borderWidth: 2,
         borderColor: 'rgb(75, 192, 192)',
         tension: 0.1,
         pointRadius: 0,
@@ -56,7 +61,7 @@ const Index: React.FC<IndexProps> = ({ sensorData }) => {
     ],
   };
 
-  // Opciones de la gráfica, configurando el eje X como lineal y estableciendo la ventana de 10 segundos.
+  // Opciones del gráfico, incluyendo las anotaciones horizontales
   const chartOptions: ChartOptions<'line'> = {
     responsive: true,
     animation: false,
@@ -68,6 +73,37 @@ const Index: React.FC<IndexProps> = ({ sensorData }) => {
       legend: {
         display: false,
       },
+      // Configuración de anotaciones
+      annotation: {
+        annotations: {
+          lowLine: {
+            type: 'line',
+            yMin: thresholdLow,
+            yMax: thresholdLow,
+            borderColor: 'red',
+            borderWidth: 2,
+            borderDash: [5, 5], 
+            label: {
+              display: sensorData.length > 0 ? true : false,
+              content: `Low: ${thresholdLow.toFixed(2)}`,
+              position: 'start'
+            }
+          },
+          highLine: {
+            type: 'line',
+            yMin: thresholdHigh,
+            yMax: thresholdHigh,
+            borderColor: 'blue',
+            borderWidth: 2,
+            borderDash: [5, 5], 
+            label: {
+              display: sensorData.length > 0 ? true : false,
+              content: `High: ${thresholdHigh.toFixed(2)}`,
+              position: 'start'
+            }
+          }
+        }
+      }
     },
     scales: {
       x: {
@@ -85,8 +121,8 @@ const Index: React.FC<IndexProps> = ({ sensorData }) => {
             return (numValue / 1000).toFixed(0) + 's';
           },
         },
-        min: convertedData.length > 0 ? minTime : undefined,
-        max: convertedData.length > 0 ? maxTime : undefined,
+        min: minTime,
+        max: maxTime,
       },
       y: {
         title: {

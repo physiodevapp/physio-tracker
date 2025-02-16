@@ -1,6 +1,6 @@
 "use client";
 
-import { Battery0Icon, CheckCircleIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon } from "@heroicons/react/24/solid";
+import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon } from "@heroicons/react/24/solid";
 import { useState, useRef, useEffect } from "react";
 import ForceChart, { DataPoint } from "./Graph";
 import ForceCycleDetector from "./CycleDetector"
@@ -9,6 +9,7 @@ import ForceCycleDetector from "./CycleDetector"
 const CMD_TARE_SCALE = 100;
 const CMD_START_WEIGHT_MEAS = 101;
 const CMD_STOP_WEIGHT_MEAS = 102;
+const CMD_ENTER_SLEEP = 110;
 const CMD_GET_BATTERY_VOLTAGE = 111
 
 const RES_CMD_RESPONSE = 0;
@@ -20,6 +21,8 @@ const RES_LOW_PWR_WARNING = 4;
 const Index = () => {
   const [sensorData, setSensorData] = useState<DataPoint[]>([]);
   const [maxForce, setMaxForce] = useState<number | null>(null);
+  const [calibratedThresholds, setCalibratedThresholds] = useState({low: 0, high: 0})
+  const [cycleCount, setCycleCount] = useState<number | null>(null);
 
   // ------------ Referencia para almacenar las líneas del CSV ---------------
   const sensorRawDataLogRef = useRef<string[]>([]);
@@ -31,15 +34,13 @@ const Index = () => {
   const [controlCharacteristic, setControlCharacteristic] = useState<BluetoothRemoteGATTCharacteristic | null>(null);
   const [taringStatus, setTaringStatus] = useState<0 | 1 | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
+  const [isBatteryDead, setIsBatteryDead] = useState(false);
+  const [isDeviceAvailable, setIsDeviceAvailable] = useState(true);
 
   // -------------- UUIDs según la documentación de Progressor ------------
   const PROGRESSOR_SERVICE_UUID = "7e4e1701-1ea6-40c9-9dcc-13d34ffead57";
   const DATA_CHAR_UUID = "7e4e1702-1ea6-40c9-9dcc-13d34ffead57";
   const CTRL_POINT_CHAR_UUID = "7e4e1703-1ea6-40c9-9dcc-13d34ffead57";
-
-  // --------- Código de comando para información extra del sensor ---------
-  const currentCommandRequestRef = useRef<number | null>(null);
 
   // ----------------- Refs para Filtrado y Derivada -----------------
   const previousFilteredForceRef = useRef<number | null>(null);
@@ -93,33 +94,21 @@ const Index = () => {
       }
     } else if (responseCode === RES_CMD_RESPONSE) {
       // Procesar respuesta a comandos
-      if (currentCommandRequestRef.current === CMD_GET_BATTERY_VOLTAGE) {
-        const voltage = dataView.getUint32(2, true);
-        const batteryPercentage = ((voltage * 100) / 3000).toFixed(0);
-        setBatteryLevel(Number(batteryPercentage));
-      }
     } else if (responseCode === RES_RFD_PEAK) {
       // Procesar datos del pico RFD
     } else if (responseCode === RES_RFD_PEAK_SERIES) {
       // Procesar la serie de picos RFD
     } else if (responseCode === RES_LOW_PWR_WARNING) {
       // Manejar advertencia de baja potencia
+      console.log('Potencia demasiado baja. Apagando dispositivo...');
+      setIsBatteryDead(true);
+      setTimeout(async () => {
+        await shutdown();
+      }, 1000);
     }
   };
 
   // ----------------- Funciones de Conexión y Control -----------------
-  const getBatteryVoltage = async () => {
-    if (!controlCharacteristic) {
-      console.error("Control characteristic not available");
-      return;
-    }
-    try {
-      currentCommandRequestRef.current = CMD_GET_BATTERY_VOLTAGE;
-      await controlCharacteristic.writeValue(new Uint8Array([CMD_GET_BATTERY_VOLTAGE]));
-    } catch (error) {
-      console.error("Error getting battery voltage:", error);
-    }
-  }
 
   const connectToSensor = async () => {
     try {
@@ -140,6 +129,7 @@ const Index = () => {
       setControlCharacteristic(controlChar);
       console.log("Connected and listening for notifications...");
       setIsConnected(true);
+      setIsDeviceAvailable(false);
     } catch (error) {
       console.error("Error connecting to sensor:", error);
     }
@@ -225,7 +215,7 @@ const Index = () => {
 
   const disconnectSensor = () => {
     if (device && device.gatt?.connected) {
-      console.log('disconnectSensor');
+      console.log('device disconnected');
       device.gatt.disconnect();
       setIsConnected(false);
       setDevice(null);
@@ -234,14 +224,37 @@ const Index = () => {
     }
   };
 
-  useEffect(() => {
-    // return
-    if (controlCharacteristic && !batteryLevel) {
-      (async () => {
-        await getBatteryVoltage();
-      })();
+  const shutdown = async () => {
+    if (!controlCharacteristic) {
+      console.error("Control characteristic not available");
+      return;
     }
-  }, [controlCharacteristic])
+    try {
+      await controlCharacteristic.writeValue(new Uint8Array([CMD_ENTER_SLEEP]));    
+      setIsConnected(false);
+      setDevice(null);
+      setSensorData([]);
+      setControlCharacteristic(null);
+      setIsDeviceAvailable(false);
+      setTimeout(() => {
+        setIsDeviceAvailable(true);
+      }, 12000);
+      console.log('Device shut down');
+
+    } catch (error) {
+      console.error("Error shutting down the device:", error);
+    }
+  }
+
+  const handleCalibrationComplete = (thresholdLow: number, thresholdHigh: number) => {
+    // Guarda estos valores en el estado o pásalos al componente de gráfico
+    console.log("Umbrales calibrados recibidos:", thresholdLow, thresholdHigh);
+    setCalibratedThresholds({ low: thresholdLow, high: thresholdHigh });
+  };
+
+  const handleCycleDetected = (cycleCount: number) => {
+    setCycleCount(cycleCount)
+  }
 
   // ----------------- Renderizado de la UI -----------------
   return (
@@ -255,26 +268,30 @@ const Index = () => {
           <h1 className="text-2xl font-bold">Strength tracker</h1>
           {device && isConnected && (
             <div className="flex-1 flex items-center gap-2">
-              <div className="relative">
-                <Battery0Icon className="w-8 h-8"/>
-                <p 
-                  className={`absolute top-[53%] left-[12%] -translate-y-1/2 bg-[#2f9d58] h-[31%] rounded-sm border-white border-2`} 
-                  style={{width: `${(((batteryLevel ?? 0) / 100) * 70).toFixed(0)}%`}}></p>
-              </div> 
+              {isBatteryDead && (
+                <Battery0Icon className="w-8 h-8 text-red-500 animate-pulse"/>
+              )}
               <p><strong>{device.name}</strong> <span>{isConnected ? "connected" : "disconnected"}</span></p>
             </div>
           )}
         </div>
-        {isConnected && (
-          <LinkSlashIcon
-            className="w-8 h-8 bg-red-500 hover:bg-red-700 text-white font-bold p-1 rounded"
-            onClick={disconnectSensor}
-            />
-        )}
-        <LinkIcon
-          className="w-8 h-8 bg-blue-500 hover:bg-blue-700 text-white font-bold p-1 rounded"
-          onClick={connectToSensor}
-          />
+        <div className="flex gap-4">
+          {isConnected && (
+            <LinkSlashIcon
+              className="w-8 h-8 bg-red-500 hover:bg-red-700 text-white font-bold p-1 rounded"
+              onClick={shutdown}
+              />
+          )}
+          {(isConnected || (isDeviceAvailable && !device)) && (
+            <LinkIcon
+              className="w-8 h-8 bg-blue-500 hover:bg-blue-700 text-white font-bold p-1 rounded"
+              onClick={connectToSensor}
+              />
+          )}
+          {(!isConnected && (!isDeviceAvailable || device)) && (
+            <ArrowPathIcon className="w-8 h-8 text-gray-500 animate-spin"/>
+          )}
+        </div>
       </div>
       {/* Tara e inicio del registro de ciclos */}
       <div className="flex justify-between items-center flex-wrap gap-4">
@@ -300,7 +317,7 @@ const Index = () => {
                 onClick={stopMeasurement}
                 />
             )}
-            <div className="flex-1">
+            <div className="flex-[0.6]">
               <p>
                 Now: {sensorData.length > 0 
                 ? `${sensorData[sensorData.length - 1].force.toFixed(1)}` 
@@ -312,6 +329,19 @@ const Index = () => {
                 : '0.0'} kg
               </p>
             </div>
+            <div className="flex-[1]">
+              {cycleCount && (
+                <span className="font-bold text-3xl">{cycleCount} {cycleCount > 1 ? ' reps' : 'rep'}</span>
+              )}
+              {isRecording && cycleCount === null && (
+                <div className="flex flex-wrap justify-center items-center animate-pulse">
+                  <span className="font-bold text-blue-600 text-base">Calibrando...</span>
+                  <span className="text-center text-xs text-blue-600">
+                    (Haz varias repeticiones)
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         )}
         {!isConnected && (
@@ -319,9 +349,22 @@ const Index = () => {
         )}
       </div>
       {/* Gráfico */}
-      <ForceChart sensorData={sensorData} />
+      <ForceChart 
+        sensorData={sensorData} 
+        thresholdHigh={calibratedThresholds.high}
+        thresholdLow={calibratedThresholds.low}
+        />
       {/* Ciclos */}
-      {sensorData && <ForceCycleDetector dataPoint={sensorData[sensorData.length - 1]} reset={!Boolean(sensorData.length)} />}
+      {isConnected && (
+        <ForceCycleDetector 
+          dataPoint={sensorData[sensorData.length - 1]} 
+          reset={sensorData.length === 0} 
+          calibrationTime={8000}
+          isRecording={isRecording}
+          onCalibrationComplete={handleCalibrationComplete}
+          onCycleDetected={handleCycleDetected}
+          />
+      )}
     </div>
   );
 };
