@@ -28,9 +28,10 @@ interface IndexProps {
   sensorData: DataPoint[];
   thresholdLow: number;  // valor de umbral bajo
   thresholdHigh: number; // valor de umbral alto
+  displayAnnotations: boolean;
 }
 
-const Index: React.FC<IndexProps> = ({ sensorData, thresholdLow, thresholdHigh }) => {
+const Index: React.FC<IndexProps> = ({ sensorData, thresholdLow, thresholdHigh, displayAnnotations }) => {
   // Convertir los tiempos de microsegundos a milisegundos
   const convertedData = sensorData.map(point => ({
     time: point.time / 1000,
@@ -78,27 +79,30 @@ const Index: React.FC<IndexProps> = ({ sensorData, thresholdLow, thresholdHigh }
         annotations: {
           lowLine: {
             type: 'line',
+            display: displayAnnotations,
             yMin: thresholdLow,
             yMax: thresholdLow,
             borderColor: 'red',
             borderWidth: 2,
             borderDash: [5, 5], 
             label: {
-              display: sensorData.length > 0 ? true : false,
-              content: `Low: ${thresholdLow.toFixed(2)}`,
-              position: 'start'
+              display: true,
+              content: `Trough: ${thresholdLow.toFixed(1)} kg`,
+              position: 'start',
+              // yAdjust: -10
             }
           },
           highLine: {
             type: 'line',
+            display: displayAnnotations,
             yMin: thresholdHigh,
             yMax: thresholdHigh,
             borderColor: 'blue',
             borderWidth: 2,
             borderDash: [5, 5], 
             label: {
-              display: sensorData.length > 0 ? true : false,
-              content: `High: ${thresholdHigh.toFixed(2)}`,
+              display: true,
+              content: `Peak: ${thresholdHigh.toFixed(1)} kg`,
               position: 'start'
             }
           }
@@ -130,7 +134,7 @@ const Index: React.FC<IndexProps> = ({ sensorData, thresholdLow, thresholdHigh }
           text: 'Force (kg)',
         },
         ticks: {
-          stepSize: 0.1,
+          // stepSize: 0.1,
           callback: (value) => {
             const numValue = Number(value);
             if (numValue < 0) return '';

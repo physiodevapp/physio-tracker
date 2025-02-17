@@ -6,7 +6,7 @@ import * as poseDetection from "@tensorflow-models/pose-detection";
 import { JointDataMap, JointConfigMap, CanvasKeypointName, CanvasKeypointData, PoseSettings, Kinematics, JointColors } from "@/interfaces/pose";
 import { drawKeypointConnections, drawKeypoints } from "@/services/draw";
 import { updateJoint } from "@/services/joint";
-import PoseGraph from "../PoseGraph";
+import PoseGraph from "./Graph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
 import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, DevicePhoneMobileIcon, VideoCameraIcon, TrashIcon, CubeTransparentIcon, CloudArrowDownIcon } from "@heroicons/react/24/solid";

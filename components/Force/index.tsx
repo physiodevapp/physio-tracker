@@ -23,11 +23,11 @@ const Index = () => {
   const [maxForce, setMaxForce] = useState<number | null>(null);
   const [calibratedThresholds, setCalibratedThresholds] = useState({low: 0, high: 0})
   const [cycleCount, setCycleCount] = useState<number | null>(null);
-
+  
   // ------------ Referencia para almacenar las líneas del CSV ---------------
   const sensorRawDataLogRef = useRef<string[]>([]);
   const sensorProcessedDataLogRef = useRef<string[]>([]);
-
+  
   // --------------- Estados de conexión y datos básicos -----------------
   const [device, setDevice] = useState<BluetoothDevice | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -36,6 +36,10 @@ const Index = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isBatteryDead, setIsBatteryDead] = useState(false);
   const [isDeviceAvailable, setIsDeviceAvailable] = useState(true);
+  // Tiempo de calibración en milisegundos (ajustable desde la UI)
+  const [calibrationTime, setCalibrationTime] = useState(8000);
+  // Estado para el tiempo restante en la calibración (en milisegundos)
+  const [remainingTime, setRemainingTime] = useState(calibrationTime);
 
   // -------------- UUIDs según la documentación de Progressor ------------
   const PROGRESSOR_SERVICE_UUID = "7e4e1701-1ea6-40c9-9dcc-13d34ffead57";
@@ -102,9 +106,11 @@ const Index = () => {
       // Manejar advertencia de baja potencia
       console.log('Potencia demasiado baja. Apagando dispositivo...');
       setIsBatteryDead(true);
+      // shutdown();
+      // stopMeasurement();
       setTimeout(async () => {
-        await shutdown();
-      }, 1000);
+        shutdown();
+      }, 3000);
     }
   };
 
@@ -130,8 +136,12 @@ const Index = () => {
       console.log("Connected and listening for notifications...");
       setIsConnected(true);
       setIsDeviceAvailable(false);
+      setTaringStatus(null);
     } catch (error) {
       console.error("Error connecting to sensor:", error);
+      setIsConnected(false);
+      setDevice(null);
+      setIsDeviceAvailable(true);
     }
   };
 
@@ -225,36 +235,52 @@ const Index = () => {
   };
 
   const shutdown = async () => {
+    setIsConnected(false);
+    setDevice(null);
+    setSensorData([]);
+    setControlCharacteristic(null);
+    setIsDeviceAvailable(false);
+    setTimeout(() => {
+      setIsDeviceAvailable(true);
+    }, 12000);
+    console.log('Device shut down');
     if (!controlCharacteristic) {
       console.error("Control characteristic not available");
       return;
     }
     try {
       await controlCharacteristic.writeValue(new Uint8Array([CMD_ENTER_SLEEP]));    
-      setIsConnected(false);
-      setDevice(null);
-      setSensorData([]);
-      setControlCharacteristic(null);
-      setIsDeviceAvailable(false);
-      setTimeout(() => {
-        setIsDeviceAvailable(true);
-      }, 12000);
-      console.log('Device shut down');
 
     } catch (error) {
       console.error("Error shutting down the device:", error);
     }
   }
 
-  const handleCalibrationComplete = (thresholdLow: number, thresholdHigh: number) => {
+  const handleThresholdsUpdate = (thresholdLow: number, thresholdHigh: number) => {
     // Guarda estos valores en el estado o pásalos al componente de gráfico
-    console.log("Umbrales calibrados recibidos:", thresholdLow, thresholdHigh);
+    // console.log("Umbrales actualizados:", thresholdHigh, thresholdLow);
     setCalibratedThresholds({ low: thresholdLow, high: thresholdHigh });
   };
 
-  const handleCycleDetected = (cycleCount: number) => {
+  const handleCycleDetected = (cycleCount: number | null) => {
     setCycleCount(cycleCount)
   }
+
+  useEffect(() => {
+    if (isRecording) {
+      setRemainingTime(calibrationTime);
+      const intervalId = setInterval(() => {
+        setRemainingTime((prevTime) => {
+          if (prevTime <= 1000) {
+            clearInterval(intervalId);
+            return 0;
+          }
+          return prevTime - 1000;
+        });
+      }, 1000);
+      return () => clearInterval(intervalId);
+    }
+  }, [isRecording, calibrationTime]);
 
   // ----------------- Renderizado de la UI -----------------
   return (
@@ -275,7 +301,7 @@ const Index = () => {
             </div>
           )}
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-2">
           {isConnected && (
             <LinkSlashIcon
               className="w-8 h-8 bg-red-500 hover:bg-red-700 text-white font-bold p-1 rounded"
@@ -293,10 +319,11 @@ const Index = () => {
           )}
         </div>
       </div>
-      {/* Tara e inicio del registro de ciclos */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
+      {/* Tara y métricas */}
+      <div className="flex justify-between items-center flex-wrap">
         {device && isConnected && (
-          <div className="flex-1 flex justify-between items-center gap-4">
+          <div className="flex-1 flex justify-between items-center gap-3">
+            {/* Tara */}
             <div className="relative" onClick={tareSensor} >
               <ScaleIcon
                 className={`w-8 h-8 bg-purple-500 hover:bg-purple-700 text-white font-bold p-1 rounded ${taringStatus === 0 ? 'animate-pulse' : ''}`}
@@ -305,6 +332,7 @@ const Index = () => {
                 <CheckCircleIcon className="absolute -bottom-2 -right-2 w-5 h-5 text-white rounded-full bg-green-500 font-bold"/>
               )}
             </div>
+            {/* Controles de grabación */}
             {!isRecording && (
               <PlayIcon
                 className={`w-8 h-8 ${taringStatus === 1 ? 'bg-green-500 hover:bg-green-700' : 'bg-gray-300'} text-white font-bold p-1 rounded`}
@@ -317,11 +345,12 @@ const Index = () => {
                 onClick={stopMeasurement}
                 />
             )}
-            <div className="flex-[0.6]">
+            {/* Métricas de fuerza*/}
+            <div className="flex-[0.7]">
               <p>
                 Now: {sensorData.length > 0 
-                ? `${sensorData[sensorData.length - 1].force.toFixed(1)}` 
-                : "0.0"} kg
+                ? <span className={isRecording ? 'animate-pulse' : ''}>{sensorData[sensorData.length - 1].force.toFixed(1)} kg</span> 
+                : "0.0 kg"}
               </p>
               <p>
                 Max: {maxForce
@@ -329,13 +358,14 @@ const Index = () => {
                 : '0.0'} kg
               </p>
             </div>
-            <div className="flex-[1]">
+            {/* Métricas de ciclos*/}
+            <div className="flex-[0.9] flex justify-center">
               {cycleCount && (
-                <span className="font-bold text-3xl">{cycleCount} {cycleCount > 1 ? ' reps' : 'rep'}</span>
+                <span className={`font-bold text-3xl ${isRecording ? 'animate-pulse' : ''}`}>{cycleCount} {cycleCount > 1 ? ' reps.' : 'rep.'}</span>
               )}
               {isRecording && cycleCount === null && (
                 <div className="flex flex-wrap justify-center items-center animate-pulse">
-                  <span className="font-bold text-blue-600 text-base">Calibrando...</span>
+                  <span className="font-bold text-blue-600 text-base">Calibrando ({Math.ceil(remainingTime / 1000)}s)</span>
                   <span className="text-center text-xs text-blue-600">
                     (Haz varias repeticiones)
                   </span>
@@ -348,22 +378,25 @@ const Index = () => {
           <p className="text-gray-500">No device is connected</p>
         )}
       </div>
-      {/* Gráfico */}
-      <ForceChart 
-        sensorData={sensorData} 
-        thresholdHigh={calibratedThresholds.high}
-        thresholdLow={calibratedThresholds.low}
-        />
-      {/* Ciclos */}
       {isConnected && (
-        <ForceCycleDetector 
-          dataPoint={sensorData[sensorData.length - 1]} 
-          reset={sensorData.length === 0} 
-          calibrationTime={8000}
-          isRecording={isRecording}
-          onCalibrationComplete={handleCalibrationComplete}
-          onCycleDetected={handleCycleDetected}
-          />
+        <>
+          {/* Gráfico */}
+          <ForceChart 
+            sensorData={sensorData} 
+            thresholdHigh={calibratedThresholds.high}
+            thresholdLow={calibratedThresholds.low}
+            displayAnnotations={isConnected && cycleCount !== null}
+            />
+          {/* Ciclos */}
+          <ForceCycleDetector 
+            dataPoint={sensorData[sensorData.length - 1]} 
+            reset={sensorData.length === 0} 
+            calibrationTime={8000}
+            isRecording={isRecording}
+            onThresholdsUpdate={handleThresholdsUpdate}
+            onCycleDetected={handleCycleDetected}
+            />
+        </>
       )}
     </div>
   );
