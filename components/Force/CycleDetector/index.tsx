@@ -22,6 +22,7 @@ interface IndexProps {
   reset: boolean;
   calibrationTime: number; // en milisegundos
   isRecording: boolean;
+  samplePeriod: number; // tiempo entre muestras en milisegundos
   onThresholdsUpdate: (thresholdLow: number, thresholdHigh: number) => void;
   onCycleDetected: (cycleCount: number | null) => void;
 }
@@ -31,13 +32,14 @@ const Index: React.FC<IndexProps> = ({
   reset,
   calibrationTime,
   isRecording,
+  samplePeriod,
   onThresholdsUpdate,
   onCycleDetected,
 }) => {
   // Parámetros ajustables con sliders
   const [windowSize, setWindowSize] = useState<number>(100);
   const [minConsecutiveLow, setMinConsecutiveLow] = useState<number>(2);
-  const peakMergeInterval = 200_000; // en microsegundos
+  const peakMergeInterval = 300_000; // en microsegundos
   const [reductionFactor, setReductionFactor] = useState(0.20); // Controla el % de reducción del pico
   const [growthFactor, setGrowthFactor] = useState(0.35); // Controla el % de crecimiento del mínimo
 
@@ -48,7 +50,7 @@ const Index: React.FC<IndexProps> = ({
   const [cycleCount, setCycleCount] = useState<number>(0);
   const [avgCycleInterval, setAvgCycleInterval] = useState(0);
   const lastUpdateRef = useRef<number>(0);
-  const updateInterval = 2_500; // actualizar cada 1000ms, por ejemplo
+  const updateInterval = 200; // en milisegundos, actualizar cada 1000ms, por ejemplo
 
   // Refs para almacenar datos y estado interno sin re-renderizados
   const dataWindowRef = useRef<number[]>([]);
@@ -82,14 +84,6 @@ const Index: React.FC<IndexProps> = ({
   const reduceMax = (x: number, factor: number) => {
     return x - Math.abs(x) * factor;
   }
-
-  // Función para calcular estadísticas (media y desviación estándar)
-  // const updateStats = (data: number[]): { baseline: number; stdDev: number } => {
-  //   const n = data.length;
-  //   const mean = data.reduce((sum, val) => sum + val, 0) / n;
-  //   const variance = data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / n;
-  //   return { baseline: mean, stdDev: Math.sqrt(variance) };
-  // };  
   
   // Actualiza los umbrales
   const updateThresholds = (thresholdType: ThresholdType, factor: number, data: number[]): NewThresholds => {    
@@ -163,16 +157,18 @@ const Index: React.FC<IndexProps> = ({
       // Actualiza la ventana móvil
       dataWindowRef.current.push(force);
 
-      if (dataWindowRef.current.length > windowSize) {
+      console.log('dataWindowRef.current.length > windowSizeRef.current ? ', dataWindowRef.current.length, ' > ',  windowSizeRef.current);
+      if (dataWindowRef.current.length > windowSizeRef.current) {
         dataWindowRef.current.shift();
-
+        
         const now = Date.now();
         // Actualizamos los thresholds solo si ha pasado el intervalo deseado
         if (now - lastUpdateRef.current > updateInterval) {
-          console.log('update now');
+          console.log('UPDATE THRESHOLDS now');
+          console.log('samplePeriod en ms ', samplePeriod.toFixed(1));
           // Descarta el primer 30% de los datos
           const totalData = dataWindowRef.current.length;
-          const startIndex = Math.floor(totalData * 0.30);
+          const startIndex = Math.floor(totalData * 0.10);
           const filteredData = dataWindowRef.current.slice(startIndex);
 
           const { newThresholdHigh } = updateThresholds("peak", reductionFactorRef.current, filteredData);
@@ -192,11 +188,11 @@ const Index: React.FC<IndexProps> = ({
 
       if (cycleStateRef.current === CycleState.IDLE) {
         if (force > thHigh) {
+          // Inicio de ciclo
           cycleStateRef.current = CycleState.IN_CYCLE;
           setCycleCount(prev => prev + 1);
           consecutiveLowCountRef.current = 0;
           lastPeakTimestampRef.current = timestamp;
-          // console.log(`Ciclo #${cycleCount + 1} iniciado en t=${timestamp}`);
         }
       } else if (cycleStateRef.current === CycleState.IN_CYCLE) {
         if (force > thHigh) {
@@ -214,24 +210,31 @@ const Index: React.FC<IndexProps> = ({
         }
 
         if (consecutiveLowCountRef.current >= minConsecutiveLowRef.current) {
-          // Calcular intervalo promedio entre picos (dentro del ciclo actual)
-          // if (peakIntervalsRef.current.length > 0) {
-          //   const avgInterval =
-          //     peakIntervalsRef.current.reduce((a, b) => a + b, 0) /
-          //     peakIntervalsRef.current.length;
-          //   console.log(`Intervalo promedio entre picos intraciclo: ${avgInterval} microsegundos`);
-          // }
-
           // Calcular el intervalo entre ciclos:
           if (lastCycleFinishRef.current > 0) {
             const cycleInterval = timestamp - lastCycleFinishRef.current;
             cycleIntervalsRef.current.push(cycleInterval);
             // Calcular el promedio de intervalos entre ciclos
             const avgCycleInterval = cycleIntervalsRef.current.reduce((a, b) => a + b, 0) / cycleIntervalsRef.current.length;
-            // console.log(`Intervalo promedio entre ciclos: ${avgCycleInterval} microsegundos`);
             // Actualiza la ref para usarla en el useEffect de fatiga
             avgCycleIntervalRef.current = avgCycleInterval;
-            setAvgCycleInterval(avgCycleInterval)
+            setAvgCycleInterval(avgCycleInterval);
+
+            // --- Lógica dinámica para ajustar la ventana ---
+            // Calcular la cantidad de muestras por ciclo. 
+            // Nota: avgCycleInterval está en microsegundos y samplePeriod en ms, convertimos samplePeriod a microsegundos
+            const samplePeriodMicro = samplePeriod * 1000;
+            const samplesPerCycle = avgCycleInterval / samplePeriodMicro; 
+            // Queremos que la ventana abarque, por ejemplo, 2 ciclos:
+            let newWindowSize = Math.round(2 * samplesPerCycle);
+            // Limitar el tamaño a un rango razonable (por ejemplo, entre 50 y 820)
+            newWindowSize = Math.max(50, Math.min(newWindowSize, 820));
+            // Si el nuevo tamaño es distinto al actual, actualizarlo
+            if (newWindowSize !== windowSizeRef.current) {
+              setWindowSize(newWindowSize);
+              windowSizeRef.current = newWindowSize;
+              console.log(`Se ajustó la ventana dinámica a ${newWindowSize} muestras (samplesPerCycle: ${samplesPerCycle.toFixed(1)}), samplePeriod (ms): ${samplePeriod.toFixed(1)} y avgCycleInterval (seg): ${(avgCycleInterval / 1_000_000).toFixed(1)}`);
+            }
           }
           
           // Actualizar el timestamp de finalización del ciclo actual
@@ -250,8 +253,8 @@ const Index: React.FC<IndexProps> = ({
   }
 
   const handleWindowSizeChangeFinished = (value: number) => {
-    dataWindowRef.current = [];
     windowSizeRef.current = value;
+    // dataWindowRef.current = [];
   } 
 
   // Este efecto se dispara cuando cambian reductionFactor o growthFactor
@@ -268,7 +271,6 @@ const Index: React.FC<IndexProps> = ({
   // Inicia el timer de calibración si isRecording es true
   useEffect(() => {
     if (isRecording) {
-
       const calibrationTimer = setTimeout(() => {
         finalizeCalibration();
       }, calibrationTime);
@@ -340,8 +342,8 @@ const Index: React.FC<IndexProps> = ({
           : "Posible fatiga detectada: el ciclo se está ralentizando."
         );
         console.log('curva RALENTIZÁNDOSE...');
-        console.log('avgCycleInterval - ', (avgCycleInterval / 1_000_000).toFixed(2), 'cycleIntervalThreshold - ', (cycleIntervalThreshold / 1_000_000).toFixed(2));
         console.log('=======================');
+        console.log('avgCycleInterval - ', (avgCycleInterval / 1_000_000).toFixed(2), 'cycleIntervalThreshold - ', (cycleIntervalThreshold / 1_000_000).toFixed(2));
       }
     }
   }, [thresholds, avgCycleInterval, isCalibrating, initialThresholds]);
@@ -363,7 +365,7 @@ const Index: React.FC<IndexProps> = ({
             onMouseUp={(e) => handleThresholdChangeFinished("peak", parseFloat(e.currentTarget.value))}
             onTouchEnd={(e) => handleThresholdChangeFinished("peak", parseFloat(e.currentTarget.value))}
             className="w-full"
-            disabled={isCalibrating}
+            disabled={isCalibrating && isRecording}
             />
         </div>
         <div>
@@ -378,7 +380,7 @@ const Index: React.FC<IndexProps> = ({
             onMouseUp={(e) => handleThresholdChangeFinished("trough", parseFloat(e.currentTarget.value))}
             onTouchEnd={(e) => handleThresholdChangeFinished("trough", parseFloat(e.currentTarget.value))}
             className="w-full"
-            disabled={isCalibrating}
+            disabled={isCalibrating && isRecording}
             />
         </div>
         <div>
@@ -392,7 +394,7 @@ const Index: React.FC<IndexProps> = ({
             onMouseUp={(e) => handleMinconsecutiveLowChangeFinished(parseInt(e.currentTarget.value, 10))}
             onTouchEnd={(e) => handleMinconsecutiveLowChangeFinished(parseInt(e.currentTarget.value, 10))}
             className="w-full"
-            disabled={isCalibrating}
+            disabled={isCalibrating && isRecording}
             />
         </div>
         <div>
@@ -400,17 +402,17 @@ const Index: React.FC<IndexProps> = ({
           <input
             type="range"
             min="10"
-            max="300"
+            max="3000"
             value={windowSize}
             onChange={(e) => {
               const newVal = parseInt(e.target.value, 10);
               setWindowSize(newVal);
-              dataWindowRef.current = [];
+              // dataWindowRef.current = [];
             }}
             onMouseUp={(e) => handleWindowSizeChangeFinished(parseInt(e.currentTarget.value, 10))}
             onTouchEnd={(e) => handleWindowSizeChangeFinished(parseInt(e.currentTarget.value, 10))}
             className="w-full"
-            disabled={isCalibrating}
+            disabled={isCalibrating && isRecording}
           />
         </div>
       </div>

@@ -19,6 +19,12 @@ const RES_RFD_PEAK_SERIES = 3;
 const RES_LOW_PWR_WARNING = 4;
 
 const Index = () => {
+  // Declaramos un estado y una ref para medir la frecuencia
+  const measurementStartRef = useRef<number | null>(null);
+  const sampleCount = useRef<number>(0);
+  const maxSensorDataRef = useRef<number>(815); // Valor inicial aproximado
+  const [samplePeriod, setSamplePeriod] = useState((1 / 80) * 1000) // en milisegundos
+
   const [sensorData, setSensorData] = useState<DataPoint[]>([]);
   const [maxForce, setMaxForce] = useState<number | null>(null);
   const [calibratedThresholds, setCalibratedThresholds] = useState({low: 0, high: 0})
@@ -51,7 +57,7 @@ const Index = () => {
 
   // ----------------- Función de Procesamiento de Medición -----------------
   const processMeasurement = (sensorForce: number, sensorTime: number) => {
-    // 1. Filtrado avanzado con EMA
+    // Filtrado avanzado con EMA
     const alpha = 0.1; // Factor de suavizado (ajustable)
     const filteredForce =
       previousFilteredForceRef.current === null
@@ -59,20 +65,45 @@ const Index = () => {
         : alpha * sensorForce + (1 - alpha) * previousFilteredForceRef.current;
     previousFilteredForceRef.current = filteredForce;
 
-    // Ventana de tiempo de 10 segundos en milisegundos
-    const timeWindow = 10000;
+    // Inicia el contador en el primer dato recibido
+    if (measurementStartRef.current === null) {
+      measurementStartRef.current = sensorTime;
+      sampleCount.current = 0;
+    } else {
+      sampleCount.current = sampleCount.current + 1;
+    }
+    
+    // Comprueba si han pasado 10 segundos (en microsegundos)
+    const timeWindow = 10_000_000;
+    if (
+      measurementStartRef.current &&
+      (sensorTime - measurementStartRef.current) >= timeWindow
+    ) {
+      const samplesIn10Sec = sampleCount.current + 1; // Incluyendo el dato actual
+      console.log("Muestras en 10 segundos:", samplesIn10Sec);
+      // Actualiza el valor dinámico
+      maxSensorDataRef.current = samplesIn10Sec;
+      // Reinicia el contador y la marca de tiempo
+      sampleCount.current = 0;
+      measurementStartRef.current = sensorTime;
+    }
 
-    // Actualizar sensorData y el valor máximo: conservar solo datos de los últimos 10 segundos
+    // Actualizar sensorData utilizando el buffer circular dinámico
     setSensorData((prev) => {
-      // Filtrar los datos para conservar solo los últimos 10 segundos
-      const newData = prev.filter((dataPoint) => dataPoint.time >= (sensorTime / 1000) - timeWindow);
-      // Agregar el nuevo dato
-      const updatedData = [...newData, { time: sensorTime, force: filteredForce }];
+      // Agrega el nuevo dato
+      const updatedData = [...prev, { time: sensorTime, force: filteredForce }];
+      // Usa el valor dinámico en lugar de una constante fija
+      if (updatedData.length > maxSensorDataRef.current) {
+        updatedData.shift();
+      }
 
-      // Actualizar el estado del máximo con el valor máximo de updatedData
+      // Actualiza samplePeriod (en milisegundos)
+     setSamplePeriod(10_000 / maxSensorDataRef.current);
+
+      // Actualiza el estado del máximo
       if (updatedData.length > 0) {
         const currentMax = Math.max(...updatedData.map((point) => point.force));
-        setMaxForce(prev => Math.max(prev ?? 0, currentMax));
+        setMaxForce((prevMax) => Math.max(prevMax ?? 0, currentMax));
       } else {
         setMaxForce(null);
       }
@@ -91,8 +122,8 @@ const Index = () => {
       // Se asume que los datos vienen empaquetados en bloques de 8 bytes
       for (let i = 2; i < dataView.byteLength; i += 8) {
         if (i + 7 < dataView.byteLength) {
-          const force = dataView.getFloat32(i, true);
-          const sensorTime = dataView.getUint32(i + 4, true);
+          const force = dataView.getFloat32(i, true); // kg
+          const sensorTime = dataView.getUint32(i + 4, true); // microsegundos
           processMeasurement(force, sensorTime);
         }
       }
@@ -173,6 +204,7 @@ const Index = () => {
       previousFilteredForceRef.current = null;     
       setSensorData([]); 
       setMaxForce(0);
+      setSamplePeriod((1 / 80) * 1000);
       sensorRawDataLogRef.current = ["timestamp,force"];
       sensorProcessedDataLogRef.current = ["timestamp,force,derivative"];
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
@@ -223,21 +255,11 @@ const Index = () => {
     }
   };
 
-  const disconnectSensor = () => {
-    if (device && device.gatt?.connected) {
-      console.log('device disconnected');
-      device.gatt.disconnect();
-      setIsConnected(false);
-      setDevice(null);
-      setSensorData([]);
-      setControlCharacteristic(null);
-    }
-  };
-
   const shutdown = async () => {
     setIsConnected(false);
     setDevice(null);
     setSensorData([]);
+    setSamplePeriod((1 / 80) * 1000);
     setControlCharacteristic(null);
     setIsDeviceAvailable(false);
     setTimeout(() => {
@@ -390,6 +412,7 @@ const Index = () => {
           {/* Ciclos */}
           <ForceCycleDetector 
             dataPoint={sensorData[sensorData.length - 1]} 
+            samplePeriod={samplePeriod}
             reset={sensorData.length === 0} 
             calibrationTime={8000}
             isRecording={isRecording}

@@ -1,5 +1,4 @@
-// components/Index.tsx
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -13,6 +12,7 @@ import {
   ChartOptions,
 } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
+import { lttbDownsample } from '@/services/chart';
 
 // Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, annotationPlugin);
@@ -32,25 +32,33 @@ interface IndexProps {
 }
 
 const Index: React.FC<IndexProps> = ({ sensorData, thresholdLow, thresholdHigh, displayAnnotations }) => {
-  // Convertir los tiempos de microsegundos a milisegundos
-  const convertedData = sensorData.map(point => ({
-    time: point.time / 1000,
-    force: point.force,
+  const decimationThreshold = 200;
+
+  // Mapeamos los datos para adaptarlos a la función lttbDownsample
+  //  Convertimos "time" a "x" y de microsegundos a milisegundos
+  const mappedData  = sensorData.map(point => ({
+    x: point.time / 1000,
+    y: point.force,
   }));
 
+  // Aplicamos la función de downsampling usando useMemo para optimizar
+  const downsampledData = useMemo(() => {
+    return lttbDownsample(mappedData, decimationThreshold);
+  }, [mappedData, decimationThreshold]);
+
   // Ventana de tiempo de 10 segundos
-  const timeWindow = 10000; // 10 segundos en ms
-  const lastTime = convertedData.length > 0 ? convertedData[convertedData.length - 1].time : 0;
-  const minTime = convertedData.length > 0 ? lastTime - timeWindow : undefined;
-  const maxTime = convertedData.length > 0 ? lastTime : undefined;
+  const timeWindow = 10_000; // 10 segundos en ms
+  const lastTime = downsampledData.length > 0 ? downsampledData[downsampledData.length - 1].x : 0;
+  const minTime = downsampledData.length > 0 ? lastTime - timeWindow : undefined;
+  const maxTime = downsampledData.length > 0 ? lastTime : undefined;
 
   // Configuración de datos para la gráfica
   const chartData = {
-    labels: convertedData.map(point => point.time),
+    labels: downsampledData.map(point => point.x),
     datasets: [
       {
         label: 'Force (kg)',
-        data: convertedData.map(point => point.force),
+        data: downsampledData.map(point => point.y),
         fill: false,
         borderWidth: 2,
         borderColor: 'rgb(75, 192, 192)',
@@ -107,7 +115,7 @@ const Index: React.FC<IndexProps> = ({ sensorData, thresholdLow, thresholdHigh, 
             }
           }
         }
-      }
+      },
     },
     scales: {
       x: {
