@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -26,12 +26,10 @@ export interface DataPoint {
 // Ahora ampliamos las props para recibir los umbrales
 interface IndexProps {
   sensorData: DataPoint[];
-  thresholdLow: number;  // valor de umbral bajo
-  thresholdHigh: number; // valor de umbral alto
   displayAnnotations: boolean;
 }
 
-const Index: React.FC<IndexProps> = ({ sensorData, thresholdLow, thresholdHigh, displayAnnotations }) => {
+const Index: React.FC<IndexProps> = ({ sensorData, displayAnnotations }) => {
   const decimationThreshold = 200;
 
   // Mapeamos los datos para adaptarlos a la función lttbDownsample
@@ -45,6 +43,27 @@ const Index: React.FC<IndexProps> = ({ sensorData, thresholdLow, thresholdHigh, 
   const downsampledData = useMemo(() => {
     return lttbDownsample(mappedData, decimationThreshold);
   }, [mappedData, decimationThreshold]);
+
+  // Definimos una ventana para el promedio móvil (por ejemplo, últimos 5 segundos)
+  const movingAverageWindow = 3_000; // 5000 ms = 5 segundos
+
+  // Cálculo del promedio de la fuerza solo para los datos recientes
+  const averageValue = useMemo(() => {
+    if (!downsampledData.length) return 0;
+    const currentTime = downsampledData[downsampledData.length - 1].x;
+    const windowStartTime = currentTime - movingAverageWindow;
+    
+    // Buscar el índice del primer punto que esté dentro de la ventana
+    let startIndex = 0;
+    while (startIndex < downsampledData.length && downsampledData[startIndex].x < windowStartTime) {
+      startIndex++;
+    }
+    
+    // Extraer los datos recientes usando slice, sin mutar el array original
+    const recentData = downsampledData.slice(startIndex);
+    const sum = recentData.reduce((acc, point) => acc + point.y, 0);
+    return recentData.length ? sum / recentData.length : 0;
+  }, [downsampledData, movingAverageWindow]);
 
   // Ventana de tiempo de 10 segundos
   const timeWindow = 10_000; // 10 segundos en ms
@@ -70,6 +89,48 @@ const Index: React.FC<IndexProps> = ({ sensorData, thresholdLow, thresholdHigh, 
     ],
   };
 
+   // Estado para contabilizar los ciclos completos
+   const [cycleCount, setCycleCount] = useState(0);
+   // Este ref almacenará el estado del "medio ciclo":
+   // null: sin cruce inicial
+   // "above" o "below": se ha detectado el primer cruce
+   const halfCycleStateRef = useRef<"above" | "below" | null>(null);
+
+  // Definimos el valor de histéresis para evitar contar cruces por ruido.
+  // Por ejemplo, 0.1 puede ser ajustado según la amplitud de la señal.
+  const HYSTERESIS = 0.1;
+
+  // Detectar cruces en cada actualización de datos
+  useEffect(() => {
+    if (!downsampledData.length) return;
+    
+    const lastPoint = downsampledData[downsampledData.length - 1];
+    const upperThreshold = averageValue + HYSTERESIS;
+    const lowerThreshold = averageValue - HYSTERESIS;
+  
+    // Determinar el estado actual de la señal
+    let newState: "above" | "below" | "within" = "within";
+    if (lastPoint.y >= upperThreshold) {
+      newState = "above";
+    } else if (lastPoint.y <= lowerThreshold) {
+      newState = "below";
+    }
+    
+    // Si la señal está dentro de la zona de tolerancia, no hacemos nada.
+    if (newState === "within") return;
+  
+    // Si aún no se registró ningún cruce, registramos el primero.
+    if (halfCycleStateRef.current === null) {
+      halfCycleStateRef.current = newState;
+    } 
+    // Si ya se registró un cruce y ahora se detecta el opuesto, se completa un ciclo.
+    else if (halfCycleStateRef.current !== newState) {
+      setCycleCount(prev => prev + 1);
+      // Reiniciamos para empezar a contar un nuevo ciclo.
+      halfCycleStateRef.current = null;
+    }
+  }, [downsampledData, averageValue]);
+
   // Opciones del gráfico, incluyendo las anotaciones horizontales
   const chartOptions: ChartOptions<'line'> = {
     responsive: true,
@@ -85,35 +146,19 @@ const Index: React.FC<IndexProps> = ({ sensorData, thresholdLow, thresholdHigh, 
       // Configuración de anotaciones
       annotation: {
         annotations: {
-          lowLine: {
+          averageLine: {
             type: 'line',
             display: displayAnnotations,
-            yMin: thresholdLow,
-            yMax: thresholdLow,
+            yMin: averageValue,
+            yMax: averageValue,
             borderColor: 'red',
             borderWidth: 2,
-            borderDash: [5, 5], 
             label: {
+              content: `Avg: ${averageValue.toFixed(2)}`,
               display: true,
-              content: `Trough: ${thresholdLow.toFixed(1)} kg`,
               position: 'start',
-              // yAdjust: -10
-            }
+            },
           },
-          highLine: {
-            type: 'line',
-            display: displayAnnotations,
-            yMin: thresholdHigh,
-            yMax: thresholdHigh,
-            borderColor: 'blue',
-            borderWidth: 2,
-            borderDash: [5, 5], 
-            label: {
-              display: true,
-              content: `Peak: ${thresholdHigh.toFixed(1)} kg`,
-              position: 'start'
-            }
-          }
         }
       },
     },
@@ -156,6 +201,7 @@ const Index: React.FC<IndexProps> = ({ sensorData, thresholdLow, thresholdHigh, 
   return (
     <div>
       <Line data={chartData} options={chartOptions} />
+      <h3>Ciclos contados: {cycleCount}</h3>
     </div>
   );
 };
