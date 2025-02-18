@@ -22,12 +22,9 @@ const Index = () => {
   const measurementStartRef = useRef<number | null>(null);
   const sampleCount = useRef<number>(0);
   const maxSensorDataRef = useRef<number>(815); // Valor inicial aproximado
-  const [samplePeriod, setSamplePeriod] = useState((1 / 80) * 1000) // en milisegundos
 
   const [sensorData, setSensorData] = useState<DataPoint[]>([]);
   const [maxForce, setMaxForce] = useState<number | null>(null);
-  const [calibratedThresholds, setCalibratedThresholds] = useState({low: 0, high: 0})
-  const [cycleCount, setCycleCount] = useState<number | null>(null);
   
   // ------------ Referencia para almacenar las líneas del CSV ---------------
   const sensorRawDataLogRef = useRef<string[]>([]);
@@ -91,9 +88,6 @@ const Index = () => {
       if (updatedData.length > maxSensorDataRef.current) {
         updatedData.shift();
       }
-
-      // Actualiza samplePeriod (en milisegundos)
-     setSamplePeriod(10_000 / maxSensorDataRef.current);
 
       // Actualiza el estado del máximo
       if (updatedData.length > 0) {
@@ -199,7 +193,6 @@ const Index = () => {
       previousFilteredForceRef.current = null;     
       setSensorData([]); 
       setMaxForce(0);
-      setSamplePeriod((1 / 80) * 1000);
       sensorRawDataLogRef.current = ["timestamp,force"];
       sensorProcessedDataLogRef.current = ["timestamp,force,derivative"];
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
@@ -254,7 +247,6 @@ const Index = () => {
     setIsConnected(false);
     setDevice(null);
     setSensorData([]);
-    setSamplePeriod((1 / 80) * 1000);
     setControlCharacteristic(null);
     setIsDeviceAvailable(false);
     setTimeout(() => {
@@ -271,16 +263,6 @@ const Index = () => {
     } catch (error) {
       console.error("Error shutting down the device:", error);
     }
-  }
-
-  const handleThresholdsUpdate = (thresholdLow: number, thresholdHigh: number) => {
-    // Guarda estos valores en el estado o pásalos al componente de gráfico
-    console.log("Umbrales actualizados:", thresholdHigh, thresholdLow);
-    setCalibratedThresholds({ low: thresholdLow, high: thresholdHigh });
-  };
-
-  const handleCycleDetected = (cycleCount: number | null) => {
-    setCycleCount(cycleCount)
   }
 
   // ----------------- Renderizado de la UI -----------------

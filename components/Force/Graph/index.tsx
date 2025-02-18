@@ -89,47 +89,56 @@ const Index: React.FC<IndexProps> = ({ sensorData, displayAnnotations }) => {
     ],
   };
 
-   // Estado para contabilizar los ciclos completos
-   const [cycleCount, setCycleCount] = useState(0);
-   // Este ref almacenará el estado del "medio ciclo":
-   // null: sin cruce inicial
-   // "above" o "below": se ha detectado el primer cruce
-   const halfCycleStateRef = useRef<"above" | "below" | null>(null);
+  // Estados para contabilizar ciclos completos
+  const [cycleCount, setCycleCount] = useState(0);
+  // Ref para guardar el extremo que inició el ciclo ("above" o "below")
+  const cycleStartRef = useRef<"above" | "below" | null>(null);
+  // Ref para registrar el último extremo detectado
+  const lastExtremeRef = useRef<"above" | "below" | null>(null);
 
-  // Definimos el valor de histéresis para evitar contar cruces por ruido.
-  // Por ejemplo, 0.1 puede ser ajustado según la amplitud de la señal.
+  // Valor de histéresis para definir la zona de tolerancia
   const HYSTERESIS = 0.1;
 
-  // Detectar cruces en cada actualización de datos
   useEffect(() => {
     if (!downsampledData.length) return;
-    
+
     const lastPoint = downsampledData[downsampledData.length - 1];
     const upperThreshold = averageValue + HYSTERESIS;
     const lowerThreshold = averageValue - HYSTERESIS;
-  
-    // Determinar el estado actual de la señal
-    let newState: "above" | "below" | "within" = "within";
+
+    // Determinamos el estado extremo actual
+    let currentExtreme: "above" | "below" | "within" = "within";
     if (lastPoint.y >= upperThreshold) {
-      newState = "above";
+      currentExtreme = "above";
     } else if (lastPoint.y <= lowerThreshold) {
-      newState = "below";
+      currentExtreme = "below";
+    } else {
+      currentExtreme = "within";
     }
-    
-    // Si la señal está dentro de la zona de tolerancia, no hacemos nada.
-    if (newState === "within") return;
-  
-    // Si aún no se registró ningún cruce, registramos el primero.
-    if (halfCycleStateRef.current === null) {
-      halfCycleStateRef.current = newState;
-    } 
-    // Si ya se registró un cruce y ahora se detecta el opuesto, se completa un ciclo.
-    else if (halfCycleStateRef.current !== newState) {
-      setCycleCount(prev => prev + 1);
-      // Reiniciamos para empezar a contar un nuevo ciclo.
-      halfCycleStateRef.current = null;
+
+    // Si estamos en la zona de tolerancia, no hacemos nada
+    if (currentExtreme === "within") return;
+
+    // Si no se ha iniciado un ciclo, asignamos el extremo actual
+    if (cycleStartRef.current === null) {
+      cycleStartRef.current = currentExtreme;
+      lastExtremeRef.current = currentExtreme;
+      return;
+    }
+
+    // Si se detecta un cambio en el extremo
+    if (currentExtreme !== lastExtremeRef.current) {
+      // Actualizamos el último extremo
+      lastExtremeRef.current = currentExtreme;
+      // Si el extremo actual es igual al que inició el ciclo, se completó un ciclo
+      if (currentExtreme === cycleStartRef.current) {
+        setCycleCount(prev => prev + 1);
+        // Reiniciamos el ciclo iniciando de nuevo en ese extremo
+        cycleStartRef.current = currentExtreme;
+      }
     }
   }, [downsampledData, averageValue]);
+
 
   // Opciones del gráfico, incluyendo las anotaciones horizontales
   const chartOptions: ChartOptions<'line'> = {
@@ -197,6 +206,12 @@ const Index: React.FC<IndexProps> = ({ sensorData, displayAnnotations }) => {
       },
     },
   };
+
+  useEffect(() => {
+    if (sensorData.length === 0) {
+      setCycleCount(0);
+    }
+  }, [sensorData])
 
   return (
     <div>
