@@ -34,9 +34,30 @@ interface CycleMetric {
 interface IndexProps {
   sensorData: DataPoint[];
   displayAnnotations: boolean;
+  // Ventana temporal para el promedio (en milisegundos)
+  movingAverageWindow?: number;
+  // Umbral de amplitud mínima promedio para detectar fatiga (ej. en kg)
+  minAvgAmplitude?: number;
+  // Umbral de duración máxima promedio (en ms) de un ciclo para detectar fatiga
+  maxAvgDuration?: number;
+  // Umbral de caída de fuerza: porcentaje del valor máximo (ej. 0.7 = 70%)
+  forceDropThreshold?: number;
+  // Número de ciclos a promediar para obtener las métricas agregadas
+  cyclesToAverage?: number;
+  // Factor de histéresis para la detección de cruces
+  hysteresis?: number;
 }
 
-const Index: React.FC<IndexProps> = ({ sensorData, displayAnnotations }) => {
+const Index: React.FC<IndexProps> = ({
+  sensorData,
+  displayAnnotations = true,
+  movingAverageWindow = 3_000,    // 3 segundos por defecto
+  minAvgAmplitude = 0.5,         // Ejemplo: 0.5 kg
+  maxAvgDuration = 2000,         // Ejemplo: 2000 ms
+  forceDropThreshold = 0.7,      // 70%
+  cyclesToAverage = 3,           // Promediar los últimos 5 ciclos
+  hysteresis = 0.1,              // Factor de histéresis por defecto
+}) => {
   const decimationThreshold = 200;
 
   // Mapeamos los datos para adaptarlos a la función lttbDownsample
@@ -51,8 +72,6 @@ const Index: React.FC<IndexProps> = ({ sensorData, displayAnnotations }) => {
     return lttbDownsample(mappedData, decimationThreshold);
   }, [mappedData, decimationThreshold]);
 
-  // Definimos una ventana para el promedio móvil (por ejemplo, últimos 3 segundos)
-  const movingAverageWindow = 3_000; // 3000 ms = 3 segundos
   // Cálculo del promedio de la fuerza solo para los datos recientes
   const averageValue = useMemo(() => {
     if (!downsampledData.length) return 0;
@@ -117,15 +136,12 @@ const Index: React.FC<IndexProps> = ({ sensorData, displayAnnotations }) => {
   // Ref para registrar los extremos (mínimo y máximo) observados durante el ciclo actual
   const currentCycleExtremesRef = useRef<{ min: number; max: number } | null>(null);
 
-  // Valor de histéresis para definir la zona de tolerancia
-  const HYSTERESIS = 0.1;
-
   useEffect(() => {
     if (!downsampledData.length) return;
 
     const lastPoint = downsampledData[downsampledData.length - 1];
-    const upperThreshold = averageValue + HYSTERESIS;
-    const lowerThreshold = averageValue - HYSTERESIS;
+    const upperThreshold = averageValue + hysteresis;
+    const lowerThreshold = averageValue - hysteresis;
 
     // Determinamos el estado extremo actual
     let currentExtreme: "above" | "below" | "within" = "within";
@@ -197,7 +213,7 @@ const Index: React.FC<IndexProps> = ({ sensorData, displayAnnotations }) => {
   // Por ejemplo, usando los últimos 5 ciclos
   const aggregatedCycleMetrics = useMemo(() => {
     if (cycleMetrics.length === 0) return null;
-    const recentCycles = cycleMetrics.slice(-3);
+    const recentCycles = cycleMetrics.slice(-cyclesToAverage);
     const avgAmplitude = recentCycles.reduce((sum, m) => sum + m.amplitude, 0) / recentCycles.length;
     const avgDuration = recentCycles.reduce((sum, m) => sum + m.duration, 0) / recentCycles.length;
     return { avgAmplitude, avgDuration, count: recentCycles.length };
@@ -206,14 +222,10 @@ const Index: React.FC<IndexProps> = ({ sensorData, displayAnnotations }) => {
   // Función de detección de fatiga basada en las métricas agregadas
   const detectFatigue = (): boolean => {
     if (!aggregatedCycleMetrics) return false;
-    // Define umbrales (ajústalos según tus datos)
-    const MIN_AVG_AMPLITUDE = 0.5;  // Si la amplitud promedio cae por debajo de 0.5 kg
-    const MAX_AVG_DURATION = 2000;  // Si la duración promedio supera 2000 ms
-    const FORCE_DROP_THRESHOLD = 0.7;  // Si el valor medio cae por debajo del 70% del valor máximo
 
-    const amplitudeFatigue = aggregatedCycleMetrics.avgAmplitude < MIN_AVG_AMPLITUDE;
-    const durationFatigue = aggregatedCycleMetrics.avgDuration > MAX_AVG_DURATION;
-    const forceFatigue = averageValue < (maxPoint * FORCE_DROP_THRESHOLD);
+    const amplitudeFatigue = aggregatedCycleMetrics.avgAmplitude < minAvgAmplitude;
+    const durationFatigue = aggregatedCycleMetrics.avgDuration > maxAvgDuration;
+    const forceFatigue = averageValue < (maxPoint * forceDropThreshold);
 
     // Por ejemplo, si se cumplen al menos dos condiciones, se detecta fatiga
     const conditionsMet = [amplitudeFatigue, durationFatigue, forceFatigue].filter(Boolean).length;
@@ -246,8 +258,8 @@ const Index: React.FC<IndexProps> = ({ sensorData, displayAnnotations }) => {
             yScaleID: 'y',
             yMin: (ctx) => ctx.chart.scales['y'].min,
             yMax: (ctx) => ctx.chart.scales['y'].max,
-            backgroundColor: 'rgba(239, 68, 68, 0.10)', // Color con transparencia
-            borderWidth: 0, // Sin borde, o configúralo a tu gusto
+            backgroundColor: 'rgba(239, 68, 68, 0.10)',
+            borderWidth: 0,
           },
           averageLine: {
             type: 'line',
@@ -318,6 +330,9 @@ const Index: React.FC<IndexProps> = ({ sensorData, displayAnnotations }) => {
   useEffect(() => {
     if (sensorData.length === 0) {
       setCycleCount(0);
+      setCycleDuration(0);
+      setCycleAmplitude(0);
+      setCycleMetrics([]);
     }
   }, [sensorData])
 

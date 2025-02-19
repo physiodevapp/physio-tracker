@@ -3,6 +3,7 @@
 import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon } from "@heroicons/react/24/solid";
 import { useState, useRef } from "react";
 import ForceChart, { DataPoint } from "./Graph";
+import { DocumentArrowDownIcon } from "@heroicons/react/24/outline";
 
 // ----------------- Comandos y Códigos -----------------
 const CMD_TARE_SCALE = 100;
@@ -27,8 +28,7 @@ const Index = () => {
   
   // ------------ Referencia para almacenar las líneas del CSV ---------------
   const sensorRawDataLogRef = useRef<string[]>([]);
-  const sensorProcessedDataLogRef = useRef<string[]>([]);
-  
+
   // --------------- Estados de conexión y datos básicos -----------------
   const [device, setDevice] = useState<BluetoothDevice | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -48,6 +48,9 @@ const Index = () => {
 
   // ----------------- Función de Procesamiento de Medición -----------------
   const processMeasurement = (sensorForce: number, sensorTime: number) => {
+    // Almacena los datos crudos en el log
+    sensorRawDataLogRef.current.push(`${sensorTime},${sensorForce}`);
+
     // Filtrado avanzado con EMA
     const alpha = 0.1; // Factor de suavizado (ajustable)
     const filteredForce =
@@ -185,41 +188,12 @@ const Index = () => {
       previousFilteredForceRef.current = null;     
       setSensorData([]); 
       sensorRawDataLogRef.current = ["timestamp,force"];
-      sensorProcessedDataLogRef.current = ["timestamp,force,derivative"];
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
       setIsRecording(true);
     } catch (error) {
       console.error("Error starting measurement:", error);
     }
   };
-
-  // Generar el archivo CSV y disparar la descarga
-  const downloadRawData = () => {
-    const csvContent = sensorRawDataLogRef.current.join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "sensor_raw_data.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
-
-  // Generar el archivo CSV y disparar la descarga
-  const downloadProcessedData = () => {
-    const csvContent = sensorProcessedDataLogRef.current.join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "sensor_processed_data.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
 
   const stopMeasurement = async () => {
     if (!controlCharacteristic) {
@@ -254,6 +228,20 @@ const Index = () => {
     } catch (error) {
       console.error("Error shutting down the device:", error);
     }
+  };
+
+  // Generar el archivo CSV y disparar la descarga
+  const downloadRawData = () => {
+    const csvContent = sensorRawDataLogRef.current.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `sensor_raw_data_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   // ----------------- Renderizado de la UI -----------------
@@ -320,12 +308,17 @@ const Index = () => {
                 />
             )}
             {/* Métricas de fuerza*/}
-            <div className="flex-[0.7]">
+            <div className="flex-[1] flex justify-between items-center">
               <p>
                 Now: {sensorData.length > 0 
                 ? <span className={isRecording ? 'animate-pulse' : ''}>{sensorData[sensorData.length - 1].force.toFixed(1)} kg</span> 
                 : "0.0 kg"}
               </p>
+              {Boolean(sensorData.length && !isRecording) && (
+                <DocumentArrowDownIcon 
+                  className="w-8 h-8 text-black"
+                  onClick={downloadRawData}/>
+              )}
             </div>
           </div>
         )}
