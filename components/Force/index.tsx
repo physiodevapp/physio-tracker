@@ -253,9 +253,9 @@ const Index = ({ handleMainMenu }: IndexProps) => {
   // ----------------- Renderizado de la UI -----------------
   return (
     <>
-      <div 
-        data-element="non-swipeable"
-        className="p-5 font-sans space-y-6"
+      <div
+        className="h-dvh p-5 font-sans space-y-6"
+        onClick={handleMainMenu}
         >
         {/* Conexión del dispositivo */}
         <div className="flex flex-col justify-center items-center">

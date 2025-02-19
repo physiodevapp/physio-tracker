@@ -18,7 +18,11 @@ interface AnalysisResult {
   others: ColorAnalysis;
 }
 
-const Index: React.FC = () => {
+interface IndexProps {
+  handleMainMenu: () => void;
+}
+
+const Index = ({ handleMainMenu }: IndexProps) => {
   const webcamRef = useRef<Webcam>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { cv, loading, error } = useOpenCv();
@@ -184,7 +188,10 @@ const Index: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '1rem' }}>
+    <div 
+      style={{ padding: '1rem' }}
+      onClick={handleMainMenu}
+      >
       <h1>Analizador de Bodychart con OpenCV (Incluye Índice de Dispersión)</h1>
       <Webcam
         audio={false}

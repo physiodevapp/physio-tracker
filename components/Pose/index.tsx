@@ -127,6 +127,8 @@ const Index = ({ handleMainMenu }: IndexProps) => {
     setIsPoseSettingsModalOpen(false);
 
     setIsPoseGraphSettingsModalOpen(false);
+
+    handleMainMenu();
   }
 
   const handleJointSelection = useCallback((selectedJoints: string[]) => {

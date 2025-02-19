@@ -8,10 +8,11 @@ import MainMenu from "../components/MainMenu";
 import { MainMenuOption } from '@/interfaces/menu';
 
 const Pose = dynamic(() => import('../components/Pose').then(mod => mod.default), { ssr: false });
-const Strength = dynamic(() => import('../components/Force').then(mod => mod.default), { ssr: false });
+const Force = dynamic(() => import('../components/Force').then(mod => mod.default), { ssr: false });
+const BodyChart = dynamic(() => import('../components/ColorAnalyzer').then(mod => mod.default), { ssr: false });
 
 export default function Home() {
-  const [page, setPage] = useState<MainMenuOption>('pose');
+  const [page, setPage] = useState<MainMenuOption>('force');
 
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
 
@@ -22,7 +23,8 @@ export default function Home() {
 
       if (!isSwipeable) return;
 
-      setPage('strength');
+      if (page === 'pose') setPage('force');
+      if (page === 'force') setPage('bodychart');
     },
     onSwipedRight: (eventData) => {
       const targetElement = eventData.event.target as HTMLElement;
@@ -30,7 +32,8 @@ export default function Home() {
 
       if (!isSwipeable) return;
 
-      setPage('pose');
+      if (page === 'force') setPage('pose');
+      if (page === 'bodychart') setPage('force');
     },
     trackMouse: true
   });
@@ -67,17 +70,30 @@ export default function Home() {
                   <Pose handleMainMenu={handleMainMenu} />
                 </motion.div>
               );
-            case 'strength':
+            case 'force':
               return (
                 <motion.div
-                  key="strength"
+                  key="force"
                   variants={variants}
                   initial="initial"
                   animate="animate"
                   exit="exit"
                   transition={{ ease: "easeInOut", duration: 0.25 }}
                   >
-                  <Strength handleMainMenu={handleMainMenu} />
+                  <Force handleMainMenu={handleMainMenu} />
+                </motion.div>
+              );
+            case 'bodychart':
+              return (
+                <motion.div
+                  key="bodychart"
+                  variants={variants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={{ ease: "easeInOut", duration: 0.25 }}
+                  >
+                  <BodyChart handleMainMenu={handleMainMenu} />
                 </motion.div>
               );
             default:
