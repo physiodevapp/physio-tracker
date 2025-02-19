@@ -24,7 +24,6 @@ const Index = () => {
   const maxSensorDataRef = useRef<number>(815); // Valor inicial aproximado
 
   const [sensorData, setSensorData] = useState<DataPoint[]>([]);
-  const [maxForce, setMaxForce] = useState<number | null>(null);
   
   // ------------ Referencia para almacenar las líneas del CSV ---------------
   const sensorRawDataLogRef = useRef<string[]>([]);
@@ -89,13 +88,6 @@ const Index = () => {
         updatedData.shift();
       }
 
-      // Actualiza el estado del máximo
-      if (updatedData.length > 0) {
-        const currentMax = Math.max(...updatedData.map((point) => point.force));
-        setMaxForce((prevMax) => Math.max(prevMax ?? 0, currentMax));
-      } else {
-        setMaxForce(null);
-      }
       return updatedData;
     });
   }
@@ -192,7 +184,6 @@ const Index = () => {
     try {      
       previousFilteredForceRef.current = null;     
       setSensorData([]); 
-      setMaxForce(0);
       sensorRawDataLogRef.current = ["timestamp,force"];
       sensorProcessedDataLogRef.current = ["timestamp,force,derivative"];
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
@@ -334,11 +325,6 @@ const Index = () => {
                 Now: {sensorData.length > 0 
                 ? <span className={isRecording ? 'animate-pulse' : ''}>{sensorData[sensorData.length - 1].force.toFixed(1)} kg</span> 
                 : "0.0 kg"}
-              </p>
-              <p>
-                Max: {maxForce
-                ? `${maxForce.toFixed(1)}`
-                : '0.0'} kg
               </p>
             </div>
           </div>
