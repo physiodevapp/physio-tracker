@@ -238,6 +238,17 @@ const Index: React.FC<IndexProps> = ({ sensorData, displayAnnotations }) => {
       // Configuración de anotaciones
       annotation: {
         annotations: {
+          movingAverageWindowBox: {
+            type: 'box',
+            display: Boolean(displayAnnotations && sensorData.length),
+            xMin: lastTime - movingAverageWindow, // lastTime es el tiempo del último dato
+            xMax: lastTime,
+            yScaleID: 'y',
+            yMin: (ctx) => ctx.chart.scales['y'].min,
+            yMax: (ctx) => ctx.chart.scales['y'].max,
+            backgroundColor: 'rgba(239, 68, 68, 0.10)', // Color con transparencia
+            borderWidth: 0, // Sin borde, o configúralo a tu gusto
+          },
           averageLine: {
             type: 'line',
             display: Boolean(displayAnnotations && sensorData.length),
