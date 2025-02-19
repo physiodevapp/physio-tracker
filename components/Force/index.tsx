@@ -1,9 +1,11 @@
 "use client";
 
-import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon } from "@heroicons/react/24/solid";
+import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, Cog6ToothIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon } from "@heroicons/react/24/solid";
 import { useState, useRef } from "react";
 import ForceChart, { DataPoint } from "./Graph";
 import { DocumentArrowDownIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon } from "@heroicons/react/24/solid";
+import { BluetoothDevice, BluetoothRemoteGATTCharacteristic } from "@/global";
 
 // ----------------- Comandos y Códigos -----------------
 const CMD_TARE_SCALE = 100;
@@ -18,7 +20,11 @@ const RES_RFD_PEAK = 2;
 const RES_RFD_PEAK_SERIES = 3;
 const RES_LOW_PWR_WARNING = 4;
 
-const Index = () => {
+interface IndexProps {
+  handleMainMenu: () => void;
+}
+
+const Index = ({ handleMainMenu }: IndexProps) => {
   // Declaramos un estado y una ref para medir la frecuencia
   const measurementStartRef = useRef<number | null>(null);
   const sampleCount = useRef<number>(0);
@@ -246,13 +252,13 @@ const Index = () => {
 
   // ----------------- Renderizado de la UI -----------------
   return (
-    <div 
-      data-element="non-swipeable"
-      className="p-5 font-sans space-y-2"
-      >
-      {/* Conexión del dispositivo */}
-      <div className="flex justify-between items-start">
-        <div className="flex-col">
+    <>
+      <div 
+        data-element="non-swipeable"
+        className="p-5 font-sans space-y-6"
+        >
+        {/* Conexión del dispositivo */}
+        <div className="flex flex-col justify-center items-center">
           <h1 className="text-2xl font-bold">Strength tracker</h1>
           {device && isConnected && (
             <div className="flex-1 flex items-center gap-2">
@@ -263,53 +269,11 @@ const Index = () => {
             </div>
           )}
         </div>
-        <div className="flex gap-2">
-          {isConnected && (
-            <LinkSlashIcon
-              className="w-8 h-8 bg-red-500 hover:bg-red-700 text-white font-bold p-1 rounded"
-              onClick={shutdown}
-              />
-          )}
-          {(isConnected || (isDeviceAvailable && !device)) && (
-            <LinkIcon
-              className="w-8 h-8 bg-blue-500 hover:bg-blue-700 text-white font-bold p-1 rounded"
-              onClick={connectToSensor}
-              />
-          )}
-          {(!isConnected && (!isDeviceAvailable || device)) && (
-            <ArrowPathIcon className="w-8 h-8 text-gray-500 animate-spin"/>
-          )}
-        </div>
-      </div>
-      {/* Tara y métricas */}
-      <div className="flex justify-between items-center flex-wrap">
-        {device && isConnected && (
-          <div className="flex-1 flex justify-start items-center gap-3">
-            {/* Tara */}
-            <div className="relative" onClick={tareSensor} >
-              <ScaleIcon
-                className={`w-8 h-8 bg-purple-500 hover:bg-purple-700 text-white font-bold p-1 rounded ${taringStatus === 0 ? 'animate-pulse' : ''}`}
-                />
-              {taringStatus === 1 && (
-                <CheckCircleIcon className="absolute -bottom-2 -right-2 w-5 h-5 text-white rounded-full bg-green-500 font-bold"/>
-              )}
-            </div>
-            {/* Controles de grabación */}
-            {!isRecording && (
-              <PlayIcon
-                className={`w-8 h-8 ${taringStatus === 1 ? 'bg-green-500 hover:bg-green-700' : 'bg-gray-300'} text-white font-bold p-1 rounded`}
-                onClick={startMeasurement}
-                />
-            )}
-            {isRecording && (
-              <StopIcon
-                className="w-8 h-8 bg-orange-500 hover:bg-orange-700 text-white font-bold p-1 rounded"
-                onClick={stopMeasurement}
-                />
-            )}
-            {/* Métricas de fuerza*/}
-            <div className="flex-[1] flex justify-between items-center">
-              <p>
+        {/* Tara y métricas */}
+        <div className="flex justify-center items-center flex-wrap">
+          {device && isConnected && (
+            <div className="flex-1 flex justify-center items-center gap-3">
+              <p className="text-2xl">
                 Now: {sensorData.length > 0 
                 ? <span className={isRecording ? 'animate-pulse' : ''}>{sensorData[sensorData.length - 1].force.toFixed(1)} kg</span> 
                 : "0.0 kg"}
@@ -320,22 +284,80 @@ const Index = () => {
                   onClick={downloadRawData}/>
               )}
             </div>
-          </div>
-        )}
-        {!isConnected && (
-          <p className="text-gray-500">No device is connected</p>
+          )}
+          {!isConnected && (
+            <p className="text-gray-500">No device is connected</p>
+          )}
+        </div>
+        {isConnected && (
+          <>
+            {/* Gráfico */}
+            <ForceChart 
+              sensorData={sensorData}
+              displayAnnotations={isConnected}
+              />
+          </>
         )}
       </div>
-      {isConnected && (
+      <section 
+        data-element="non-swipeable"
+        className="absolute top-1 left-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
+        >
         <>
-          {/* Gráfico */}
-          <ForceChart 
-            sensorData={sensorData}
-            displayAnnotations={isConnected}
+          <Bars3Icon 
+            className="w-6 h-6 text-white"
+            onClick={handleMainMenu}
             />
+          {device && isConnected && (
+            <>
+              <div className="relative" onClick={tareSensor} >
+                <ScaleIcon
+                  className={`w-6 h-6 text-white ${taringStatus === 0 ? 'animate-pulse' : ''}`}
+                  />
+                {taringStatus === 1 && (
+                  <CheckCircleIcon className="absolute -bottom-2 -right-1 w-5 h-5 text-white rounded-full"/>
+                )}
+              </div>
+              {!isRecording && (
+                <PlayIcon
+                  className={`w-6 h-6 text-white ${taringStatus !== 1 ? 'opacity-40' : ''}`}
+                  onClick={startMeasurement}
+                  />
+              )}
+              {isRecording && (
+                <StopIcon
+                  className={`w-6 h-6 text-white ${isRecording ? 'animate-pulse' : ''}`}
+                  onClick={stopMeasurement}
+                  />
+              )}
+            </>
+          )}
         </>
-      )}
-    </div>
+      </section>
+      <section 
+        data-element="non-swipeable"
+        className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
+      >
+        {(isConnected || (isDeviceAvailable && !device)) && (
+          <LinkIcon 
+            className="w-6 h-6 text-white"
+            onClick={connectToSensor}
+            />
+        )}
+        {isConnected && (
+          <>
+            <LinkSlashIcon 
+              className="w-6 h-6 text-white"
+              onClick={shutdown}
+              />
+            <Cog6ToothIcon className="w-6 h-6 text-white"/>
+          </>
+        )}
+        {(!isConnected && (!isDeviceAvailable || device)) && (
+          <ArrowPathIcon className="w-6 h-6 text-white animate-spin"/>
+        )}
+      </section>
+    </>
   );
 };
 

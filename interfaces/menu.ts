@@ -1,0 +1,1 @@
+export type MainMenuOption = 'pose' | 'strength' | 'bodychart';
