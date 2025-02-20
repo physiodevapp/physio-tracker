@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import Webcam from "react-webcam";
 import cv from "@techstark/opencv-js";
+import { Bars3Icon, CameraIcon, Cog6ToothIcon, DocumentArrowDownIcon, SwatchIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { VideoConstraints } from "@/interfaces/camera";
 
 interface ColorAnalysis {
   percentage: number;
@@ -21,23 +23,42 @@ interface AnalysisResult {
 
 export interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
+  isMainMenuOpen: boolean;
 }
 
-const Index: React.FC<IndexProps> = ({ handleMainMenu }) => {
+const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
   });
 
-  const [captured, setCaptured] = useState<boolean>(false);
-
+  const [showSettings, setShowSettings] = useState(false);
+  
   const webcamRef = useRef<Webcam>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Estado para OpenCV y análisis
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [cvInstance, setCvInstance] = useState<typeof cv | null>(null);
+  const [captured, setCaptured] = useState<boolean>(false);
+
+  // Parámetros para cada color
+  // Rojo: Se definen dos rangos para cubrir el wrap-around
+  const [redHueLower1, setRedHueLower1] = useState<number>(0);
+  const [redHueUpper1, setRedHueUpper1] = useState<number>(10);
+  const [redHueLower2, setRedHueLower2] = useState<number>(170);
+  const [redHueUpper2, setRedHueUpper2] = useState<number>(180);
+  // Verde:
+  const [greenHueLower, setGreenHueLower] = useState<number>(36);
+  const [greenHueUpper, setGreenHueUpper] = useState<number>(89);
+  // Azul:
+  const [blueHueLower, setBlueHueLower] = useState<number>(90);
+  const [blueHueUpper, setBlueHueUpper] = useState<number>(128);
+  // Umbrales comunes:
+  const [minSaturation, setMinSaturation] = useState<number>(70);
+  const [minValue, setMinValue] = useState<number>(50);
 
   // Verificamos la inicialización de OpenCV
   useEffect(() => {
@@ -124,11 +145,11 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu }) => {
       cvInstance.cvtColor(src, src, cvInstance.COLOR_RGBA2RGB);
       cvInstance.cvtColor(src, hsv, cvInstance.COLOR_RGB2HSV);
 
-      // Máscara para rojo (dos rangos para cubrir el wrap-around)
-      const lowerRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [0, 70, 50, 0]);
-      const upperRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [10, 255, 255, 255]);
-      const lowerRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [170, 70, 50, 0]);
-      const upperRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [180, 255, 255, 255]);
+      // Máscara para rojo (dos rangos)
+      const lowerRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [redHueLower1, minSaturation, minValue, 0]);
+      const upperRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [redHueUpper1, 255, 255, 255]);
+      const lowerRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [redHueLower2, minSaturation, minValue, 0]);
+      const upperRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [redHueUpper2, 255, 255, 255]);
       const redMask1 = new cvInstance.Mat();
       const redMask2 = new cvInstance.Mat();
       cvInstance.inRange(hsv, lowerRed1, upperRed1, redMask1);
@@ -137,16 +158,17 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu }) => {
       cvInstance.add(redMask1, redMask2, redMask);
 
       // Máscara para verde
-      const lowerGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [36, 70, 50, 0]);
-      const upperGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [89, 255, 255, 255]);
+      const lowerGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [greenHueLower, minSaturation, minValue, 0]);
+      const upperGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [greenHueUpper, 255, 255, 255]);
       const greenMask = new cvInstance.Mat();
       cvInstance.inRange(hsv, lowerGreen, upperGreen, greenMask);
 
       // Máscara para azul
-      const lowerBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [90, 70, 50, 0]);
-      const upperBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [128, 255, 255, 255]);
+      const lowerBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [blueHueLower, minSaturation, minValue, 0]);
+      const upperBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [blueHueUpper, 255, 255, 255]);
       const blueMask = new cvInstance.Mat();
       cvInstance.inRange(hsv, lowerBlue, upperBlue, blueMask);
+
 
       const totalPixels = hsv.rows * hsv.cols;
       const redPixels = cvInstance.countNonZero(redMask);
@@ -304,61 +326,299 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu }) => {
     setCaptured(false);
   };
 
+  // Función para descargar la imagen del canvas de captura
+  const downloadImage = () => {
+    const canvas = captureCanvasRef.current;
+    if (canvas) {
+      const imageUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = imageUrl;
+      link.download = `analysis_${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  // Función para descargar un CSV con los datos del análisis
+  const downloadCSV = () => {
+    if (!analysisResult) return;
+    // Crear filas del CSV: encabezado y datos para cada color
+    const csvRows = [];
+    csvRows.push("Color,Percentage,Contornos,Total Area,Average Area,Dispersion Index");
+    csvRows.push(
+      `Rojo,${analysisResult.red.percentage},${analysisResult.red.contours},${analysisResult.red.totalArea},${analysisResult.red.averageArea},${analysisResult.red.dispersionIndex}`
+    );
+    csvRows.push(
+      `Verde,${analysisResult.green.percentage},${analysisResult.green.contours},${analysisResult.green.totalArea},${analysisResult.green.averageArea},${analysisResult.green.dispersionIndex}`
+    );
+    csvRows.push(
+      `Azul,${analysisResult.blue.percentage},${analysisResult.blue.contours},${analysisResult.blue.totalArea},${analysisResult.blue.averageArea},${analysisResult.blue.dispersionIndex}`
+    );
+    csvRows.push(
+      `Otros,${analysisResult.others.percentage},${analysisResult.others.contours},${analysisResult.others.totalArea},${analysisResult.others.averageArea},${analysisResult.others.dispersionIndex}`
+    );
+    
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `analysis_${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadData = () => {
+    downloadImage();
+    downloadCSV();
+  };
+
+  const toggleCamera = useCallback(() => {
+      setVideoConstraints((prev) => ({
+        facingMode: prev.facingMode === "user" ? "environment" : "user",
+      }));
+    }, []);
+
+  const toggleSettings = () => {
+    setShowSettings(!showSettings);
+  }
+
+  const handleMainLayer = () => {
+    handleMainMenu(false);
+    toggleSettings();
+  }
+
   return (
-    <div 
-      className="relative w-full h-dvh"
-      onClick={() => handleMainMenu(false)}
-      >
-      {/* Video de Webcam */}
-      <Webcam
-        audio={false}
-        ref={webcamRef}
-        screenshotFormat="image/jpeg"
-        className={`relative object-cover h-full w-full`}
-        videoConstraints={videoConstraints}
-        mirrored={videoConstraints.facingMode === "user"}
-      />
-      {/* Canvas overlay para contornos (superpuesto al video) */}
-      <canvas
-        ref={overlayCanvasRef}
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full pointer-events-none"
+    <>
+      <div 
+        className="relative w-full h-dvh"
+        onClick={handleMainLayer}
+        >
+        {/* Video de Webcam */}
+        <Webcam
+          audio={false}
+          ref={webcamRef}
+          screenshotFormat="image/jpeg"
+          className={`relative object-cover h-full w-full`}
+          videoConstraints={videoConstraints}
+          mirrored={videoConstraints.facingMode === "user"}
         />
-      {/* Canvas de análisis visible para descarga */}
-      <canvas 
-        ref={captureCanvasRef} 
-        className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full border-red-500 border-2" 
-        />
-      <div className="absolute top-0 z-10 w-full flex justify-between">
-        <button className=" bg-black/40 text-white p-2" onClick={captureAndAnalyze} disabled={loading || !!error}>
-          Capturar y Analizar
-        </button>
-        {captured && (
-          <button onClick={clearCanvases} className="bg-black/40 text-white p-2">
-            Limpiar
-          </button>
-        )}
-        {loading && <p>Cargando OpenCV...</p>}
-        {error && <p>Error: {error}</p>}
-      </div>
-      {analysisResult && (
-        <div style={{ marginTop: "10px" }}>
-          <h2>Resultados del análisis:</h2>
-          <div>
-            <strong>Rojo:</strong> {analysisResult.red.percentage.toFixed(2)}% - Contornos: {analysisResult.red.contours} - Total Área: {analysisResult.red.totalArea.toFixed(0)} - Área Promedio: {analysisResult.red.averageArea.toFixed(0)} - Índice de Dispersión: {analysisResult.red.dispersionIndex.toFixed(2)}
-          </div>
-          <div>
-            <strong>Verde:</strong> {analysisResult.green.percentage.toFixed(2)}% - Contornos: {analysisResult.green.contours} - Total Área: {analysisResult.green.totalArea.toFixed(0)} - Área Promedio: {analysisResult.green.averageArea.toFixed(0)} - Índice de Dispersión: {analysisResult.green.dispersionIndex.toFixed(2)}
-          </div>
-          <div>
-            <strong>Azul:</strong> {analysisResult.blue.percentage.toFixed(2)}% - Contornos: {analysisResult.blue.contours} - Total Área: {analysisResult.blue.totalArea.toFixed(0)} - Área Promedio: {analysisResult.blue.averageArea.toFixed(0)} - Índice de Dispersión: {analysisResult.blue.dispersionIndex.toFixed(2)}
-          </div>
-          <div>
-            <strong>Otros:</strong> {analysisResult.others.percentage.toFixed(2)}%
-          </div>
-          <p>*El índice de dispersión se normaliza según el total de píxeles detectados para el color.</p>
+        {/* Canvas overlay para contornos (superpuesto al video) */}
+        <canvas
+          ref={overlayCanvasRef}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full pointer-events-none"
+          />
+        {/* Canvas de análisis visible para descarga */}
+        <canvas 
+          ref={captureCanvasRef} 
+          className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full border-red-500 border-2" 
+          />
+        <div className="absolute top-0 z-10 w-full flex justify-between">
+          {loading && <p>Cargando OpenCV...</p>}
+          {error && <p>Error: {error}</p>}
         </div>
+        {analysisResult && (
+          <div style={{ marginTop: "10px" }}>
+            <h2>Resultados del análisis:</h2>
+            <div>
+              <strong>Rojo:</strong> {analysisResult.red.percentage.toFixed(2)}% - Contornos: {analysisResult.red.contours} - Total Área: {analysisResult.red.totalArea.toFixed(0)} - Área Promedio: {analysisResult.red.averageArea.toFixed(0)} - Índice de Dispersión: {analysisResult.red.dispersionIndex.toFixed(2)}
+            </div>
+            <div>
+              <strong>Verde:</strong> {analysisResult.green.percentage.toFixed(2)}% - Contornos: {analysisResult.green.contours} - Total Área: {analysisResult.green.totalArea.toFixed(0)} - Área Promedio: {analysisResult.green.averageArea.toFixed(0)} - Índice de Dispersión: {analysisResult.green.dispersionIndex.toFixed(2)}
+            </div>
+            <div>
+              <strong>Azul:</strong> {analysisResult.blue.percentage.toFixed(2)}% - Contornos: {analysisResult.blue.contours} - Total Área: {analysisResult.blue.totalArea.toFixed(0)} - Área Promedio: {analysisResult.blue.averageArea.toFixed(0)} - Índice de Dispersión: {analysisResult.blue.dispersionIndex.toFixed(2)}
+            </div>
+            <div>
+              <strong>Otros:</strong> {analysisResult.others.percentage.toFixed(2)}%
+            </div>
+            <p>*El índice de dispersión se normaliza según el total de píxeles detectados para el color.</p>
+          </div>
+        )}
+      </div>
+      <section 
+        data-element="non-swipeable"
+        className="absolute top-1 left-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
+        >
+        <>
+          {isMainMenuOpen ?
+            <XMarkIcon 
+              className="w-6 h-6 text-white"
+              onClick={() => handleMainMenu()}
+              />
+            : <Bars3Icon 
+                className="w-6 h-6 text-white"
+                onClick={() => handleMainMenu()}
+                />
+          }
+          <SwatchIcon 
+            className="w-6 h-6 text-white"
+            onClick={captureAndAnalyze}
+            /> 
+          {captured && (
+            <>
+              <DocumentArrowDownIcon 
+                className="w-6 h-6 text-white"
+                onClick={downloadData}
+                />
+              <TrashIcon 
+                className="w-6 h-6 text-white"
+                onClick={clearCanvases}
+                />
+            </>
+          )}
+        </>
+      </section>
+      <section
+        data-element="non-swipeable"
+        className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
+        >
+        <>
+          <CameraIcon 
+            className="h-6 w-6 text-white cursor-pointer" 
+            onClick={toggleCamera}
+            />
+          <Cog6ToothIcon 
+            className="w-6 h-6 text-white"
+            onClick={toggleSettings}
+            />
+        </> 
+      </section>
+      {showSettings && (
+        <section className="absolute bottom-0 w-full h-[44vh] bg-gradient-to-b from-black/40 to-black rounded-t-lg p-4">
+          {/* Sliders para ajustar parámetros de detección */}
+          <div className="mt-2 space-y-2 text-white">
+            {/* Parámetros para Rojo */}
+            <div className="flex justify-around gap-6">
+              <div className="flex-1">
+                <label className="block text-sm">Red Hue Lower 1: {redHueLower1}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="180"
+                  value={redHueLower1}
+                  onChange={(e) => setRedHueLower1(parseInt(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm">Red Hue Upper 1: {redHueUpper1}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="180"
+                  value={redHueUpper1}
+                  onChange={(e) => setRedHueUpper1(parseInt(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="flex justify-around gap-6">
+              <div className="flex-1">
+                <label className="block text-sm">Red Hue Lower 2: {redHueLower2}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="180"
+                  value={redHueLower2}
+                  onChange={(e) => setRedHueLower2(parseInt(e.target.value))}
+                  className="w-full"
+                  />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm">Red Hue Upper 2: {redHueUpper2}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="180"
+                  value={redHueUpper2}
+                  onChange={(e) => setRedHueUpper2(parseInt(e.target.value))}
+                  className="w-full"
+                  />
+              </div>
+            </div>
+            {/* Parámetros para Verde */}
+            <div className="flex justify-around gap-6">
+              <div className="flex-1">
+                <label className="block text-sm">Green Hue Lower: {greenHueLower}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="180"
+                  value={greenHueLower}
+                  onChange={(e) => setGreenHueLower(parseInt(e.target.value))}
+                  className="w-full"
+                  />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm">Green Hue Upper: {greenHueUpper}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="180"
+                  value={greenHueUpper}
+                  onChange={(e) => setGreenHueUpper(parseInt(e.target.value))}
+                  className="w-full"
+                  />
+              </div>
+            </div>
+            {/* Parámetros para Azul */}
+            <div className="flex justify-around gap-6">
+              <div className="flex-1">
+                <label className="block text-sm">Blue Hue Lower: {blueHueLower}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="180"
+                  value={blueHueLower}
+                  onChange={(e) => setBlueHueLower(parseInt(e.target.value))}
+                  className="w-full"
+                  />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm">Blue Hue Upper: {blueHueUpper}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="180"
+                  value={blueHueUpper}
+                  onChange={(e) => setBlueHueUpper(parseInt(e.target.value))}
+                  className="w-full"
+                  />
+              </div>
+            </div>
+            {/* Umbrales comunes */}
+            <div className="flex justify-around gap-6">
+              <div className="flex-1">
+                <label className="block text-sm">Min Saturation: {minSaturation}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="255"
+                  value={minSaturation}
+                  onChange={(e) => setMinSaturation(parseInt(e.target.value))}
+                  className="w-full"
+                  />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm">Min Value: {minValue}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="255"
+                  value={minValue}
+                  onChange={(e) => setMinValue(parseInt(e.target.value))}
+                  className="w-full"
+                  />
+              </div>
+            </div>
+          </div>
+        </section>
       )}
-    </div>
+    </>
   );
 };
 

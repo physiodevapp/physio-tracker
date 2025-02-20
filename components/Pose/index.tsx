@@ -9,7 +9,7 @@ import { updateJoint } from "@/services/joint";
 import PoseGraph from "./Graph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
-import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, VideoCameraIcon, TrashIcon, CubeTransparentIcon, CloudArrowDownIcon, Bars3Icon } from "@heroicons/react/24/solid";
+import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, VideoCameraIcon, TrashIcon, CubeTransparentIcon, CloudArrowDownIcon, Bars3Icon, XMarkIcon } from "@heroicons/react/24/solid";
 import { BackwardIcon, ForwardIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Pose";
@@ -18,9 +18,10 @@ import PoseSettingsModal from "@/modals/PoseSettings";
 
 interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
+  isMainMenuOpen: boolean
 }
 
-const Index = ({ handleMainMenu }: IndexProps) => {
+const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const { settings, setSelectedJoints } = useSettings();
 
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
@@ -524,10 +525,16 @@ const Index = ({ handleMainMenu }: IndexProps) => {
             <section 
               data-element="non-swipeable"
               className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-black/40 rounded-full">
-              <Bars3Icon 
-                className="h-6 w-6 text-white cursor-pointer" 
-                onClick={() => handleMainMenu()}
-              />
+              {isMainMenuOpen ?
+                <XMarkIcon 
+                  className="w-6 h-6 text-white"
+                  onClick={() => handleMainMenu()}
+                  />
+                : <Bars3Icon 
+                    className="w-6 h-6 text-white"
+                    onClick={() => handleMainMenu()}
+                    />
+              }
               {!videoUrl && (
                   <div 
                     className="relative cursor-pointer"

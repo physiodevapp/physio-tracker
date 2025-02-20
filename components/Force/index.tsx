@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, Cog6ToothIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon } from "@heroicons/react/24/solid";
+import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, Cog6ToothIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import { useState, useRef } from "react";
 import ForceChart, { DataPoint } from "./Graph";
 import { DocumentArrowDownIcon } from "@heroicons/react/24/outline";
@@ -255,7 +255,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   return (
     <>
       <div
-        className={`p-5 transition-all duration-300 ease-in-out ${
+        className={`h-dvh p-5 transition-all duration-300 ease-in-out ${
           isMainMenuOpen ? "pt-14" : ""
         }`}
         onClick={() => handleMainMenu(false)}
@@ -313,10 +313,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         className="absolute top-1 left-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
         >
         <>
-          <Bars3Icon 
-            className="w-6 h-6 text-white"
-            onClick={() => handleMainMenu()}
-            />
+          {isMainMenuOpen ?
+            <XMarkIcon 
+              className="w-6 h-6 text-white"
+              onClick={() => handleMainMenu()}
+              />
+            : <Bars3Icon 
+                className="w-6 h-6 text-white"
+                onClick={() => handleMainMenu()}
+                />
+          }
           {device && isConnected && (
             <>
               <div className="relative" onClick={tareSensor} >
@@ -346,7 +352,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       <section 
         data-element="non-swipeable"
         className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
-      >
+        >
         {(isConnected || (isDeviceAvailable && !device)) && (
           <LinkIcon 
             className="w-6 h-6 text-white"

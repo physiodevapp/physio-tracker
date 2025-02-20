@@ -67,7 +67,7 @@ export default function Home() {
                   exit="exit"
                   transition={{ ease: "easeInOut", duration: 0.25 }}
                   >
-                  <Pose handleMainMenu={handleMainMenu} />
+                  <Pose handleMainMenu={handleMainMenu} isMainMenuOpen={isMainMenuOpen} />
                 </motion.div>
               );
             case 'force':
@@ -80,7 +80,7 @@ export default function Home() {
                   exit="exit"
                   transition={{ ease: "easeInOut", duration: 0.25 }}
                   >
-                  <Force handleMainMenu={handleMainMenu} isMainMenuOpen={isMainMenuOpen}/>
+                  <Force handleMainMenu={handleMainMenu} isMainMenuOpen={isMainMenuOpen} />
                 </motion.div>
               );
             case 'bodychart':
@@ -93,7 +93,7 @@ export default function Home() {
                   exit="exit"
                   transition={{ ease: "easeInOut", duration: 0.25 }}
                   >
-                  <BodyChart handleMainMenu={handleMainMenu} />
+                  <BodyChart handleMainMenu={handleMainMenu} isMainMenuOpen={isMainMenuOpen} />
                 </motion.div>
               );
             default:
