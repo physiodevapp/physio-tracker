@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Webcam from "react-webcam";
 import cv from "@techstark/opencv-js";
-import { Bars3Icon, CameraIcon, Cog6ToothIcon, DocumentArrowDownIcon, SwatchIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { ArrowPathIcon, Bars3Icon, CameraIcon, Cog6ToothIcon, DocumentArrowDownIcon, PresentationChartBarIcon, SwatchIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import { VideoConstraints } from "@/interfaces/camera";
 
 interface ColorAnalysis {
@@ -32,6 +32,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   });
 
   const [showSettings, setShowSettings] = useState(false);
+  const [showData, setShowData] = useState(false);
   
   const webcamRef = useRef<Webcam>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -221,7 +222,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       const redContours = new cvInstance.MatVector();
       const redHierarchy = new cvInstance.Mat();
       cvInstance.findContours(redMask, redContours, redHierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
-      cvInstance.drawContours(resultImage, redContours, -1, new cvInstance.Scalar(255, 0, 0, 255), 2);
+      cvInstance.drawContours(resultImage, redContours, -1, new cvInstance.Scalar(255, 0, 0, 255), 1);
       redContours.delete();
       redHierarchy.delete();
 
@@ -229,7 +230,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       const greenContours = new cvInstance.MatVector();
       const greenHierarchy = new cvInstance.Mat();
       cvInstance.findContours(greenMask, greenContours, greenHierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
-      cvInstance.drawContours(resultImage, greenContours, -1, new cvInstance.Scalar(0, 255, 0, 255), 2);
+      cvInstance.drawContours(resultImage, greenContours, -1, new cvInstance.Scalar(0, 255, 0, 255), 1);
       greenContours.delete();
       greenHierarchy.delete();
 
@@ -237,7 +238,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       const blueContours = new cvInstance.MatVector();
       const blueHierarchy = new cvInstance.Mat();
       cvInstance.findContours(blueMask, blueContours, blueHierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
-      cvInstance.drawContours(resultImage, blueContours, -1, new cvInstance.Scalar(0, 0, 255, 255), 2);
+      cvInstance.drawContours(resultImage, blueContours, -1, new cvInstance.Scalar(0, 0, 255, 255), 1);
       blueContours.delete();
       blueHierarchy.delete();
 
@@ -256,7 +257,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       const redContoursOverlay = new cvInstance.MatVector();
       const redHierarchyOverlay = new cvInstance.Mat();
       cvInstance.findContours(redMask, redContoursOverlay, redHierarchyOverlay, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
-      cvInstance.drawContours(blankMat, redContoursOverlay, -1, new cvInstance.Scalar(255, 0, 0, 255), 2);
+      cvInstance.drawContours(blankMat, redContoursOverlay, -1, new cvInstance.Scalar(255, 0, 0, 255), 1);
       redContoursOverlay.delete();
       redHierarchyOverlay.delete();
 
@@ -264,7 +265,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       const greenContoursOverlay = new cvInstance.MatVector();
       const greenHierarchyOverlay = new cvInstance.Mat();
       cvInstance.findContours(greenMask, greenContoursOverlay, greenHierarchyOverlay, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
-      cvInstance.drawContours(blankMat, greenContoursOverlay, -1, new cvInstance.Scalar(0, 255, 0, 255), 2);
+      cvInstance.drawContours(blankMat, greenContoursOverlay, -1, new cvInstance.Scalar(0, 255, 0, 255), 1);
       greenContoursOverlay.delete();
       greenHierarchyOverlay.delete();
 
@@ -272,7 +273,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       const blueContoursOverlay = new cvInstance.MatVector();
       const blueHierarchyOverlay = new cvInstance.Mat();
       cvInstance.findContours(blueMask, blueContoursOverlay, blueHierarchyOverlay, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
-      cvInstance.drawContours(blankMat, blueContoursOverlay, -1, new cvInstance.Scalar(0, 0, 255, 255), 2);
+      cvInstance.drawContours(blankMat, blueContoursOverlay, -1, new cvInstance.Scalar(0, 0, 255, 255), 1);
       blueContoursOverlay.delete();
       blueHierarchyOverlay.delete();
 
@@ -324,6 +325,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
     }
     setAnalysisResult(null);
     setCaptured(false);
+    setShowData(false);
   };
 
   // Función para descargar la imagen del canvas de captura
@@ -382,14 +384,38 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       }));
     }, []);
 
-  const toggleSettings = () => {
-    setShowSettings(!showSettings);
+  const toggleSettings = (visibility?: boolean) => {
+    if (visibility === undefined && showData) {
+      setShowData(false);
+    }
+    setShowSettings(visibility === undefined ? !showSettings : visibility);
+  }
+
+  const toggleShowData = (visibility?: boolean) => {
+    if (visibility === undefined && showSettings) {
+      setShowSettings(false);
+    }
+    setShowData(visibility === undefined ? !showData : visibility);
   }
 
   const handleMainLayer = () => {
     handleMainMenu(false);
-    toggleSettings();
+    toggleSettings(false);
+    toggleShowData(false);
   }
+
+  const resetSliders = () => {
+    setRedHueLower1(0);
+    setRedHueUpper1(10);
+    setRedHueLower2(170);
+    setRedHueUpper2(180);
+    setGreenHueLower(36);
+    setGreenHueUpper(89);
+    setBlueHueLower(90);
+    setBlueHueUpper(128);
+    setMinSaturation(70);
+    setMinValue(50);
+  };
 
   return (
     <>
@@ -420,24 +446,6 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           {loading && <p>Cargando OpenCV...</p>}
           {error && <p>Error: {error}</p>}
         </div>
-        {analysisResult && (
-          <div style={{ marginTop: "10px" }}>
-            <h2>Resultados del análisis:</h2>
-            <div>
-              <strong>Rojo:</strong> {analysisResult.red.percentage.toFixed(2)}% - Contornos: {analysisResult.red.contours} - Total Área: {analysisResult.red.totalArea.toFixed(0)} - Área Promedio: {analysisResult.red.averageArea.toFixed(0)} - Índice de Dispersión: {analysisResult.red.dispersionIndex.toFixed(2)}
-            </div>
-            <div>
-              <strong>Verde:</strong> {analysisResult.green.percentage.toFixed(2)}% - Contornos: {analysisResult.green.contours} - Total Área: {analysisResult.green.totalArea.toFixed(0)} - Área Promedio: {analysisResult.green.averageArea.toFixed(0)} - Índice de Dispersión: {analysisResult.green.dispersionIndex.toFixed(2)}
-            </div>
-            <div>
-              <strong>Azul:</strong> {analysisResult.blue.percentage.toFixed(2)}% - Contornos: {analysisResult.blue.contours} - Total Área: {analysisResult.blue.totalArea.toFixed(0)} - Área Promedio: {analysisResult.blue.averageArea.toFixed(0)} - Índice de Dispersión: {analysisResult.blue.dispersionIndex.toFixed(2)}
-            </div>
-            <div>
-              <strong>Otros:</strong> {analysisResult.others.percentage.toFixed(2)}%
-            </div>
-            <p>*El índice de dispersión se normaliza según el total de píxeles detectados para el color.</p>
-          </div>
-        )}
       </div>
       <section 
         data-element="non-swipeable"
@@ -460,6 +468,10 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
             /> 
           {captured && (
             <>
+              <PresentationChartBarIcon
+                className="w-6 h-6 text-white"
+                onClick={() => toggleShowData()}
+                />
               <DocumentArrowDownIcon 
                 className="w-6 h-6 text-white"
                 onClick={downloadData}
@@ -483,14 +495,20 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
             />
           <Cog6ToothIcon 
             className="w-6 h-6 text-white"
-            onClick={toggleSettings}
+            onClick={() => toggleSettings()}
             />
         </> 
       </section>
       {showSettings && (
-        <section className="absolute bottom-0 w-full h-[44vh] bg-gradient-to-b from-black/40 to-black rounded-t-lg p-4">
+        <section className="absolute bottom-0 w-full h-[48vh] bg-gradient-to-b from-black/40 to-black rounded-t-lg p-4">
+          <div className="w-full h-8 flex justify-end text-white/60 italic font-light">
+            Set default values <ArrowPathIcon className="ml-2 w-6 h-6" onClick={resetSliders}/>
+          </div>
           {/* Sliders para ajustar parámetros de detección */}
-          <div className="mt-2 space-y-2 text-white">
+          <div 
+            data-element="non-swipeable"
+            className="mt-2 space-y-2 text-white"
+            >
             {/* Parámetros para Rojo */}
             <div className="flex justify-around gap-6">
               <div className="flex-1">
@@ -614,6 +632,49 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
                   className="w-full"
                   />
               </div>
+            </div>
+          </div>
+        </section>
+      )}
+      {(showData && analysisResult) && (
+        <section className="absolute bottom-0 w-full h-[52vh] bg-gradient-to-b from-black/40 to-black rounded-t-lg p-4 text-white">
+          <div className="space-y-2">
+            <div className="bg-red-400/60 p-2 rounded-md space-y-2">
+              <div className="flex justify-between">
+                <p><strong>Rojo:</strong> <span className="underline underline-offset-4">{analysisResult.red.percentage.toFixed(2)}%</span></p>
+                <p>Índice de Dispersión: <span className="underline underline-offset-4">{analysisResult.red.dispersionIndex.toFixed(2)}</span></p>
+              </div>
+              <div className="flex justify-between gap-4 flex-1">
+                <p className="flex-1">Zonas: {analysisResult.red.contours}</p>
+                <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">tot</span>: {analysisResult.red.totalArea.toFixed(0)}</p>
+                <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">prom</span>: {analysisResult.red.averageArea.toFixed(0)}</p>
+              </div>
+            </div>
+            <div className="bg-green-400/60 p-2 rounded-md space-y-2">
+              <div className="flex justify-between gap-4 flex-1">
+                <p><strong>Verde:</strong> <span className="underline underline-offset-4">{analysisResult.green.percentage.toFixed(2)}%</span></p>
+                <p>Índice de Dispersión: <span className="underline underline-offset-4">{analysisResult.green.dispersionIndex.toFixed(2)}</span></p>
+              </div>
+              <div className="flex justify-between gap-4 flex-1">
+                <p className="flex-1">Zonas: {analysisResult.green.contours}</p>
+                <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">tot</span>: {analysisResult.green.totalArea.toFixed(0)}</p>
+                <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">prom</span>: {analysisResult.green.averageArea.toFixed(0)}</p>
+              </div>
+            </div>
+            <div className="bg-blue-400/60 p-2 rounded-md space-y-2">
+              <div className="flex justify-between">
+                <p><strong>Azul:</strong> <span className="underline underline-offset-4">{analysisResult.blue.percentage.toFixed(2)}%</span></p>
+                <p>Índice de Dispersión: <span className="underline underline-offset-4">{analysisResult.blue.dispersionIndex.toFixed(2)}</span></p>
+              </div>
+              <div className="flex justify-between">
+                <p className="flex-1">Zonas: {analysisResult.blue.contours}</p>
+                <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">tot</span>: {analysisResult.blue.totalArea.toFixed(0)}</p>
+                <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">prom</span>: {analysisResult.blue.averageArea.toFixed(0)}</p>
+              </div>
+            </div>
+            <div className="px-2 py-1">
+              <strong>Otros:</strong> {analysisResult.others.percentage.toFixed(2)}%
+              <p className="text-[0.8rem] italic">*El índice de dispersión se normaliza según el total de píxeles detectados para el color.</p>
             </div>
           </div>
         </section>
