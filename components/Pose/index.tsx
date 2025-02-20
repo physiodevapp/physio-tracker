@@ -46,12 +46,12 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [isPoseSettingsModalOpen, setIsPoseSettingsModalOpen] = useState(false);
   const [isPoseGraphSettingsModalOpen, setIsPoseGraphSettingsModalOpen] = useState(false);
   
-  const jointVelocityHistorySizeRef = useRef(settings.velocityHistorySize);
-  const jointAngleHistorySizeRef = useRef(settings.angularHistorySize);
+  const jointVelocityHistorySizeRef = useRef(settings.pose.velocityHistorySize);
+  const jointAngleHistorySizeRef = useRef(settings.pose.angularHistorySize);
   
   const jointDataRef = useRef<JointDataMap>({});
   
-  const visibleJointsRef = useRef(settings.selectedJoints);
+  const visibleJointsRef = useRef(settings.pose.selectedJoints);
   const visibleKinematicsRef = useRef(visibleKinematics);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -80,7 +80,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }, [visibleKinematics]);
   
   const maxKinematicsAllowed = useMemo(() => {
-    return settings.selectedJoints.length > 0 ? Math.floor(6 / settings.selectedJoints.length) : 2;
+    return settings.pose.selectedJoints.length > 0 ? Math.floor(6 / settings.pose.selectedJoints.length) : 2;
   }, [settings]);
   
   const detector = usePoseDetector();
@@ -403,9 +403,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }, [videoProcessed])
   
   useEffect(() => {
-    jointVelocityHistorySizeRef.current = settings.velocityHistorySize;
-    jointAngleHistorySizeRef.current = settings.angularHistorySize;
-    visibleJointsRef.current = settings.selectedJoints;
+    jointVelocityHistorySizeRef.current = settings.pose.velocityHistorySize;
+    jointAngleHistorySizeRef.current = settings.pose.angularHistorySize;
+    visibleJointsRef.current = settings.pose.selectedJoints;
   }, [settings])
 
   useEffect(() => {
@@ -620,7 +620,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           handleModal={handlePoseModal} 
           jointOptions={jointOptions}
           maxSelected={maxJointsAllowed }
-          initialSelectedJoints={settings.selectedJoints} 
+          initialSelectedJoints={settings.pose.selectedJoints} 
           onSelectionChange={handleJointSelection} 
           />
 
@@ -632,7 +632,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       {displayGraphs && (
         <>
           <PoseGraph 
-            joints={settings.selectedJoints}
+            joints={settings.pose.selectedJoints}
             valueTypes={visibleKinematics}
             getDataForJoint={(joint) => {
               const data = jointDataRef.current[joint];

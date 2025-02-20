@@ -51,9 +51,9 @@ interface IndexProps {
 const Index: React.FC<IndexProps> = ({
   sensorData,
   displayAnnotations = true,
-  movingAverageWindow = 3_000,    // 3 segundos por defecto
+  movingAverageWindow = 3_000,   // 3 segundos por defecto (en ms)
   minAvgAmplitude = 0.5,         // Ejemplo: 0.5 kg
-  maxAvgDuration = 2000,         // Ejemplo: 2000 ms
+  maxAvgDuration = 2_000,        // Ejemplo: 2000 ms
   forceDropThreshold = 0.7,      // 70%
   cyclesToAverage = 3,           // Promediar los últimos 5 ciclos
   hysteresis = 0.1,              // Factor de histéresis por defecto

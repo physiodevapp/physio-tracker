@@ -3,8 +3,10 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Webcam from "react-webcam";
 import cv from "@techstark/opencv-js";
-import { ArrowPathIcon, Bars3Icon, CameraIcon, Cog6ToothIcon, DocumentArrowDownIcon, PresentationChartBarIcon, SwatchIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { Bars3Icon, CameraIcon, Cog6ToothIcon, DocumentArrowDownIcon, PresentationChartBarIcon, SwatchIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import { VideoConstraints } from "@/interfaces/camera";
+import { useSettings } from "@/providers/Settings";
+import ColorAnalyzerSettings from "@/modals/ColorAnalyzerSettings";
 
 interface ColorAnalysis {
   percentage: number;
@@ -33,6 +35,8 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
 
   const [showSettings, setShowSettings] = useState(false);
   const [showData, setShowData] = useState(false);
+
+  const { settings } = useSettings();
   
   const webcamRef = useRef<Webcam>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -44,22 +48,6 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [cvInstance, setCvInstance] = useState<typeof cv | null>(null);
   const [captured, setCaptured] = useState<boolean>(false);
-
-  // Parámetros para cada color
-  // Rojo: Se definen dos rangos para cubrir el wrap-around
-  const [redHueLower1, setRedHueLower1] = useState<number>(0);
-  const [redHueUpper1, setRedHueUpper1] = useState<number>(10);
-  const [redHueLower2, setRedHueLower2] = useState<number>(170);
-  const [redHueUpper2, setRedHueUpper2] = useState<number>(180);
-  // Verde:
-  const [greenHueLower, setGreenHueLower] = useState<number>(36);
-  const [greenHueUpper, setGreenHueUpper] = useState<number>(89);
-  // Azul:
-  const [blueHueLower, setBlueHueLower] = useState<number>(90);
-  const [blueHueUpper, setBlueHueUpper] = useState<number>(128);
-  // Umbrales comunes:
-  const [minSaturation, setMinSaturation] = useState<number>(70);
-  const [minValue, setMinValue] = useState<number>(50);
 
   // Verificamos la inicialización de OpenCV
   useEffect(() => {
@@ -147,10 +135,10 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       cvInstance.cvtColor(src, hsv, cvInstance.COLOR_RGB2HSV);
 
       // Máscara para rojo (dos rangos)
-      const lowerRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [redHueLower1, minSaturation, minValue, 0]);
-      const upperRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [redHueUpper1, 255, 255, 255]);
-      const lowerRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [redHueLower2, minSaturation, minValue, 0]);
-      const upperRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [redHueUpper2, 255, 255, 255]);
+      const lowerRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.redHueLower1, settings.color.minSaturation, settings.color.minValue, 0]);
+      const upperRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.redHueUpper1, 255, 255, 255]);
+      const lowerRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.redHueLower2, settings.color.minSaturation, settings.color.minValue, 0]);
+      const upperRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.redHueUpper2, 255, 255, 255]);
       const redMask1 = new cvInstance.Mat();
       const redMask2 = new cvInstance.Mat();
       cvInstance.inRange(hsv, lowerRed1, upperRed1, redMask1);
@@ -159,14 +147,14 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       cvInstance.add(redMask1, redMask2, redMask);
 
       // Máscara para verde
-      const lowerGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [greenHueLower, minSaturation, minValue, 0]);
-      const upperGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [greenHueUpper, 255, 255, 255]);
+      const lowerGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.greenHueLower, settings.color.minSaturation, settings.color.minValue, 0]);
+      const upperGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.greenHueUpper, 255, 255, 255]);
       const greenMask = new cvInstance.Mat();
       cvInstance.inRange(hsv, lowerGreen, upperGreen, greenMask);
 
       // Máscara para azul
-      const lowerBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [blueHueLower, minSaturation, minValue, 0]);
-      const upperBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [blueHueUpper, 255, 255, 255]);
+      const lowerBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.blueHueLower, settings.color.minSaturation, settings.color.minValue, 0]);
+      const upperBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.blueHueUpper, 255, 255, 255]);
       const blueMask = new cvInstance.Mat();
       cvInstance.inRange(hsv, lowerBlue, upperBlue, blueMask);
 
@@ -404,19 +392,6 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
     toggleShowData(false);
   }
 
-  const resetSliders = () => {
-    setRedHueLower1(0);
-    setRedHueUpper1(10);
-    setRedHueLower2(170);
-    setRedHueUpper2(180);
-    setGreenHueLower(36);
-    setGreenHueUpper(89);
-    setBlueHueLower(90);
-    setBlueHueUpper(128);
-    setMinSaturation(70);
-    setMinValue(50);
-  };
-
   return (
     <>
       <div 
@@ -477,7 +452,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
                 onClick={downloadData}
                 />
               <TrashIcon 
-                className="w-6 h-6 text-white"
+                className="w-6 h-6 text-red-500"
                 onClick={clearCanvases}
                 />
             </>
@@ -500,144 +475,10 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         </> 
       </section>
       {showSettings && (
-        <section className="absolute bottom-0 w-full h-[48vh] bg-gradient-to-b from-black/40 to-black rounded-t-lg p-4">
-          <div className="w-full h-8 flex justify-end text-white/60 italic font-light">
-            Set default values <ArrowPathIcon className="ml-2 w-6 h-6" onClick={resetSliders}/>
-          </div>
-          {/* Sliders para ajustar parámetros de detección */}
-          <div 
-            data-element="non-swipeable"
-            className="mt-2 space-y-2 text-white"
-            >
-            {/* Parámetros para Rojo */}
-            <div className="flex justify-around gap-6">
-              <div className="flex-1">
-                <label className="block text-sm">Red Hue Lower 1: {redHueLower1}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="180"
-                  value={redHueLower1}
-                  onChange={(e) => setRedHueLower1(parseInt(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm">Red Hue Upper 1: {redHueUpper1}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="180"
-                  value={redHueUpper1}
-                  onChange={(e) => setRedHueUpper1(parseInt(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-            </div>
-            <div className="flex justify-around gap-6">
-              <div className="flex-1">
-                <label className="block text-sm">Red Hue Lower 2: {redHueLower2}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="180"
-                  value={redHueLower2}
-                  onChange={(e) => setRedHueLower2(parseInt(e.target.value))}
-                  className="w-full"
-                  />
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm">Red Hue Upper 2: {redHueUpper2}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="180"
-                  value={redHueUpper2}
-                  onChange={(e) => setRedHueUpper2(parseInt(e.target.value))}
-                  className="w-full"
-                  />
-              </div>
-            </div>
-            {/* Parámetros para Verde */}
-            <div className="flex justify-around gap-6">
-              <div className="flex-1">
-                <label className="block text-sm">Green Hue Lower: {greenHueLower}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="180"
-                  value={greenHueLower}
-                  onChange={(e) => setGreenHueLower(parseInt(e.target.value))}
-                  className="w-full"
-                  />
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm">Green Hue Upper: {greenHueUpper}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="180"
-                  value={greenHueUpper}
-                  onChange={(e) => setGreenHueUpper(parseInt(e.target.value))}
-                  className="w-full"
-                  />
-              </div>
-            </div>
-            {/* Parámetros para Azul */}
-            <div className="flex justify-around gap-6">
-              <div className="flex-1">
-                <label className="block text-sm">Blue Hue Lower: {blueHueLower}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="180"
-                  value={blueHueLower}
-                  onChange={(e) => setBlueHueLower(parseInt(e.target.value))}
-                  className="w-full"
-                  />
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm">Blue Hue Upper: {blueHueUpper}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="180"
-                  value={blueHueUpper}
-                  onChange={(e) => setBlueHueUpper(parseInt(e.target.value))}
-                  className="w-full"
-                  />
-              </div>
-            </div>
-            {/* Umbrales comunes */}
-            <div className="flex justify-around gap-6">
-              <div className="flex-1">
-                <label className="block text-sm">Min Saturation: {minSaturation}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="255"
-                  value={minSaturation}
-                  onChange={(e) => setMinSaturation(parseInt(e.target.value))}
-                  className="w-full"
-                  />
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm">Min Value: {minValue}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="255"
-                  value={minValue}
-                  onChange={(e) => setMinValue(parseInt(e.target.value))}
-                  className="w-full"
-                  />
-              </div>
-            </div>
-          </div>
-        </section>
+        <ColorAnalyzerSettings />
       )}
       {(showData && analysisResult) && (
-        <section className="absolute bottom-0 w-full h-[52vh] bg-gradient-to-b from-black/40 to-black rounded-t-lg p-4 text-white">
+        <section className="absolute bottom-0 w-full h-[54vh] bg-gradient-to-b from-black/40 to-black rounded-t-lg p-4 text-white">
           <div className="space-y-2">
             <div className="bg-red-400/60 p-2 rounded-md space-y-2">
               <div className="flex justify-between">

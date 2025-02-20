@@ -5,6 +5,8 @@ import { useState, useRef } from "react";
 import ForceChart, { DataPoint } from "./Graph";
 import { DocumentArrowDownIcon } from "@heroicons/react/24/outline";
 import { Bars3Icon } from "@heroicons/react/24/solid";
+import { useSettings } from "@/providers/Settings";
+import ForceSettings from "@/modals/ForceGraphSettings";
 // import { BluetoothDevice, BluetoothRemoteGATTCharacteristic } from "@/global";
 
 // ----------------- Comandos y Códigos -----------------
@@ -26,6 +28,9 @@ interface IndexProps {
 }
 
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
+  const [showSettings, setShowSettings] = useState(false);
+  const { settings } = useSettings();
+  
   // Declaramos un estado y una ref para medir la frecuencia
   const measurementStartRef = useRef<number | null>(null);
   const sampleCount = useRef<number>(0);
@@ -251,6 +256,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     URL.revokeObjectURL(url);
   }
 
+  const toggleSettings = (visibility?: boolean) => {
+    setShowSettings(visibility === undefined ? !showSettings : visibility);
+  }
+
+  const handleMainLayer = () => {
+    handleMainMenu(false);
+    toggleSettings(false);
+  }
+
   // ----------------- Renderizado de la UI -----------------
   return (
     <>
@@ -258,17 +272,17 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         className={`h-dvh p-5 transition-all duration-300 ease-in-out ${
           isMainMenuOpen ? "pt-14" : ""
         }`}
-        onClick={() => handleMainMenu(false)}
+        onClick={handleMainLayer}
         >
         {/* Conexión del dispositivo */}
         <div className="flex flex-col justify-center items-center">
-          <h1 className="text-2xl font-bold">Strength tracker</h1>
+          <h1 className="text-2xl font-bold">Force tracker</h1>
           {device && isConnected && (
             <div className="flex-1 flex items-center gap-2">
               {isBatteryDead && (
                 <Battery0Icon className="w-8 h-8 text-red-500 animate-pulse"/>
               )}
-              <p><strong>{device.name}</strong> <span>{isConnected ? "connected" : "disconnected"}</span></p>
+              <p><strong>{device.name}</strong></p>
             </div>
           )}
         </div>
@@ -284,11 +298,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 ? <span className={isRecording ? 'animate-pulse' : ''}>{sensorData[sensorData.length - 1].force.toFixed(1)} kg</span> 
                 : "0.0 kg"}
               </p>
-              {Boolean(sensorData.length && !isRecording) && (
-                <DocumentArrowDownIcon 
-                  className="w-8 h-8 text-black"
-                  onClick={downloadRawData}/>
-              )}
             </div>
           )}
           {!isConnected && (
@@ -304,6 +313,12 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             <ForceChart 
               sensorData={sensorData}
               displayAnnotations={isConnected}
+              movingAverageWindow={settings.force.movingAverageWindow}
+              minAvgAmplitude={settings.force.minAvgAmplitude}
+              maxAvgDuration={settings.force.maxAvgDuration}
+              forceDropThreshold={settings.force.forceDropThreshold}
+              cyclesToAverage={settings.force.cyclesToAverage}
+              hysteresis={settings.force.hysteresis}
               />
           </div>
         )}
@@ -334,10 +349,17 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 )}
               </div>
               {!isRecording && (
-                <PlayIcon
-                  className={`w-6 h-6 text-white ${taringStatus !== 1 ? 'opacity-40' : ''}`}
-                  onClick={startMeasurement}
-                  />
+                <>
+                  <PlayIcon
+                    className={`w-6 h-6 text-white ${taringStatus !== 1 ? 'opacity-40' : ''}`}
+                    onClick={startMeasurement}
+                    />
+                  {Boolean(sensorData.length && !isRecording) && (
+                    <DocumentArrowDownIcon 
+                      className="w-6 h-6 text-white"
+                      onClick={downloadRawData}/>
+                  )}
+                </>
               )}
               {isRecording && (
                 <StopIcon
@@ -365,13 +387,19 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               className="w-6 h-6 text-white"
               onClick={shutdown}
               />
-            <Cog6ToothIcon className="w-6 h-6 text-white"/>
+            <Cog6ToothIcon 
+              className="w-6 h-6 text-white"
+              onClick={() => toggleSettings()}
+              />
           </>
         )}
         {(!isConnected && (!isDeviceAvailable || device)) && (
           <ArrowPathIcon className="w-6 h-6 text-white animate-spin"/>
         )}
       </section>
+      {(showSettings && isConnected) && (
+        <ForceSettings />
+      )}
     </>
   );
 };

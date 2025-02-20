@@ -20,10 +20,10 @@ const Index = ({
     setPoseGraphSampleThreshold,
   } = useSettings();
 
-  const [timeWindow, setTimeWindow] = useState(settings.poseTimeWindow);
-  const [updateInterval, setUpdateInterval] = useState(settings.poseUpdateInterval);
-  const [sample, setSample] = useState(settings.poseGraphSample ?? 50);
-  const [threshold, setThreshold] = useState(settings.poseGraphSampleThreshold ?? 60);
+  const [timeWindow, setTimeWindow] = useState(settings.pose.poseTimeWindow);
+  const [updateInterval, setUpdateInterval] = useState(settings.pose.poseUpdateInterval);
+  const [sample, setSample] = useState(settings.pose.poseGraphSample ?? 50);
+  const [threshold, setThreshold] = useState(settings.pose.poseGraphSampleThreshold ?? 60);
 
   const handleTimeWindowChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);

@@ -12,8 +12,8 @@ const Index = ({
 }: IndexProps) => {
   const { settings, setAngularHistorySize, setVelocityHistorySize } = useSettings();
 
-  const [angleSmoothing, setAngleSmoothing] = useState(settings.angularHistorySize);
-  const [angleVelocitySmoothing, setVelocitySmoothing] = useState(settings.velocityHistorySize);
+  const [angleSmoothing, setAngleSmoothing] = useState(settings.pose.angularHistorySize);
+  const [angleVelocitySmoothing, setVelocitySmoothing] = useState(settings.pose.velocityHistorySize);
 
   const handleAngleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
