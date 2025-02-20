@@ -48,8 +48,8 @@ export default function Home() {
     setPage(page);
   };
 
-  const handleMainMenu = () => {
-    setIsMainMenuOpen(!isMainMenuOpen);
+  const handleMainMenu = (visibility?: boolean) => {
+    setIsMainMenuOpen(visibility === undefined ? !isMainMenuOpen : false);
   }
   
   return (

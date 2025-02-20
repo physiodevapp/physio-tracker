@@ -17,7 +17,7 @@ import PoseGraphSettingsModal from "@/modals/PoseGraphSettings";
 import PoseSettingsModal from "@/modals/PoseSettings";
 
 interface IndexProps {
-  handleMainMenu: () => void;
+  handleMainMenu: (visibility?: boolean) => void;
 }
 
 const Index = ({ handleMainMenu }: IndexProps) => {
@@ -128,7 +128,7 @@ const Index = ({ handleMainMenu }: IndexProps) => {
 
     setIsPoseGraphSettingsModalOpen(false);
 
-    handleMainMenu();
+    handleMainMenu(false);
   }
 
   const handleJointSelection = useCallback((selectedJoints: string[]) => {
@@ -526,7 +526,7 @@ const Index = ({ handleMainMenu }: IndexProps) => {
               className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-black/40 rounded-full">
               <Bars3Icon 
                 className="h-6 w-6 text-white cursor-pointer" 
-                onClick={handleMainMenu}
+                onClick={() => handleMainMenu()}
               />
               {!videoUrl && (
                   <div 

@@ -21,7 +21,7 @@ const RES_RFD_PEAK_SERIES = 3;
 const RES_LOW_PWR_WARNING = 4;
 
 interface IndexProps {
-  handleMainMenu: () => void;
+  handleMainMenu: (visibility?: boolean) => void;
 }
 
 const Index = ({ handleMainMenu }: IndexProps) => {
@@ -255,7 +255,7 @@ const Index = ({ handleMainMenu }: IndexProps) => {
     <>
       <div
         className="h-dvh p-5 font-sans space-y-6"
-        onClick={handleMainMenu}
+        onClick={() => handleMainMenu(false)}
         >
         {/* Conexión del dispositivo */}
         <div className="flex flex-col justify-center items-center">
@@ -306,7 +306,7 @@ const Index = ({ handleMainMenu }: IndexProps) => {
         <>
           <Bars3Icon 
             className="w-6 h-6 text-white"
-            onClick={handleMainMenu}
+            onClick={() => handleMainMenu()}
             />
           {device && isConnected && (
             <>
