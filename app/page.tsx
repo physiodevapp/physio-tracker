@@ -80,7 +80,7 @@ export default function Home() {
                   exit="exit"
                   transition={{ ease: "easeInOut", duration: 0.25 }}
                   >
-                  <Force handleMainMenu={handleMainMenu} />
+                  <Force handleMainMenu={handleMainMenu} isMainMenuOpen={isMainMenuOpen}/>
                 </motion.div>
               );
             case 'bodychart':

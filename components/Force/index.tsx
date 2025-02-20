@@ -5,7 +5,7 @@ import { useState, useRef } from "react";
 import ForceChart, { DataPoint } from "./Graph";
 import { DocumentArrowDownIcon } from "@heroicons/react/24/outline";
 import { Bars3Icon } from "@heroicons/react/24/solid";
-import { BluetoothDevice, BluetoothRemoteGATTCharacteristic } from "@/global";
+// import { BluetoothDevice, BluetoothRemoteGATTCharacteristic } from "@/global";
 
 // ----------------- Comandos y Códigos -----------------
 const CMD_TARE_SCALE = 100;
@@ -22,9 +22,10 @@ const RES_LOW_PWR_WARNING = 4;
 
 interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
+  isMainMenuOpen: boolean
 }
 
-const Index = ({ handleMainMenu }: IndexProps) => {
+const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   // Declaramos un estado y una ref para medir la frecuencia
   const measurementStartRef = useRef<number | null>(null);
   const sampleCount = useRef<number>(0);
@@ -254,7 +255,9 @@ const Index = ({ handleMainMenu }: IndexProps) => {
   return (
     <>
       <div
-        className="h-dvh p-5 font-sans space-y-6"
+        className={`p-5 transition-all duration-300 ease-in-out ${
+          isMainMenuOpen ? "pt-14" : ""
+        }`}
         onClick={() => handleMainMenu(false)}
         >
         {/* Conexión del dispositivo */}
@@ -270,9 +273,12 @@ const Index = ({ handleMainMenu }: IndexProps) => {
           )}
         </div>
         {/* Tara y métricas */}
-        <div className="flex justify-center items-center flex-wrap">
+        <div className="flex justify-center items-center flex-wrap gap-4">
           {device && isConnected && (
-            <div className="flex-1 flex justify-center items-center gap-3">
+            <div className={`flex-1 flex justify-center items-center transition-all duration-300 ease-in-out ${
+                isMainMenuOpen ? 'mt-1' : 'mt-4'
+              }`}
+              >
               <p className="text-2xl">
                 Now: {sensorData.length > 0 
                 ? <span className={isRecording ? 'animate-pulse' : ''}>{sensorData[sensorData.length - 1].force.toFixed(1)} kg</span> 
@@ -290,13 +296,16 @@ const Index = ({ handleMainMenu }: IndexProps) => {
           )}
         </div>
         {isConnected && (
-          <>
+          <div className={`transition-all duration-300 ease-in-out ${
+              isMainMenuOpen ? 'mt-0' : 'mt-6'
+            }`}
+            >
             {/* Gráfico */}
             <ForceChart 
               sensorData={sensorData}
               displayAnnotations={isConnected}
               />
-          </>
+          </div>
         )}
       </div>
       <section 
