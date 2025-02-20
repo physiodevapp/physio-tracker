@@ -19,48 +19,49 @@ interface AnalysisResult {
   others: ColorAnalysis;
 }
 
-interface IndexProps {
+export interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
 }
 
-const Index = ({handleMainMenu}: IndexProps) => {
+const Index: React.FC<IndexProps> = ({ handleMainMenu }) => {
+  const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
+    facingMode: "user",
+  });
+
+  const [captured, setCaptured] = useState<boolean>(false);
+
   const webcamRef = useRef<Webcam>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const captureCanvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-
-  // Estado local para guardar la instancia de cv
   const [cvInstance, setCvInstance] = useState<typeof cv | null>(null);
 
+  // Verificamos la inicialización de OpenCV
   useEffect(() => {
-    // Si window.cv ya está inicializado, lo usamos directamente
+    // Si OpenCV ya está inicializado, lo usamos directamente.
     if (window.cv && typeof window.cv.getBuildInformation === "function") {
       setCvInstance(window.cv);
       setLoading(false);
       return;
     }
-
-    // Asignamos el callback solo si no está inicializado
+    // Si no, asignamos el callback.
     window.cv.onRuntimeInitialized = () => {
       setCvInstance(window.cv);
       setLoading(false);
     };
-
-    // Timeout para detectar si la inicialización falla
     const timeoutId = setTimeout(() => {
       if (loading) {
-        console.error("Timeout: No se pudo inicializar OpenCV en el tiempo esperado.");
         setError("Timeout: OpenCV no se inicializó en el tiempo esperado.");
         setLoading(false);
       }
     }, 15000);
-
     return () => clearTimeout(timeoutId);
   }, [loading]);
 
-  // Función auxiliar para analizar contornos y calcular áreas
+  // Función para analizar contornos y calcular áreas
   const analyzeContours = (mask: cv.Mat, colorPixels: number): { 
     count: number; 
     totalArea: number; 
@@ -102,30 +103,28 @@ const Index = ({handleMainMenu}: IndexProps) => {
       alert("Error al cargar OpenCV");
       return;
     }
-
     const imageSrc = webcamRef.current?.getScreenshot();
     if (!imageSrc) return;
 
     const img = new Image();
     img.src = imageSrc;
     img.onload = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
+      // Usamos el canvas de captura para procesar la imagen
+      const captureCanvas = captureCanvasRef.current;
+      if (!captureCanvas) return;
+      captureCanvas.width = img.width;
+      captureCanvas.height = img.height;
+      const captureCtx = captureCanvas.getContext("2d", { willReadFrequently: true });
+      if (!captureCtx) return;
+      captureCtx.drawImage(img, 0, 0, img.width, img.height);
 
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return;
-      ctx.drawImage(img, 0, 0, img.width, img.height);
-
-      // Leer imagen del canvas y convertirla a HSV
-      const src: cv.Mat = cvInstance.imread(canvas);
+      // Procesar la imagen: convertirla a Mat, pasar a HSV y crear máscaras
+      const src: cv.Mat = cvInstance.imread(captureCanvas);
       const hsv = new cvInstance.Mat();
       cvInstance.cvtColor(src, src, cvInstance.COLOR_RGBA2RGB);
       cvInstance.cvtColor(src, hsv, cvInstance.COLOR_RGB2HSV);
 
-      // Crear máscaras para cada color (ejemplo para rojo, verde y azul)
-      // Rojo: dos rangos para cubrir el wrap-around del hue
+      // Máscara para rojo (dos rangos para cubrir el wrap-around)
       const lowerRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [0, 70, 50, 0]);
       const upperRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [10, 255, 255, 255]);
       const lowerRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [170, 70, 50, 0]);
@@ -137,13 +136,13 @@ const Index = ({handleMainMenu}: IndexProps) => {
       const redMask = new cvInstance.Mat();
       cvInstance.add(redMask1, redMask2, redMask);
 
-      // Verde
+      // Máscara para verde
       const lowerGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [36, 70, 50, 0]);
       const upperGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [89, 255, 255, 255]);
       const greenMask = new cvInstance.Mat();
       cvInstance.inRange(hsv, lowerGreen, upperGreen, greenMask);
 
-      // Azul
+      // Máscara para azul
       const lowerBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [90, 70, 50, 0]);
       const upperBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [128, 255, 255, 255]);
       const blueMask = new cvInstance.Mat();
@@ -193,7 +192,80 @@ const Index = ({handleMainMenu}: IndexProps) => {
 
       setAnalysisResult(result);
 
-      // Liberar memoria
+      // Dibujar contornos sobre la imagen de análisis en el capture canvas
+      const resultImage = src.clone();
+
+      // Dibujar contornos rojos
+      const redContours = new cvInstance.MatVector();
+      const redHierarchy = new cvInstance.Mat();
+      cvInstance.findContours(redMask, redContours, redHierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+      cvInstance.drawContours(resultImage, redContours, -1, new cvInstance.Scalar(255, 0, 0, 255), 2);
+      redContours.delete();
+      redHierarchy.delete();
+
+      // Dibujar contornos verdes
+      const greenContours = new cvInstance.MatVector();
+      const greenHierarchy = new cvInstance.Mat();
+      cvInstance.findContours(greenMask, greenContours, greenHierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+      cvInstance.drawContours(resultImage, greenContours, -1, new cvInstance.Scalar(0, 255, 0, 255), 2);
+      greenContours.delete();
+      greenHierarchy.delete();
+
+      // Dibujar contornos azules
+      const blueContours = new cvInstance.MatVector();
+      const blueHierarchy = new cvInstance.Mat();
+      cvInstance.findContours(blueMask, blueContours, blueHierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+      cvInstance.drawContours(resultImage, blueContours, -1, new cvInstance.Scalar(0, 0, 255, 255), 2);
+      blueContours.delete();
+      blueHierarchy.delete();
+
+      // Mostrar la imagen con contornos en el capture canvas
+      // Mostrar la imagen con contornos en el canvas de captura
+      cvInstance.imshow(captureCanvas, resultImage);
+      resultImage.delete();
+
+      // --- Dibujar solo los contornos en el overlayCanvas ---
+      // Creamos una imagen en blanco del mismo tamaño que la imagen original
+      const blankMat = new cvInstance.Mat(src.rows, src.cols, cvInstance.CV_8UC4, new cvInstance.Scalar(0, 0, 0, 0));
+
+      // Recalculamos los contornos para cada máscara y dibujamos en el blankMat
+
+      // Para rojo
+      const redContoursOverlay = new cvInstance.MatVector();
+      const redHierarchyOverlay = new cvInstance.Mat();
+      cvInstance.findContours(redMask, redContoursOverlay, redHierarchyOverlay, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+      cvInstance.drawContours(blankMat, redContoursOverlay, -1, new cvInstance.Scalar(255, 0, 0, 255), 2);
+      redContoursOverlay.delete();
+      redHierarchyOverlay.delete();
+
+      // Para verde
+      const greenContoursOverlay = new cvInstance.MatVector();
+      const greenHierarchyOverlay = new cvInstance.Mat();
+      cvInstance.findContours(greenMask, greenContoursOverlay, greenHierarchyOverlay, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+      cvInstance.drawContours(blankMat, greenContoursOverlay, -1, new cvInstance.Scalar(0, 255, 0, 255), 2);
+      greenContoursOverlay.delete();
+      greenHierarchyOverlay.delete();
+
+      // Para azul
+      const blueContoursOverlay = new cvInstance.MatVector();
+      const blueHierarchyOverlay = new cvInstance.Mat();
+      cvInstance.findContours(blueMask, blueContoursOverlay, blueHierarchyOverlay, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+      cvInstance.drawContours(blankMat, blueContoursOverlay, -1, new cvInstance.Scalar(0, 0, 255, 255), 2);
+      blueContoursOverlay.delete();
+      blueHierarchyOverlay.delete();
+
+      // Mostrar solo los contornos en el overlayCanvas
+      const overlayCanvas = overlayCanvasRef.current;
+      if (overlayCanvas) {
+        overlayCanvas.width = src.cols;
+        overlayCanvas.height = src.rows;
+        cvInstance.imshow(overlayCanvas, blankMat);
+      }
+      blankMat.delete();
+
+      setCaptured(true);
+
+      // Liberar memoria de las matrices utilizadas
       src.delete();
       hsv.delete();
       lowerRed1.delete();
@@ -212,29 +284,64 @@ const Index = ({handleMainMenu}: IndexProps) => {
     };
   };
 
+  // Función para limpiar ambos canvases
+  const clearCanvases = () => {
+    const captureCanvas = captureCanvasRef.current;
+    const overlayCanvas = overlayCanvasRef.current;
+    if (captureCanvas) {
+      const ctx = captureCanvas.getContext("2d", { willReadFrequently: true });
+      if (ctx) {
+        ctx.clearRect(0, 0, captureCanvas.width, captureCanvas.height);
+      }
+    }
+    if (overlayCanvas) {
+      const ctx = overlayCanvas.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      }
+    }
+    setAnalysisResult(null);
+    setCaptured(false);
+  };
+
   return (
     <div 
-      style={{ padding: "1rem" }}
+      className="relative w-full h-dvh"
       onClick={() => handleMainMenu(false)}
       >
-      <h1>Analizador de Bodychart con OpenCV (Local)</h1>
-      {loading && <p>Cargando OpenCV...</p>}
-      {error && <p>Error: {error}</p>}
+      {/* Video de Webcam */}
       <Webcam
         audio={false}
         ref={webcamRef}
         screenshotFormat="image/jpeg"
-        videoConstraints={{ width: 640, height: 480 }}
+        className={`relative object-cover h-full w-full`}
+        videoConstraints={videoConstraints}
+        mirrored={videoConstraints.facingMode === "user"}
       />
-      <div style={{ marginTop: "1rem" }}>
-        <button onClick={captureAndAnalyze} disabled={loading || !!error}>
+      {/* Canvas overlay para contornos (superpuesto al video) */}
+      <canvas
+        ref={overlayCanvasRef}
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full pointer-events-none"
+        />
+      {/* Canvas de análisis visible para descarga */}
+      <canvas 
+        ref={captureCanvasRef} 
+        className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full border-red-500 border-2" 
+        />
+      <div className="absolute top-0 z-10 w-full flex justify-between">
+        <button className=" bg-black/40 text-white p-2" onClick={captureAndAnalyze} disabled={loading || !!error}>
           Capturar y Analizar
         </button>
+        {captured && (
+          <button onClick={clearCanvases} className="bg-black/40 text-white p-2">
+            Limpiar
+          </button>
+        )}
+        {loading && <p>Cargando OpenCV...</p>}
+        {error && <p>Error: {error}</p>}
       </div>
-      {/* Canvas oculto para procesamiento */}
-      <canvas ref={canvasRef} style={{ display: "none" }} />
       {analysisResult && (
-        <div style={{ marginTop: "1rem" }}>
+        <div style={{ marginTop: "10px" }}>
           <h2>Resultados del análisis:</h2>
           <div>
             <strong>Rojo:</strong> {analysisResult.red.percentage.toFixed(2)}% - Contornos: {analysisResult.red.contours} - Total Área: {analysisResult.red.totalArea.toFixed(0)} - Área Promedio: {analysisResult.red.averageArea.toFixed(0)} - Índice de Dispersión: {analysisResult.red.dispersionIndex.toFixed(2)}

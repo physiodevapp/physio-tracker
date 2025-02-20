@@ -74,10 +74,8 @@ const Index = ({
       className="fixed w-full h-dvh inset-0 z-50 flex items-center justify-center"
       style={{ backdropFilter: "blur(30px)" }}
       onClick={handleModal}
-    >
-      <p
-        className="absolute top-4 text-white text-lg bg-black/40 px-4 py-2 rounded-md"
       >
+      <p className="absolute top-4 text-white text-lg bg-black/40 px-4 py-2 rounded-md">
         Track joints
       </p>
       <div
@@ -87,7 +85,7 @@ const Index = ({
 
           handleModal();
         }}
-      >
+        >
         {jointOptions.map((joint, index) => (
           <label
             key={joint.value}
@@ -119,7 +117,7 @@ const Index = ({
                   ? "opacity-100"
                   : "opacity-40"
                 }`}
-            >
+              >
               {checkboxStates[index] && (
                 <StopIcon className="w-6 h-6 text-blue-500"/>
               )}
