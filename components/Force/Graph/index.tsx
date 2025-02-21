@@ -80,7 +80,7 @@ const Index: React.FC<IndexProps> = ({
   }, [mappedData, decimationThreshold]);
 
   // Cálculo del promedio de la fuerza solo para los datos recientes
-  const averageValue = useMemo(() => {
+  const recentAverageForceValue = useMemo(() => {
     if (!downsampledData.length) return 0;
     const currentTime = downsampledData[downsampledData.length - 1].x;
     const windowStartTime = currentTime - movingAverageWindow;
@@ -132,6 +132,7 @@ const Index: React.FC<IndexProps> = ({
   const [cycleDuration, setCycleDuration] = useState<number | null>(null);
   const [cycleAmplitude, setCycleAmplitude] = useState<number | null>(null);
   const [cycleMetrics, setCycleMetrics] = useState<CycleMetric[]>([]);
+  const [cycleEstimatedVelocity, setCycleEstimatedVelocity] = useState<number | null>(null);
   
   // ---------- Refs para la lógica de detección de ciclo ----------
   // Ref para guardar el extremo que inició el ciclo ("above" o "below")
@@ -147,8 +148,8 @@ const Index: React.FC<IndexProps> = ({
     if (!downsampledData.length) return;
 
     const lastPoint = downsampledData[downsampledData.length - 1];
-    const upperThreshold = averageValue + hysteresis;
-    const lowerThreshold = averageValue - hysteresis;
+    const upperThreshold = recentAverageForceValue + hysteresis;
+    const lowerThreshold = recentAverageForceValue - hysteresis;
 
     // Determinamos el estado extremo actual
     let currentExtreme: "above" | "below" | "within" = "within";
@@ -214,10 +215,10 @@ const Index: React.FC<IndexProps> = ({
         currentCycleExtremesRef.current = null;
       }
     }
-  }, [downsampledData, averageValue]);
+  }, [downsampledData, recentAverageForceValue]);
 
   // --- Agrupación de métricas de ciclos para detectar fatiga ---
-  // Por ejemplo, usando los últimos 5 ciclos
+  // Por ejemplo, usando los últimos cyclesToAverage ciclos
   const aggregatedCycleMetrics = useMemo(() => {
     if (cycleMetrics.length === 0) return null;
     const recentCycles = cycleMetrics.slice(-cyclesToAverage);
@@ -226,13 +227,32 @@ const Index: React.FC<IndexProps> = ({
     return { avgAmplitude, avgDuration, count: recentCycles.length };
   }, [cycleMetrics]);
 
+  // Velocidad estimada del último ciclo
+  const estimateCycleVelocity = useMemo(() => {
+    if (!workLoad || !cycleAmplitude || !cycleDuration) return null;    
+    // Fuerza media aproximada
+    const forceMed = cycleAmplitude / 2;  
+    // Tiempo del ciclo en segundos
+    const cycleTimeSec = cycleDuration / 1000;  
+    // Cálculo de la velocidad media
+    const velocity = (forceMed / workLoad) * (cycleTimeSec / 2);
+
+    return velocity;
+  }, [workLoad, cycleAmplitude, cycleDuration]);
+
+  useEffect(() => {
+    if (estimateCycleVelocity !== null) {
+      setCycleEstimatedVelocity(estimateCycleVelocity);
+    }
+  }, [estimateCycleVelocity]);  
+
   // Función de detección de fatiga basada en las métricas agregadas
   const detectFatigue = (): boolean => {
     if (!aggregatedCycleMetrics) return false;
 
     const amplitudeFatigue = aggregatedCycleMetrics.avgAmplitude < minAvgAmplitude;
     const durationFatigue = aggregatedCycleMetrics.avgDuration > maxAvgDuration;
-    const forceFatigue = averageValue < (maxPoint * forceDropThreshold);
+    const forceFatigue = recentAverageForceValue < (maxPoint * forceDropThreshold);
 
     // Por ejemplo, si se cumplen al menos dos condiciones, se detecta fatiga
     const conditionsMet = [amplitudeFatigue, durationFatigue, forceFatigue].filter(Boolean).length;
@@ -240,7 +260,7 @@ const Index: React.FC<IndexProps> = ({
   }
 
   // Calcular la detección de fatiga (puedes mostrarla o usarla en la UI)
-  const fatigueDetected = useMemo(() => detectFatigue(), [aggregatedCycleMetrics, averageValue, maxPoint]);
+  const fatigueDetected = useMemo(() => detectFatigue(), [aggregatedCycleMetrics, recentAverageForceValue, maxPoint]);
 
   // Opciones del gráfico, incluyendo las anotaciones horizontales
   const chartOptions: ChartOptions<'line'> = {
@@ -265,7 +285,7 @@ const Index: React.FC<IndexProps> = ({
             yScaleID: 'y',
             yMin: (ctx) => ctx.chart.scales['y'].min,
             yMax: (ctx) => ctx.chart.scales['y'].max,
-            backgroundColor: 'rgba(239, 68, 68, 0.10)',
+            backgroundColor: 'rgba(68, 68, 239, 0.10)',
             borderWidth: 0,
           },
           hysteresisBox: {
@@ -276,21 +296,21 @@ const Index: React.FC<IndexProps> = ({
             // Cubre toda la escala en el eje x
             xMin: (ctx) => ctx.chart.scales['x'].min,
             xMax: (ctx) => ctx.chart.scales['x'].max,
-            // En el eje y, abarca desde averageValue - hysteresis hasta averageValue + hysteresis
-            yMin: averageValue - hysteresis,
-            yMax: averageValue + hysteresis,
-            backgroundColor: 'rgba(75, 192, 75, 0.15)', // Color con transparencia para visualizar la zona
+            // En el eje y, abarca desde recentAverageForceValue - hysteresis hasta recentAverageForceValue + hysteresis
+            yMin: recentAverageForceValue - hysteresis,
+            yMax: recentAverageForceValue + hysteresis,
+            backgroundColor: 'rgba(75, 192, 75, 0.4)',
             borderWidth: 0,
           },
           averageLine: {
             type: 'line',
             display: Boolean(displayAnnotations && sensorData.length),
-            yMin: averageValue,
-            yMax: averageValue,
-            borderColor: 'red',
+            yMin: recentAverageForceValue,
+            yMax: recentAverageForceValue,
+            borderColor: 'rgba(68, 68, 239, 1.0)',
             borderWidth: 2,
             label: {
-              content: `Avg: ${averageValue.toFixed(2)} kg`,
+              content: `Avg: ${recentAverageForceValue.toFixed(2)} kg`,
               display: true,
               position: 'start',
             },
@@ -300,7 +320,7 @@ const Index: React.FC<IndexProps> = ({
             display: Boolean(displayAnnotations && sensorData.length),
             yMin: maxPoint ?? 0,
             yMax: maxPoint ?? 0,
-            borderColor: 'orange',
+            borderColor: 'rgba(239, 68, 239, 0.60',
             borderWidth: 2,
             borderDash: [6, 4],
             label: {
@@ -353,6 +373,7 @@ const Index: React.FC<IndexProps> = ({
       setCycleCount(0);
       setCycleDuration(0);
       setCycleAmplitude(0);
+      setCycleEstimatedVelocity(null);
       setCycleMetrics([]);
     }
   }, [sensorData])
@@ -363,24 +384,30 @@ const Index: React.FC<IndexProps> = ({
       }`}
       >
       <section className='relative w-full text-lg'>
-        <div className={`absolute w-full flex flex-row-reverse justify-center items-center gap-4 text-center font-base text-4xl left-1/2 -translate-x-1/2 transition-[top] duration-300 ease-in-out ${
+        <div className={`absolute w-full flex flex-rowjustify-center items-baseline gap-4 text-center font-base text-4xl left-1/2 -translate-x-1/2 transition-[top] duration-300 ease-in-out ${
             isMainMenuOpen ? '-top-10' : '-top-12'
           } ${
             fatigueDetected ? 'text-red-500 animate-pulse' : ''
           } ${
             isEstimatingMass ? 'opacity-40' : ''
           }`}
-          >{cycleCount ?? 0} {cycleCount === 1 ? 'rep' : 'reps'}
-          {fatigueDetected && (
-            <ExclamationTriangleIcon className='w-8 h-8'/>
-          )}
+        >
+          <span className='flex-[1.1] flex flex-row-reverse justify-start items-center gap-2'>
+            {cycleCount ?? 0} {cycleCount === 1 ? 'rep' : 'reps'}
+            {fatigueDetected && (
+              <ExclamationTriangleIcon className='w-6 h-6'/>
+            )}
+          </span>
+          <span className='flex-1 text-3xl text-left'>
+            {workLoad !== null && sensorData.length ? `${cycleEstimatedVelocity?.toFixed(1)} m/s` : ''}
+          </span>
         </div>
         <div className={`w-full flex justify-center gap-4 ${
             isEstimatingMass ? 'opacity-40' : ''
           }`}
           >
-          <p className='text-right'>Last Cycle: <span className='underline underline-offset-4 font-semibold'>{(cycleAmplitude ?? 0).toFixed(1)} kg</span></p>
-          <p className='text-left underline underline-offset-4 font-semibold'>{((cycleDuration ?? 0) / 1000).toFixed(2)} s</p>
+          <p className='text-right'>Last Cycle: <span className='font-semibold'>{(cycleAmplitude ?? 0).toFixed(1)} kg</span></p>
+          <p className='text-left font-semibold'>{((cycleDuration ?? 0) / 1000).toFixed(2)} s</p>
         </div>
       </section>
       <Line data={chartData} options={chartOptions} />

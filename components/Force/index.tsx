@@ -4,7 +4,7 @@ import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, ChevronDoubleDownIcon, Co
 import { useState, useRef, useEffect } from "react";
 import ForceChart, { DataPoint } from "./Graph";
 import { BookmarkIcon, DocumentArrowDownIcon } from "@heroicons/react/24/outline";
-import { Bars3Icon } from "@heroicons/react/24/solid";
+import { Bars3Icon, BookmarkIcon as BookmarkIconSolid } from "@heroicons/react/24/solid";
 import { useSettings } from "@/providers/Settings";
 import ForceSettings from "@/modals/ForceGraphSettings";
 // import { BluetoothDevice, BluetoothRemoteGATTCharacteristic } from "@/global";
@@ -230,7 +230,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
   };
 
-  const startMassCalibration = async() => {
+  const startMassEstimation = async() => {
     if (taringStatus !== 1) return;
     if (!controlCharacteristic) {
       console.error("Control characteristic not available");
@@ -244,7 +244,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
   }
 
-  const stopMassCalibration = async () => {
+  const stopMassEstimation = async () => {
     if (!controlCharacteristic) {
       console.error("Control characteristic not available");
       return;
@@ -309,10 +309,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }
 
   const handleMainLayer = async () => {
-    await stopMassCalibration();
+    await stopMassEstimation();
     handleMainMenu(false);
     toggleSettings(false);
     toggleMassCalibration(false);
+  }
+
+  const handleUpdateWorkLoad = async () => {
+    setUpdatedWorkLoad(updatedWorkLoad ? null : workLoad);
+    if (updatedWorkLoad !== null) await stopMassEstimation()
   }
 
   useEffect(() => {
@@ -482,24 +487,30 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       {(showMassCalibration && isConnected) && (
          <section
          data-element="non-swipeable"
-         className="absolute bottom-0 w-full h-[12vh] flex justify-center items-center bg-gradient-to-b from-black/60 to-black rounded-t-lg p-4 text-white"
+         className="absolute bottom-0 w-full h-[12vh] flex justify-center items-center gap-8 bg-gradient-to-b from-black/60 to-black rounded-t-lg p-4 text-white"
          >
-          <p className="flex-1 text-center text-4xl font-semibold">{(workLoad ?? 0).toFixed(1)} kg</p>
-          <div className="flex-1 flex justify-center gap-4">
+          <p className="flex-1 text-right text-4xl font-semibold">{(workLoad ?? 0).toFixed(1)} kg</p>
+          <div className="flex-1 flex justify-start gap-4">
             {isEstimatingMass ? 
               <StopIcon 
                 className="w-14 h-14"
-                onClick={stopMassCalibration}
+                onClick={stopMassEstimation}
                 />
               : <PlayIcon 
                   className="w-14 h-14"
-                  onClick={startMassCalibration}
+                  onClick={startMassEstimation}
                   />
             }
-            <BookmarkIcon 
-              className="w-14 h-14 text-white font-semibold rounded p-1"  
-              onClick={() => setUpdatedWorkLoad(workLoad)}          
-              />              
+            {updatedWorkLoad ? 
+              <BookmarkIconSolid 
+                className="w-14 h-14 text-white font-semibold rounded p-1"
+                onClick={handleUpdateWorkLoad} 
+                />
+              : <BookmarkIcon 
+                  className="w-14 h-14 text-white font-semibold rounded p-1"  
+                  onClick={handleUpdateWorkLoad}          
+                  /> 
+            }             
           </div>
         </section>
       )}

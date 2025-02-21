@@ -19,7 +19,7 @@ const Index: React.FC = () => {
   return (
     <section
       data-element="non-swipeable"
-      className="absolute bottom-0 w-full h-[46vh] bg-gradient-to-b from-black/80 to-black rounded-t-lg p-4 text-white"
+      className="absolute bottom-0 w-full h-[44vh] bg-gradient-to-b from-black/80 to-black rounded-t-lg p-4 text-white"
       >
       <div
         className="w-full h-8 flex justify-end text-white/60 italic font-light cursor-pointer"
@@ -27,7 +27,7 @@ const Index: React.FC = () => {
         >
         Set default values <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>
-      <div className="mt-2 space-y-2 text-white">
+      <div className="space-y-2 text-white">
         <div>
           <label className="block text-sm">
             Moving<span className="align-sub uppercase text-[0.6rem]"> Avg</span>{" "}
