@@ -398,9 +398,11 @@ const Index: React.FC<IndexProps> = ({
               <ExclamationTriangleIcon className='w-6 h-6'/>
             )}
           </span>
-          <span className='flex-1 text-3xl text-left'>
-            {workLoad !== null && sensorData.length ? `${cycleEstimatedVelocity?.toFixed(1)} m/s` : ''}
-          </span>
+          {(workLoad !== null && sensorData.length) && (
+            <span className='flex-1 text-3xl text-left'>
+              {cycleEstimatedVelocity?.toFixed(1)} m/s
+            </span>
+          )}
         </div>
         <div className={`w-full flex justify-center gap-4 ${
             isEstimatingMass ? 'opacity-40' : ''
