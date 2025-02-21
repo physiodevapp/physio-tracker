@@ -282,7 +282,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               {isBatteryDead && (
                 <Battery0Icon className="w-8 h-8 text-red-500 animate-pulse"/>
               )}
-              <p><strong>{device.name}</strong></p>
+              <p className="italic">{device.name}</p>
             </div>
           )}
         </div>
@@ -313,6 +313,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             <ForceChart 
               sensorData={sensorData}
               displayAnnotations={isConnected}
+              isMainMenuOpen={isMainMenuOpen}
               movingAverageWindow={settings.force.movingAverageWindow}
               minAvgAmplitude={settings.force.minAvgAmplitude}
               maxAvgDuration={settings.force.maxAvgDuration}

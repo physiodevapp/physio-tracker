@@ -13,6 +13,7 @@ import {
 } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { lttbDownsample } from '@/services/chart';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 // Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, annotationPlugin);
@@ -34,6 +35,7 @@ interface CycleMetric {
 interface IndexProps {
   sensorData: DataPoint[];
   displayAnnotations: boolean;
+  isMainMenuOpen: boolean;
   // Ventana temporal para el promedio (en milisegundos)
   movingAverageWindow?: number;
   // Umbral de amplitud mínima promedio para detectar fatiga (ej. en kg)
@@ -51,6 +53,7 @@ interface IndexProps {
 const Index: React.FC<IndexProps> = ({
   sensorData,
   displayAnnotations = true,
+  isMainMenuOpen = false,
   movingAverageWindow = 3_000,   // 3 segundos por defecto (en ms)
   minAvgAmplitude = 0.5,         // Ejemplo: 0.5 kg
   maxAvgDuration = 2_000,        // Ejemplo: 2000 ms
@@ -261,6 +264,20 @@ const Index: React.FC<IndexProps> = ({
             backgroundColor: 'rgba(239, 68, 68, 0.10)',
             borderWidth: 0,
           },
+          hysteresisBox: {
+            type: 'box',
+            display: displayAnnotations,
+            xScaleID: 'x',
+            yScaleID: 'y',
+            // Cubre toda la escala en el eje x
+            xMin: (ctx) => ctx.chart.scales['x'].min,
+            xMax: (ctx) => ctx.chart.scales['x'].max,
+            // En el eje y, abarca desde averageValue - hysteresis hasta averageValue + hysteresis
+            yMin: averageValue - hysteresis,
+            yMax: averageValue + hysteresis,
+            backgroundColor: 'rgba(75, 192, 75, 0.15)', // Color con transparencia para visualizar la zona
+            borderWidth: 0,
+          },
           averageLine: {
             type: 'line',
             display: Boolean(displayAnnotations && sensorData.length),
@@ -337,12 +354,27 @@ const Index: React.FC<IndexProps> = ({
   }, [sensorData])
 
   return (
-    <div>
+    <div className={`transition-all duration-300 ease-in-out ${
+        isMainMenuOpen ? 'mt-10' : 'mt-16'
+      }`}
+      >
+      <section className='relative w-full text-lg'>
+        <div className={`absolute w-full flex flex-row-reverse justify-center items-center gap-4 text-center font-base text-4xl left-1/2 -translate-x-1/2 transition-all duration-300 ease-in-out ${
+            isMainMenuOpen ? '-top-10' : '-top-12'
+          } ${
+            fatigueDetected ? 'text-red-500 animate-pulse' : ''
+          }`}
+          >{cycleCount ?? 0} {cycleCount === 1 ? 'rep' : 'reps'}
+          {fatigueDetected && (
+            <ExclamationTriangleIcon className='w-8 h-8'/>
+          )}
+        </div>
+        <div className='w-full flex justify-center gap-4'>
+          <p className='text-right'>Last Cycle: <span className='underline underline-offset-4 font-semibold'>{(cycleAmplitude ?? 0).toFixed(1)} kg</span></p>
+          <p className='text-left underline underline-offset-4 font-semibold'>{((cycleDuration ?? 0) / 1000).toFixed(2)} s</p>
+        </div>
+      </section>
       <Line data={chartData} options={chartOptions} />
-      <h3>Ciclos contados: {cycleCount}</h3>
-      <p>Duración del último ciclo: {((cycleDuration ?? 0) / 1000).toFixed(2)} s</p>
-      <p>Amplitud del último ciclo: {(cycleAmplitude ?? 0).toFixed(1)} kg</p>
-      {fatigueDetected && <p style={{ color: 'red' }}>¡Fatiga detectada!</p>}
     </div>
   );
 };
