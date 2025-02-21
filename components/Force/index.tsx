@@ -1,9 +1,9 @@
 "use client";
 
-import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, Cog6ToothIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon, XMarkIcon } from "@heroicons/react/24/solid";
-import { useState, useRef } from "react";
+import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, ChevronDoubleDownIcon, Cog6ToothIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { useState, useRef, useEffect } from "react";
 import ForceChart, { DataPoint } from "./Graph";
-import { DocumentArrowDownIcon } from "@heroicons/react/24/outline";
+import { BookmarkIcon, DocumentArrowDownIcon } from "@heroicons/react/24/outline";
 import { Bars3Icon } from "@heroicons/react/24/solid";
 import { useSettings } from "@/providers/Settings";
 import ForceSettings from "@/modals/ForceGraphSettings";
@@ -28,8 +28,14 @@ interface IndexProps {
 }
 
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
-  const [showSettings, setShowSettings] = useState(false);
   const { settings } = useSettings();
+  const [showSettings, setShowSettings] = useState(false);
+  const [showMassCalibration, setShowMassCalibration] = useState(false);
+  const showMassCalibrationRef = useRef(showMassCalibration)
+
+  const [workLoad, setWorkLoad] = useState<number | null>(null);
+  const [updatedWorkLoad, setUpdatedWorkLoad] = useState<number | null>(null);
+  const [isEstimatingMass, setIsEstimatingMass] = useState(false);
   
   // Declaramos un estado y una ref para medir la frecuencia
   const measurementStartRef = useRef<number | null>(null);
@@ -120,7 +126,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         if (i + 7 < dataView.byteLength) {
           const force = dataView.getFloat32(i, true); // kg
           const sensorTime = dataView.getUint32(i + 4, true); // microsegundos
-          processMeasurement(force, sensorTime);
+          if (showMassCalibrationRef.current) {
+            setWorkLoad(force);
+          } else {
+            processMeasurement(force, sensorTime);
+          }
         }
       }
     } else if (responseCode === RES_CMD_RESPONSE) {
@@ -220,6 +230,33 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
   };
 
+  const startMassCalibration = async() => {
+    if (taringStatus !== 1) return;
+    if (!controlCharacteristic) {
+      console.error("Control characteristic not available");
+      return;
+    }
+    try { 
+      await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));  
+      setIsEstimatingMass(true); 
+    } catch (error) {
+      console.error("Error starting measurement:", error);
+    }
+  }
+
+  const stopMassCalibration = async () => {
+    if (!controlCharacteristic) {
+      console.error("Control characteristic not available");
+      return;
+    }
+    try {
+      await controlCharacteristic.writeValue(new Uint8Array([CMD_STOP_WEIGHT_MEAS]));
+      setIsEstimatingMass(false);  
+    } catch (error) {
+      console.error("Error stopping measurement:", error);
+    }
+  };
+
   const shutdown = async () => {
     setIsConnected(false);
     setDevice(null);
@@ -257,13 +294,30 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }
 
   const toggleSettings = (visibility?: boolean) => {
+    if (visibility === undefined && showMassCalibration) {
+      setShowMassCalibration(false);
+    }
     setShowSettings(visibility === undefined ? !showSettings : visibility);
   }
 
-  const handleMainLayer = () => {
+  const toggleMassCalibration = (visibility?: boolean) => {
+    if (taringStatus !== 1) return
+    if (visibility === undefined && showSettings) {
+      setShowSettings(false);
+    }
+    setShowMassCalibration(visibility === undefined ? !showMassCalibration : visibility);
+  }
+
+  const handleMainLayer = async () => {
+    await stopMassCalibration();
     handleMainMenu(false);
     toggleSettings(false);
+    toggleMassCalibration(false);
   }
+
+  useEffect(() => {
+    showMassCalibrationRef.current = showMassCalibration;
+  }, [showMassCalibration]);
 
   // ----------------- Renderizado de la UI -----------------
   return (
@@ -293,7 +347,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 isMainMenuOpen ? 'mt-1' : 'mt-4'
               }`}
               >
-              <p className="text-2xl">
+              <p className={`text-2xl ${
+                  showMassCalibration ? 'opacity-40' : ''
+                }`}
+                >
                 Now: {sensorData.length > 0 
                 ? <span className={isRecording ? 'animate-pulse' : ''}>{sensorData[sensorData.length - 1].force.toFixed(1)} kg</span> 
                 : "0.0 kg"}
@@ -313,6 +370,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             <ForceChart 
               sensorData={sensorData}
               displayAnnotations={isConnected}
+              isEstimatingMass={showMassCalibration}
+              workLoad={updatedWorkLoad}
               isMainMenuOpen={isMainMenuOpen}
               movingAverageWindow={settings.force.movingAverageWindow}
               minAvgAmplitude={settings.force.minAvgAmplitude}
@@ -341,28 +400,41 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           }
           {device && isConnected && (
             <>
-              <div className="relative" onClick={tareSensor} >
+              <div 
+                className="relative" 
+                onClick={() => !showMassCalibration && tareSensor()}
+                >
                 <ScaleIcon
-                  className={`w-6 h-6 text-white ${taringStatus === 0 ? 'animate-pulse' : ''}`}
+                  className={`w-6 h-6 text-white ${
+                    taringStatus === 0 ? 'animate-pulse' : ''
+                  } ${
+                    showMassCalibration ? 'opacity-40' : ''
+                  }`}
                   />
                 {taringStatus === 1 && (
-                  <CheckCircleIcon className="absolute -bottom-2 -right-1 w-5 h-5 text-white rounded-full"/>
+                  <CheckCircleIcon className={`absolute -bottom-2 -right-1 w-5 h-5 rounded-full ${
+                    showMassCalibration ? 'text-gray-300' : 'text-white'
+                  }`}/>
                 )}
               </div>
-              {!isRecording && (
+              {(!isRecording || showMassCalibration) && (
                 <>
                   <PlayIcon
-                    className={`w-6 h-6 text-white ${taringStatus !== 1 ? 'opacity-40' : ''}`}
-                    onClick={startMeasurement}
+                    className={`w-6 h-6 text-white ${
+                      taringStatus !== 1 || showMassCalibration ? 'opacity-40' : ''
+                    }`}
+                    onClick={() => !showMassCalibration && startMeasurement()}
                     />
                   {Boolean(sensorData.length && !isRecording) && (
                     <DocumentArrowDownIcon 
-                      className="w-6 h-6 text-white"
-                      onClick={downloadRawData}/>
+                      className={`w-6 h-6 text-white ${
+                        showMassCalibration ? 'opacity-40' : ''
+                      }`}
+                      onClick={() => !showMassCalibration && downloadRawData()}/>
                   )}
                 </>
               )}
-              {isRecording && (
+              {(isRecording && !showMassCalibration) && (
                 <StopIcon
                   className={`w-6 h-6 text-white ${isRecording ? 'animate-pulse' : ''}`}
                   onClick={stopMeasurement}
@@ -388,9 +460,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               className="w-6 h-6 text-white"
               onClick={shutdown}
               />
+            <ChevronDoubleDownIcon 
+              className={`w-6 h-6 text-white ${
+                taringStatus !== 1 ? 'opacity-40' : ''
+              }`}
+              onClick={() => !isRecording && toggleMassCalibration()}
+              />
             <Cog6ToothIcon 
               className="w-6 h-6 text-white"
-              onClick={() => toggleSettings()}
+              onClick={() => !isRecording && toggleSettings()}
               />
           </>
         )}
@@ -400,6 +478,30 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       </section>
       {(showSettings && isConnected) && (
         <ForceSettings />
+      )}
+      {(showMassCalibration && isConnected) && (
+         <section
+         data-element="non-swipeable"
+         className="absolute bottom-0 w-full h-[12vh] flex justify-center items-center bg-gradient-to-b from-black/60 to-black rounded-t-lg p-4 text-white"
+         >
+          <p className="flex-1 text-center text-4xl font-semibold">{(workLoad ?? 0).toFixed(1)} kg</p>
+          <div className="flex-1 flex justify-center gap-4">
+            {isEstimatingMass ? 
+              <StopIcon 
+                className="w-14 h-14"
+                onClick={stopMassCalibration}
+                />
+              : <PlayIcon 
+                  className="w-14 h-14"
+                  onClick={startMassCalibration}
+                  />
+            }
+            <BookmarkIcon 
+              className="w-14 h-14 text-white font-semibold rounded p-1"  
+              onClick={() => setUpdatedWorkLoad(workLoad)}          
+              />              
+          </div>
+        </section>
       )}
     </>
   );

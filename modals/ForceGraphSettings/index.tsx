@@ -20,7 +20,7 @@ const Index: React.FC = () => {
     <section
       data-element="non-swipeable"
       className="absolute bottom-0 w-full h-[46vh] bg-gradient-to-b from-black/80 to-black rounded-t-lg p-4 text-white"
-    >
+      >
       <div
         className="w-full h-8 flex justify-end text-white/60 italic font-light cursor-pointer"
         onClick={resetForceSettings}

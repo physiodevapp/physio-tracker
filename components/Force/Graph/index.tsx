@@ -35,6 +35,8 @@ interface CycleMetric {
 interface IndexProps {
   sensorData: DataPoint[];
   displayAnnotations: boolean;
+  isEstimatingMass: boolean;
+  workLoad: number | null;
   isMainMenuOpen: boolean;
   // Ventana temporal para el promedio (en milisegundos)
   movingAverageWindow?: number;
@@ -53,6 +55,8 @@ interface IndexProps {
 const Index: React.FC<IndexProps> = ({
   sensorData,
   displayAnnotations = true,
+  isEstimatingMass = false,
+  workLoad = null,
   isMainMenuOpen = false,
   movingAverageWindow = 3_000,   // 3 segundos por defecto (en ms)
   minAvgAmplitude = 0.5,         // Ejemplo: 0.5 kg
@@ -266,7 +270,7 @@ const Index: React.FC<IndexProps> = ({
           },
           hysteresisBox: {
             type: 'box',
-            display: displayAnnotations,
+            display: Boolean(displayAnnotations && sensorData.length),
             xScaleID: 'x',
             yScaleID: 'y',
             // Cubre toda la escala en el eje x
@@ -359,17 +363,22 @@ const Index: React.FC<IndexProps> = ({
       }`}
       >
       <section className='relative w-full text-lg'>
-        <div className={`absolute w-full flex flex-row-reverse justify-center items-center gap-4 text-center font-base text-4xl left-1/2 -translate-x-1/2 transition-all duration-300 ease-in-out ${
+        <div className={`absolute w-full flex flex-row-reverse justify-center items-center gap-4 text-center font-base text-4xl left-1/2 -translate-x-1/2 transition-[top] duration-300 ease-in-out ${
             isMainMenuOpen ? '-top-10' : '-top-12'
           } ${
             fatigueDetected ? 'text-red-500 animate-pulse' : ''
+          } ${
+            isEstimatingMass ? 'opacity-40' : ''
           }`}
           >{cycleCount ?? 0} {cycleCount === 1 ? 'rep' : 'reps'}
           {fatigueDetected && (
             <ExclamationTriangleIcon className='w-8 h-8'/>
           )}
         </div>
-        <div className='w-full flex justify-center gap-4'>
+        <div className={`w-full flex justify-center gap-4 ${
+            isEstimatingMass ? 'opacity-40' : ''
+          }`}
+          >
           <p className='text-right'>Last Cycle: <span className='underline underline-offset-4 font-semibold'>{(cycleAmplitude ?? 0).toFixed(1)} kg</span></p>
           <p className='text-left underline underline-offset-4 font-semibold'>{((cycleDuration ?? 0) / 1000).toFixed(2)} s</p>
         </div>
