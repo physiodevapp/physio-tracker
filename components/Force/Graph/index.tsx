@@ -26,8 +26,8 @@ export interface DataPoint {
 
 // Define la métrica del ciclo
 interface CycleMetric {
-  amplitude: number;
-  duration: number;
+  amplitude: number; // kg
+  duration: number; // ms
   timestamp: number;
 }
 
@@ -70,8 +70,8 @@ const Index: React.FC<IndexProps> = ({
   // Mapeamos los datos para adaptarlos a la función lttbDownsample
   //  Convertimos "time" a "x" y de microsegundos a milisegundos
   const mappedData  = sensorData.map(point => ({
-    x: point.time / 1000,
-    y: point.force,
+    x: point.time / 1000, // ms
+    y: point.force,       // kg
   }));
 
   // Aplicamos la función de downsampling usando useMemo para optimizar
@@ -131,8 +131,10 @@ const Index: React.FC<IndexProps> = ({
   const [cycleCount, setCycleCount] = useState(0);
   const [cycleDuration, setCycleDuration] = useState<number | null>(null);
   const [cycleAmplitude, setCycleAmplitude] = useState<number | null>(null);
+  const [lastCycleVelocity, setLastCycleVelocity] = useState<number | null>(null);
+  const [cycleVelocityEstimate, setCycleVelocityEstimate] = useState<number | null>(null);
+  const [ponderatedCycleVelocity, setPonderatedCycleVelocity] = useState<number | null>(null);
   const [cycleMetrics, setCycleMetrics] = useState<CycleMetric[]>([]);
-  const [cycleEstimatedVelocity, setCycleEstimatedVelocity] = useState<number | null>(null);
   
   // ---------- Refs para la lógica de detección de ciclo ----------
   // Ref para guardar el extremo que inició el ciclo ("above" o "below")
@@ -186,7 +188,7 @@ const Index: React.FC<IndexProps> = ({
       lastExtremeRef.current = currentExtreme;
       // Si el extremo actual es igual al que inició el ciclo, se completó un ciclo
       if (currentExtreme === cycleStartRef.current) {
-        // Calcular la amplitud: diferencia entre el valor máximo y mínimo registrados en el ciclo
+        // Calcular la amplitud: diferencia entre el valor máximo y mínimo registrados en el ciclo (en kg)
         let amplitude = 0;
         if (currentCycleExtremesRef.current) {
           amplitude =
@@ -227,9 +229,9 @@ const Index: React.FC<IndexProps> = ({
     return { avgAmplitude, avgDuration, count: recentCycles.length };
   }, [cycleMetrics]);
 
-  // Velocidad estimada del último ciclo
-  const estimateCycleVelocity = useMemo(() => {
-    if (!workLoad || !cycleAmplitude || !cycleDuration) return null;    
+  // ------ Velocidad estimada del último ciclo ------
+  const getLastCycleVelocity  = useMemo(() => {
+    if (!workLoad || !cycleAmplitude || !cycleDuration) return null; 
     // Fuerza media aproximada
     const forceMed = cycleAmplitude / 2;  
     // Tiempo del ciclo en segundos
@@ -241,26 +243,59 @@ const Index: React.FC<IndexProps> = ({
   }, [workLoad, cycleAmplitude, cycleDuration]);
 
   useEffect(() => {
-    if (estimateCycleVelocity !== null) {
-      setCycleEstimatedVelocity(estimateCycleVelocity);
+    if (getLastCycleVelocity  !== null) {
+      setLastCycleVelocity(getLastCycleVelocity );
     }
-  }, [estimateCycleVelocity]);  
+  }, [getLastCycleVelocity ]);  
 
+  // ------ Estimar la velocidad promedio de varios ciclos recientes ------
+  const getCycleVelocityEstimate = useMemo(() => {
+    if (!workLoad || !aggregatedCycleMetrics) return null;
+  
+    const { avgAmplitude, avgDuration } = aggregatedCycleMetrics;
+    const forceMed = avgAmplitude / 2;
+    const cycleTimeSec = avgDuration / 1000; // convertir a segundos
+  
+    return (forceMed / workLoad) * (cycleTimeSec / 2);
+  }, [workLoad, aggregatedCycleMetrics]);
+
+  useEffect(() => {
+    if (getCycleVelocityEstimate  !== null) {
+      setCycleVelocityEstimate(getCycleVelocityEstimate );
+    }
+  }, [getCycleVelocityEstimate ]); 
+
+  // ------ Ponderación de velocidades ------
+  const ponderateVelocity = useMemo(() => {
+    const alpha = 0.7; // Peso para el último ciclo
+    if (lastCycleVelocity === null || cycleVelocityEstimate === null) return null;
+    return (alpha * lastCycleVelocity) + ((1 - alpha) * cycleVelocityEstimate);
+  }, [lastCycleVelocity, cycleVelocityEstimate]);
+
+  useEffect(() => {
+    if (ponderateVelocity  !== null) {
+      setPonderatedCycleVelocity(ponderateVelocity );
+    }
+  }, [ponderateVelocity])
+
+  // ------ Fatiga ------
   // Función de detección de fatiga basada en las métricas agregadas
   const detectFatigue = (): boolean => {
-    if (!aggregatedCycleMetrics) return false;
+    if (!aggregatedCycleMetrics || lastCycleVelocity === null || cycleVelocityEstimate === null) return false;
 
     const amplitudeFatigue = aggregatedCycleMetrics.avgAmplitude < minAvgAmplitude;
     const durationFatigue = aggregatedCycleMetrics.avgDuration > maxAvgDuration;
     const forceFatigue = recentAverageForceValue < (maxPoint * forceDropThreshold);
+    const velocityVariation = Math.abs(lastCycleVelocity - cycleVelocityEstimate);
+    const velocityFatigue = velocityVariation > (cycleVelocityEstimate * 0.2); // Fatiga si la variación supera el 20%
 
     // Por ejemplo, si se cumplen al menos dos condiciones, se detecta fatiga
-    const conditionsMet = [amplitudeFatigue, durationFatigue, forceFatigue].filter(Boolean).length;
+    const conditionsMet = [amplitudeFatigue, durationFatigue, forceFatigue, velocityFatigue].filter(Boolean).length;
     return conditionsMet >= 2;
   }
 
   // Calcular la detección de fatiga (puedes mostrarla o usarla en la UI)
-  const fatigueDetected = useMemo(() => detectFatigue(), [aggregatedCycleMetrics, recentAverageForceValue, maxPoint]);
+  const fatigueDetected = useMemo(() => detectFatigue(), [aggregatedCycleMetrics, recentAverageForceValue, maxPoint, lastCycleVelocity, cycleVelocityEstimate]);
 
   // Opciones del gráfico, incluyendo las anotaciones horizontales
   const chartOptions: ChartOptions<'line'> = {
@@ -296,7 +331,6 @@ const Index: React.FC<IndexProps> = ({
             // Cubre toda la escala en el eje x
             xMin: (ctx) => ctx.chart.scales['x'].min,
             xMax: (ctx) => ctx.chart.scales['x'].max,
-            // En el eje y, abarca desde recentAverageForceValue - hysteresis hasta recentAverageForceValue + hysteresis
             yMin: recentAverageForceValue - hysteresis,
             yMax: recentAverageForceValue + hysteresis,
             backgroundColor: 'rgba(75, 192, 75, 0.4)',
@@ -373,26 +407,25 @@ const Index: React.FC<IndexProps> = ({
       setCycleCount(0);
       setCycleDuration(0);
       setCycleAmplitude(0);
-      setCycleEstimatedVelocity(null);
+      setLastCycleVelocity(null);
       setCycleMetrics([]);
     }
   }, [sensorData])
 
   return (
-    <div className={`transition-all duration-300 ease-in-out ${
-        isMainMenuOpen ? 'mt-10' : 'mt-16'
-      }`}
+    <div className={`mt-12`}
       >
       <section className='relative w-full text-lg'>
-        <div className={`absolute w-full flex flex-rowjustify-center items-baseline gap-4 text-center font-base text-4xl left-1/2 -translate-x-1/2 transition-[top] duration-300 ease-in-out ${
-            isMainMenuOpen ? '-top-10' : '-top-12'
-          } ${
+        <div className={`absolute w-full flex flex-row justify-center items-baseline gap-4 text-center font-base text-4xl left-1/2 -translate-x-1/2 transition-[top] duration-300 ease-in-out -top-10${
             fatigueDetected ? 'text-red-500 animate-pulse' : ''
           } ${
             isEstimatingMass ? 'opacity-40' : ''
           }`}
         >
-          <span className='flex-[1.1] flex flex-row-reverse justify-start items-center gap-2'>
+          <span className={`flex flex-row-reverse justify-start items-center gap-2 ${
+            (workLoad !== null && sensorData.length) ? 'flex-[1.1]' : ''
+          }`}
+          >
             {cycleCount ?? 0} {cycleCount === 1 ? 'rep' : 'reps'}
             {fatigueDetected && (
               <ExclamationTriangleIcon className='w-6 h-6'/>
@@ -400,7 +433,7 @@ const Index: React.FC<IndexProps> = ({
           </span>
           {(workLoad !== null && sensorData.length) && (
             <span className='flex-1 text-3xl text-left'>
-              {cycleEstimatedVelocity?.toFixed(1)} m/s
+              {ponderatedCycleVelocity?.toFixed(1)} m/s
             </span>
           )}
         </div>

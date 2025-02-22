@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Webcam from "react-webcam";
 import cv from "@techstark/opencv-js";
-import { Bars3Icon, CameraIcon, Cog6ToothIcon, DocumentArrowDownIcon, PresentationChartBarIcon, SwatchIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { ArrowPathIcon, Bars3Icon, CameraIcon, Cog6ToothIcon, DocumentArrowDownIcon, PresentationChartBarIcon, SwatchIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import { VideoConstraints } from "@/interfaces/camera";
 import { useSettings } from "@/providers/Settings";
 import ColorAnalyzerSettings from "@/modals/ColorAnalyzerSettings";
@@ -398,6 +398,9 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         className="relative w-full h-dvh"
         onClick={handleMainLayer}
         >
+        <h1 className={`absolute left-1/2 -translate-x-1/2 z-10 text-2xl text-white bg-black/40 rounded-full py-1 px-4 font-bold mt-2 transition-[top] duration-300 ease-in-out whitespace-nowrap ${
+          isMainMenuOpen ? '-top-12' : 'top-0'
+        }`}>Color Analyzer</h1>
         {/* Video de Webcam */}
         <Webcam
           audio={false}
@@ -417,10 +420,14 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           ref={captureCanvasRef} 
           className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full border-red-500 border-2" 
           />
-        <div className="absolute top-0 z-10 w-full flex justify-between">
-          {loading && <p>Cargando OpenCV...</p>}
-          {error && <p>Error: {error}</p>}
-        </div>
+        {loading && (
+          <div className="absolute top-0 z-50 w-full h-dvh flex flex-col items-center justify-center text-white bg-black/40">
+            <p className="flex flex-col items-center gap-4">
+              Cargando OpenCV... {!error && <ArrowPathIcon className="w-8 h-8 animate-spin"/>}
+            </p>
+            {error && <p>Error: {error}</p>}
+          </div>
+        )}          
       </div>
       <section 
         data-element="non-swipeable"
@@ -486,7 +493,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
                 <p>Índice de Dispersión: <span className="underline underline-offset-4">{analysisResult.red.dispersionIndex.toFixed(2)}</span></p>
               </div>
               <div className="flex justify-between gap-4 flex-1">
-                <p className="flex-1">Zonas: {analysisResult.red.contours}</p>
+                <p className="flex-1">Nº<span className="align-sub uppercase text-[0.6rem]"> Áreas</span>: {analysisResult.red.contours}</p>
                 <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">tot</span>: {analysisResult.red.totalArea.toFixed(0)}</p>
                 <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">prom</span>: {analysisResult.red.averageArea.toFixed(0)}</p>
               </div>
@@ -497,7 +504,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
                 <p>Índice de Dispersión: <span className="underline underline-offset-4">{analysisResult.green.dispersionIndex.toFixed(2)}</span></p>
               </div>
               <div className="flex justify-between gap-4 flex-1">
-                <p className="flex-1">Zonas: {analysisResult.green.contours}</p>
+                <p className="flex-1">Nº<span className="align-sub uppercase text-[0.6rem]"> Áreas</span>: {analysisResult.green.contours}</p>
                 <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">tot</span>: {analysisResult.green.totalArea.toFixed(0)}</p>
                 <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">prom</span>: {analysisResult.green.averageArea.toFixed(0)}</p>
               </div>
@@ -507,8 +514,8 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
                 <p><strong>Azul:</strong> <span className="underline underline-offset-4">{analysisResult.blue.percentage.toFixed(2)}%</span></p>
                 <p>Índice de Dispersión: <span className="underline underline-offset-4">{analysisResult.blue.dispersionIndex.toFixed(2)}</span></p>
               </div>
-              <div className="flex justify-between">
-                <p className="flex-1">Zonas: {analysisResult.blue.contours}</p>
+              <div className="flex justify-between gap-4 flex-1">
+                <p className="flex-1">Nº<span className="align-sub uppercase text-[0.6rem]"> Áreas</span>: {analysisResult.blue.contours}</p>
                 <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">tot</span>: {analysisResult.blue.totalArea.toFixed(0)}</p>
                 <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">prom</span>: {analysisResult.blue.averageArea.toFixed(0)}</p>
               </div>

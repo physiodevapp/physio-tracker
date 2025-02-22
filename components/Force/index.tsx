@@ -328,14 +328,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   return (
     <>
       <div
-        className={`h-dvh p-5 transition-all duration-300 ease-in-out ${
-          isMainMenuOpen ? "pt-14" : ""
+        className={`relative h-dvh p-5 transition-all duration-300 ease-in-out ${
+          isMainMenuOpen ? "pt-16" : "pt-16"
         }`}
         onClick={handleMainLayer}
         >
+        <h1 className={`absolute left-1/2 -translate-x-1/2 z-10 text-2xl text-white bg-black/40 rounded-full py-1 px-4 font-bold mt-2 transition-[top] duration-300 ease-in-out whitespace-nowrap  ${
+          isMainMenuOpen ? '-top-12' : 'top-0'
+        }`}>Force tracker</h1>
         {/* Conexión del dispositivo */}
         <div className="flex flex-col justify-center items-center">
-          <h1 className="text-2xl font-bold">Force tracker</h1>
           {device && isConnected && (
             <div className="flex-1 flex items-center gap-2">
               {isBatteryDead && (
@@ -348,9 +350,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         {/* Tara y métricas */}
         <div className="flex justify-center items-center flex-wrap gap-4">
           {device && isConnected && (
-            <div className={`flex-1 flex justify-center items-center transition-all duration-300 ease-in-out ${
-                isMainMenuOpen ? 'mt-1' : 'mt-4'
-              }`}
+            <div className={`flex-1 flex justify-center items-center mt-2`}
               >
               <p className={`text-2xl ${
                   showMassCalibration ? 'opacity-40' : ''
@@ -367,10 +367,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           )}
         </div>
         {isConnected && (
-          <div className={`transition-all duration-300 ease-in-out ${
-              isMainMenuOpen ? 'mt-0' : 'mt-6'
-            }`}
-            >
+          <div>
             {/* Gráfico */}
             <ForceChart 
               sensorData={sensorData}
@@ -468,6 +465,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             <ChevronDoubleDownIcon 
               className={`w-6 h-6 text-white ${
                 taringStatus !== 1 ? 'opacity-40' : ''
+              } ${
+                updatedWorkLoad !== null ? 'border-2 rounded-full p-[0.1rem] animate-pulse' : ''
               }`}
               onClick={() => !isRecording && toggleMassCalibration()}
               />
