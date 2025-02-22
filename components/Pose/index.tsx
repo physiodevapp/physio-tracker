@@ -501,7 +501,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         displayGraphs ? "h-[50dvh]" : "h-dvh"
       }`}>
         {true && (
-          <h1 className={`absolute left-1/2 -translate-x-1/2 z-10 text-2xl text-white bg-black/40 rounded-full py-1 px-4 font-bold mt-2 transition-[top] duration-300 ease-in-out whitespace-nowrap  ${
+          <h1 className={`absolute left-1/2 -translate-x-1/2 z-10 text-xl text-white bg-black/40 rounded-full py-1 px-4 font-bold mt-2 transition-[top] duration-300 ease-in-out whitespace-nowrap  ${
             isMainMenuOpen ? '-top-12' : 'top-0'
           }`}>Kinematics</h1>
         )}
