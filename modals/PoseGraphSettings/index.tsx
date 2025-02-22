@@ -63,12 +63,12 @@ const Index = ({
 
   return (
     <div
-      className="fixed z-10 bottom-0 left-0 w-full pb-2 flex items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg"
+      className="fixed z-10 bottom-0 left-0 w-full pb-2 flex items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg h-[26vh]"
       data-element="non-swipeable"
       onClick={handleModal}
     >
       <form className="w-full flex flex-col justify-center px-8 py-2 gap-4">
-        <div className="w-full flex justify-between">
+        <div className="w-full flex flex-col justify-between gap-2">
           <label htmlFor="time-window" className="text-white">
             Time window: {timeWindow} sec
           </label>
@@ -81,7 +81,7 @@ const Index = ({
             onChange={handleTimeWindowChange}
           />
         </div>
-        <div className="w-full flex justify-between">
+        <div className="w-full flex flex-col justify-between gap-2">
           <label htmlFor="update-interval" className="text-white">
             Update interval: {updateInterval} ms
           </label>

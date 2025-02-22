@@ -35,17 +35,17 @@ const Index = ({
 
   return (
     <div 
-      className='fixed z-10 bottom-0 left-0 w-full h-[15dvh] flex items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg'
+      className='fixed z-10 bottom-0 left-0 w-full h-[26dvh] flex items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg'
       data-element="non-swipeable"
       onClick={handleModal}
       >
         <form className='w-full flex flex-col justify-center px-8 py-2 gap-4'>
-          <div className='w-full flex justify-between'>
+          <div className='w-full flex flex-col justify-between gap-2'>
             <label
               htmlFor='time-window'
               className='text-white'
               >
-              Angle smoothing: {angleSmoothing}
+              Angle<span className='align-sub uppercase text-[0.6rem]'> smoothing</span>: {angleSmoothing}
             </label>
             <input
               id='time-window'
@@ -56,12 +56,12 @@ const Index = ({
               onChange={handleAngleChange}
               />
           </div>
-          <div className='w-full flex justify-between'>
+          <div className='w-full flex flex-col justify-between gap-2'>
             <label
               htmlFor='update-interval'
               className='text-white'
               >
-              Velocity smoothing: {angleVelocitySmoothing}
+              Velocity<span className='align-sub uppercase text-[0.6rem]'> smoothing</span>: {angleVelocitySmoothing}
             </label>
             <input
               id='update-interval'
