@@ -37,7 +37,6 @@ interface IndexProps {
   displayAnnotations: boolean;
   isEstimatingMass: boolean;
   workLoad: number | null;
-  isMainMenuOpen: boolean;
   // Ventana temporal para el promedio (en milisegundos)
   movingAverageWindow?: number;
   // Umbral de amplitud mínima promedio para detectar fatiga (ej. en kg)
@@ -50,6 +49,8 @@ interface IndexProps {
   cyclesToAverage?: number;
   // Factor de histéresis para la detección de cruces
   hysteresis?: number;
+  velocityWeight?: number;
+  velocityVariationThreshold?: number; 
 }
 
 const Index: React.FC<IndexProps> = ({
@@ -57,13 +58,14 @@ const Index: React.FC<IndexProps> = ({
   displayAnnotations = true,
   isEstimatingMass = false,
   workLoad = null,
-  isMainMenuOpen = false,
   movingAverageWindow = 3_000,   // 3 segundos por defecto (en ms)
   minAvgAmplitude = 0.5,         // Ejemplo: 0.5 kg
   maxAvgDuration = 2_000,        // Ejemplo: 2000 ms
   forceDropThreshold = 0.7,      // 70%
   cyclesToAverage = 3,           // Promediar los últimos 5 ciclos
   hysteresis = 0.1,              // Factor de histéresis por defecto
+  velocityWeight = 0.7,
+  velocityVariationThreshold = 0.2
 }) => {
   const decimationThreshold = 200;
 
@@ -267,7 +269,7 @@ const Index: React.FC<IndexProps> = ({
 
   // ------ Ponderación de velocidades ------
   const ponderateVelocity = useMemo(() => {
-    const alpha = 0.7; // Peso para el último ciclo
+    const alpha = velocityWeight; // Peso para el último ciclo
     if (lastCycleVelocity === null || cycleVelocityEstimate === null) return null;
     return (alpha * lastCycleVelocity) + ((1 - alpha) * cycleVelocityEstimate);
   }, [lastCycleVelocity, cycleVelocityEstimate]);
@@ -287,7 +289,7 @@ const Index: React.FC<IndexProps> = ({
     const durationFatigue = aggregatedCycleMetrics.avgDuration > maxAvgDuration;
     const forceFatigue = recentAverageForceValue < (maxPoint * forceDropThreshold);
     const velocityVariation = Math.abs(lastCycleVelocity - cycleVelocityEstimate);
-    const velocityFatigue = velocityVariation > (cycleVelocityEstimate * 0.2); // Fatiga si la variación supera el 20%
+    const velocityFatigue = velocityVariation > (cycleVelocityEstimate * velocityVariationThreshold); // Fatiga si la variación supera el 20%
 
     // Por ejemplo, si se cumplen al menos dos condiciones, se detecta fatiga
     const conditionsMet = [amplitudeFatigue, durationFatigue, forceFatigue, velocityFatigue].filter(Boolean).length;
@@ -442,7 +444,7 @@ const Index: React.FC<IndexProps> = ({
           }`}
           >
           <p className='text-right'>Last Cycle: <span className='font-semibold'>{(cycleAmplitude ?? 0).toFixed(1)} kg</span></p>
-          <p className='text-left font-semibold'>{((cycleDuration ?? 0) / 1000).toFixed(2)} s</p>
+          <p className='text-left font-semibold'>{((cycleDuration ?? 0) / 1000).toFixed(1)} s</p>
         </div>
       </section>
       <Line data={chartData} options={chartOptions} />

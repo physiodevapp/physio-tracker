@@ -374,13 +374,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               displayAnnotations={isConnected}
               isEstimatingMass={showMassCalibration}
               workLoad={updatedWorkLoad}
-              isMainMenuOpen={isMainMenuOpen}
               movingAverageWindow={settings.force.movingAverageWindow}
               minAvgAmplitude={settings.force.minAvgAmplitude}
               maxAvgDuration={settings.force.maxAvgDuration}
               forceDropThreshold={settings.force.forceDropThreshold}
               cyclesToAverage={settings.force.cyclesToAverage}
               hysteresis={settings.force.hysteresis}
+              velocityWeight={settings.force.velocityWeight}
+              velocityVariationThreshold={settings.force.velocityVariationThreshold}
               />
           </div>
         )}

@@ -35,6 +35,8 @@ interface ForceSettings {
   forceDropThreshold?: number;
   cyclesToAverage?: number;
   hysteresis?: number;
+  velocityWeight?: number;
+  velocityVariationThreshold?: number;
 }
 
 interface Settings {
@@ -72,6 +74,8 @@ interface SettingsContextProps {
   setForceDropThreshold: (value: number) => void;
   setCyclesToAverage: (value: number) => void;
   setHysteresis: (value: number) => void;
+  setVelocityWeight: (value: number) => void;
+  setVelocityVariationThreshold: (value: number) => void;
   // Función para resetear los settings
   resetForceSettings: () => void;
   resetColorSettings: () => void;
@@ -108,12 +112,14 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     },
     force: {
       // Valores por defecto para force (puedes modificarlos según necesites)
-      movingAverageWindow: 3_000,   // 3 segundos por defecto (en ms)
-      minAvgAmplitude: 0.5,         // Ejemplo: 0.5 kg
-      maxAvgDuration: 2_000,        // Ejemplo: 2000 ms
-      forceDropThreshold: 0.7,      // 70%
-      cyclesToAverage: 3,           // Promediar los últimos 3 ciclos
-      hysteresis: 0.1,              // Factor de histéresis por defecto
+      movingAverageWindow: 3_000,       // 3 segundos por defecto (en ms)
+      minAvgAmplitude: 0.5,             // Ejemplo: 0.5 kg
+      maxAvgDuration: 2_000,            // Ejemplo: 2000 ms
+      forceDropThreshold: 0.7,          // 70%
+      cyclesToAverage: 3,               // Promediar los últimos 3 ciclos
+      hysteresis: 0.1,                  // Factor de histéresis por defecto
+      velocityWeight: 0.7,              // alpha = 0.7
+      velocityVariationThreshold: 0.2,  // Antes 0.2 en la detección de fatiga
     },
   };
 
@@ -186,9 +192,13 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     setSettings(prev => ({ ...prev, force: { ...prev.force, cyclesToAverage: value } }));
   const setHysteresis = (value: number) =>
     setSettings(prev => ({ ...prev, force: { ...prev.force, hysteresis: value } }));
+  const setVelocityWeight = (value: number) =>
+    setSettings(prev => ({ ...prev, force: { ...prev.force, velocityWeight: value } }));  
+  const setVelocityVariationThreshold = (value: number) =>
+    setSettings(prev => ({ ...prev, force: { ...prev.force, velocityVariationThreshold: value } }));
   const resetForceSettings = () => {
     setSettings(prev => ({ ...prev, force: defaultConfig.force }));
-  };
+  };  
 
   useEffect(() => {
     localStorage.setItem("settings", JSON.stringify(settings));
@@ -222,6 +232,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setForceDropThreshold,
         setCyclesToAverage,
         setHysteresis,
+        setVelocityWeight,
+        setVelocityVariationThreshold,
         resetForceSettings
       }}
     >
