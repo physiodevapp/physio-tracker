@@ -450,6 +450,10 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
             /> 
           {captured && (
             <>
+              <TrashIcon 
+                className="w-6 h-6 text-red-500"
+                onClick={clearCanvases}
+                />
               <PresentationChartBarIcon
                 className="w-6 h-6 text-white"
                 onClick={() => toggleShowData()}
@@ -457,10 +461,6 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
               <DocumentArrowDownIcon 
                 className="w-6 h-6 text-white"
                 onClick={downloadData}
-                />
-              <TrashIcon 
-                className="w-6 h-6 text-red-500"
-                onClick={clearCanvases}
                 />
             </>
           )}

@@ -338,6 +338,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         angleHistorySize: jointAngleHistorySizeRef.current,
         withVelocity: visibleKinematicsRef.current.includes(Kinematics.ANGULAR_VELOCITY),
         mirror: videoConstraintsRef.current.facingMode === "user",
+        videoProcessed,
       });
       jointDataRef.current[jointName] = updatedData;
   

@@ -7,6 +7,7 @@ import { BookmarkIcon, DocumentArrowDownIcon } from "@heroicons/react/24/outline
 import { Bars3Icon, BookmarkIcon as BookmarkIconSolid } from "@heroicons/react/24/solid";
 import { useSettings } from "@/providers/Settings";
 import ForceSettings from "@/modals/ForceGraphSettings";
+import Image from "next/image";
 // import { BluetoothDevice, BluetoothRemoteGATTCharacteristic } from "@/global";
 
 // ----------------- Comandos y Códigos -----------------
@@ -14,7 +15,7 @@ const CMD_TARE_SCALE = 100;
 const CMD_START_WEIGHT_MEAS = 101;
 const CMD_STOP_WEIGHT_MEAS = 102;
 const CMD_ENTER_SLEEP = 110;
-const CMD_GET_BATTERY_VOLTAGE = 111
+// const CMD_GET_BATTERY_VOLTAGE = 111
 
 const RES_CMD_RESPONSE = 0;
 const RES_WEIGHT_MEAS = 1;
@@ -363,7 +364,17 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             </div>
           )}
           {!isConnected && (
-            <p className="text-gray-500">No device is connected</p>
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-gray-500">No device is connected</p>
+             <Image 
+              className="rounded-xl"
+              src="/tindeq.png"
+              alt="tindeq logo"
+              width={100}
+              height={100}
+              priority 
+              /> 
+            </div>
           )}
         </div>
         {isConnected && (
