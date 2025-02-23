@@ -1,5 +1,3 @@
-// global.d.ts
-
 declare global {
   // types for bluetooth connection
   interface Navigator {
@@ -21,13 +19,6 @@ declare global {
     readonly id: string;
     readonly name?: string;
     readonly gatt?: BluetoothRemoteGATTServer;
-  }
-
-  
-  // opencv-js
-  import cv from "@techstark/opencv-js";
-  interface Window {
-    cv: typeof cv; 
   }
 }
 

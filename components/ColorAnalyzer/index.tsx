@@ -53,7 +53,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
 
   // Verificamos la inicialización de OpenCV
   useEffect(() => {
-    if (!scriptLoaded) return; 
+    if (!scriptLoaded && !window.cv) return; 
 
     if (window.cv && typeof window.cv.getBuildInformation === "function") {
       setCvInstance(window.cv);
@@ -73,7 +73,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
     }, 16000);
 
     return () => clearTimeout(timeoutId);
-  }, [scriptLoaded, loading]);
+  }, [scriptLoaded]);
 
   // Función para analizar contornos y calcular áreas
   const analyzeContours = (mask: InstanceType<typeof cv.Mat>, colorPixels: number): { 
@@ -401,7 +401,10 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       <Script 
         src="/opencv.js" 
         strategy="afterInteractive" 
-        onLoad={() => setScriptLoaded(true)}
+        onLoad={() => {
+          console.log('onLoad');
+          setScriptLoaded(true);
+        }}
         />
       <div 
         className="relative w-full h-dvh"

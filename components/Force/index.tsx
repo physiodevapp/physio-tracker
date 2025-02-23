@@ -8,7 +8,6 @@ import { Bars3Icon, BookmarkIcon as BookmarkIconSolid } from "@heroicons/react/2
 import { useSettings } from "@/providers/Settings";
 import ForceSettings from "@/modals/ForceGraphSettings";
 import Image from "next/image";
-// import { BluetoothDevice, BluetoothRemoteGATTCharacteristic } from "@/global";
 
 // ----------------- Comandos y Códigos -----------------
 const CMD_TARE_SCALE = 100;
