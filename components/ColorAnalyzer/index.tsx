@@ -83,7 +83,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         setError("Timeout: OpenCV no se inicializó en el tiempo esperado.");
         setLoading(false);
       }
-    }, 15000);
+    }, 30000);
   
     return () => {
       clearInterval(intervalId);
@@ -441,11 +441,13 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           ref={captureCanvasRef} 
           className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full border-red-500 border-2" 
           />
-        {loading && (
+        {(loading || (!loading && error)) && (
           <div className="absolute top-0 z-50 w-full h-dvh flex flex-col items-center justify-center text-white bg-black/40">
-            <p className="flex flex-col items-center gap-4">
-              Cargando OpenCV... {!error && <ArrowPathIcon className="w-8 h-8 animate-spin"/>}
-            </p>
+            {loading && (
+              <p className="flex flex-col items-center gap-4">
+                Cargando OpenCV... {!error && <ArrowPathIcon className="w-8 h-8 animate-spin"/>}
+              </p>
+            )}
             {error && <p>Error: {error}</p>}
           </div>
         )}          
