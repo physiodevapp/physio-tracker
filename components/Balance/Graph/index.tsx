@@ -12,7 +12,9 @@ import {
   Tooltip,
   Legend,
   ScriptableContext,
+  LegendItem
 } from "chart.js";
+import { getInterpolatedColor } from "@/services/chart";
 
 // Registrar los componentes necesarios de Chart.js
 ChartJS.register(
@@ -24,6 +26,12 @@ ChartJS.register(
   Tooltip,
   Legend
 );
+
+interface CustomDataset {
+  label?: string;
+  legendColor?: string;
+  // Puedes agregar otras propiedades si las necesitas
+}
 
 interface Acceleration {
   x: number;
@@ -43,22 +51,6 @@ interface BalanceChartProps {
   accelData: Acceleration[];
   gyroData: Gyroscope[];
 }
-
-/**
- * Función auxiliar para interpolar el canal alfa entre startAlpha y endAlpha según el ratio (0 a 1).
- * Se asume que el color base (RGB) es constante.
- */
-const getInterpolatedColor = (
-  ratio: number,
-  startAlpha: number,
-  endAlpha: number,
-  r: number,
-  g: number,
-  b: number
-): string => {
-  const alpha = startAlpha + (endAlpha - startAlpha) * ratio;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
 
 const Index: React.FC<BalanceChartProps> = ({ accelData, gyroData }) => {
   // Asegurarse de que existen datos para generar las etiquetas y calcular los rangos
@@ -98,15 +90,18 @@ const Index: React.FC<BalanceChartProps> = ({ accelData, gyroData }) => {
     labels,
     datasets: [
       {
-        label: "Lateral Sway (Accel X)",
+        label: "ML Sway",
         data: accelDataX,
+        legendColor: "rgba(75,192,192,1)",
         // Se usa una función scriptable para devolver un color en función del timestamp de cada punto.
         borderColor: (context: ScriptableContext<"line">) => {
           const point = context.raw as { timestamp: number };
-          const ratio =
-            (point.timestamp - accelStartTime) / (accelEndTime - accelStartTime);
+          if (point && point.timestamp !== undefined) {
+            const ratio = (point.timestamp - accelStartTime) / (accelEndTime - accelStartTime);
+            return getInterpolatedColor(ratio, 0.5, 1, 75, 192, 192);
+          }
           // Para este dataset se parte de rgba(75,192,192,0.5) hasta rgba(75,192,192,1)
-          return getInterpolatedColor(ratio, 0.5, 1, 75, 192, 192);
+          return "rgba(75,192,192,1)";
         },
         borderWidth: 2,
         tension: 0.4,
@@ -114,14 +109,17 @@ const Index: React.FC<BalanceChartProps> = ({ accelData, gyroData }) => {
         pointBackgroundColor: "white",
       },
       {
-        label: "Anterior-Posterior Sway (Accel Y)",
+        label: "AP Sway",
         data: accelDataY,
+        legendColor: "rgba(255,99,132,1)",
         borderColor: (context: ScriptableContext<"line">) => {
           const point = context.raw as { timestamp: number };
-          const ratio =
-            (point.timestamp - accelStartTime) / (accelEndTime - accelStartTime);
+          if (point && point.timestamp !== undefined) {
+            const ratio = (point.timestamp - accelStartTime) / (accelEndTime - accelStartTime);
+            return getInterpolatedColor(ratio, 0.5, 1, 255, 99, 132);
+          }
           // Para este dataset se parte de rgba(255,99,132,0.5) hasta rgba(255,99,132,1)
-          return getInterpolatedColor(ratio, 0.5, 1, 255, 99, 132);
+          return "rgba(255,99,132,1)"
         },
         borderWidth: 2,
         tension: 0.4,
@@ -129,14 +127,17 @@ const Index: React.FC<BalanceChartProps> = ({ accelData, gyroData }) => {
         pointBackgroundColor: "white",
       },
       {
-        label: "Rotational (Gyro Beta)",
+        label: "Pitch",
         data: gyroDataBeta,
+        legendColor: "rgba(54,162,235,1)",
         borderColor: (context: ScriptableContext<"line">) => {
           const point = context.raw as { timestamp: number };
-          const ratio =
-            (point.timestamp - gyroStartTime) / (gyroEndTime - gyroStartTime);
+          if (point && point.timestamp !== undefined) {
+            const ratio = (point.timestamp - gyroStartTime) / (gyroEndTime - gyroStartTime);
+            return getInterpolatedColor(ratio, 0.5, 1, 54, 162, 235);
+          }
           // Para este dataset se parte de rgba(54,162,235,0.5) hasta rgba(54,162,235,1)
-          return getInterpolatedColor(ratio, 0.5, 1, 54, 162, 235);
+          return "rgba(54,162,235,1)";
         },
         borderWidth: 2,
         tension: 0.4,
@@ -148,12 +149,28 @@ const Index: React.FC<BalanceChartProps> = ({ accelData, gyroData }) => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: "top" as const,
+        labels: {
+          usePointStyle: true, 
+          pointStyle: 'circle',
+          generateLabels: (chart: ChartJS): LegendItem[] => {
+            const datasets = chart.data.datasets as CustomDataset[] || [];
+            return datasets.map((dataset: CustomDataset, i: number) => ({
+              text: dataset.label ?? "",
+              fillStyle: dataset.legendColor,
+              hidden: !chart.isDatasetVisible(i),
+              datasetIndex: i, // Usar datasetIndex en vez de index
+              strokeStyle: "transparent",
+              lineWidth: 0,
+            }));
+          },
+        }
       },
       title: {
-        display: true,
+        display: false,
         text: "Balance Trace",
       },
     },
@@ -163,20 +180,24 @@ const Index: React.FC<BalanceChartProps> = ({ accelData, gyroData }) => {
           display: true,
           text: "Time (s)",
         },
+        suggestedMin: -1,
+        suggestedMax: 1,
       },
       y: {
         title: {
-          display: true,
+          display: false,
           text: "Value",
         },
+        suggestedMin: -1,
+        suggestedMax: 1,
       },
     },
   };
 
   return (
-    <div className="p-4">
-      <Line data={data} options={options} />
-    </div>
+    <>
+      <Line data={data} options={options} className="bg-white" />
+    </>
   );
 };
 

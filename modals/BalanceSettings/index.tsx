@@ -18,7 +18,7 @@ const Index = () => {
   return (
     <section
       data-element="non-swipeable"
-      className="absolute bottom-0 w-full h-[40vh] bg-gradient-to-b from-black/40 to-black rounded-t-lg p-4"
+      className="absolute bottom-0 w-full px-4 pb-[2rem] bg-gradient-to-b from-black/40 to-black rounded-t-lg"
       >
       <div
         className="w-full h-9 flex justify-end text-white/60 italic font-light cursor-pointer"
@@ -28,7 +28,7 @@ const Index = () => {
         <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>
       {/* Sliders para ajustar parámetros de detección */}
-      <div className="mt-2 space-y-2 text-white">
+      <div className="mt-2 space-y-6 text-white">
         <div className='flex gap-2'>
           {/* Test duration */}
           <div className="flex-1">

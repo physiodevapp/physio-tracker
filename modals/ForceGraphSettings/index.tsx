@@ -21,7 +21,7 @@ const Index: React.FC = () => {
   return (
     <section
       data-element="non-swipeable"
-      className="absolute bottom-0 w-full h-[48vh] bg-gradient-to-b from-black/80 to-black rounded-t-lg p-4 text-white"
+      className="absolute bottom-0 w-full px-4 pb-[2rem] bg-gradient-to-b from-black/80 to-black rounded-t-lg p-4 text-white"
       >
       <div
         className="w-full h-9 flex justify-end text-white/60 italic font-light cursor-pointer"

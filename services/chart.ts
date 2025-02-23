@@ -69,3 +69,19 @@ export function lttbDownsample(data: DataPoint[], threshold: number): DataPoint[
   
   return sampled;
 }
+
+/**
+ * Función auxiliar para interpolar el canal alfa entre startAlpha y endAlpha según el ratio (0 a 1).
+ * Se asume que el color base (RGB) es constante.
+ */
+export function getInterpolatedColor(
+  ratio: number,
+  startAlpha: number,
+  endAlpha: number,
+  r: number,
+  g: number,
+  b: number
+): string {
+  const alpha = startAlpha + (endAlpha - startAlpha) * ratio;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};

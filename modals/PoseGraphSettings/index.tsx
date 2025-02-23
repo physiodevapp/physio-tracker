@@ -63,7 +63,7 @@ const Index = ({
 
   return (
     <div
-      className="fixed z-10 bottom-0 left-0 w-full pb-2 flex items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg h-[26vh]"
+      className="fixed z-10 bottom-0 left-0 w-full px-4 pb-[2rem] flex items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg"
       data-element="non-swipeable"
       onClick={handleModal}
     >

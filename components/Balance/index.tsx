@@ -4,7 +4,7 @@ import { Acceleration, Gyroscope } from '@/interfaces/balance';
 import { calculateStaticBalanceQuality, classifySwayWithGyro, detectVibrationRange } from '@/services/balance';
 import { Bars3Icon, Cog6ToothIcon, PlayIcon, StopIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import React, { useState, useEffect, useRef } from 'react';
-import BalanceSettings from "@/modals/Balance"
+import BalanceSettings from "@/modals/BalanceSettings"
 import { useSettings } from '@/providers/Settings';
 import CountdownRing from "./Counter";
 import BalanceChart from "./Graph";
@@ -63,22 +63,23 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   // Event listeners for sensor data while measurement is active.
   useEffect(() => {
     if (!measurementStarted) return;
-
     const handleMotion = (event: DeviceMotionEvent) => {
+      console.log('handleMotion');
       if (event.accelerationIncludingGravity) {
         const { x, y, z } = event.accelerationIncludingGravity;
         setAccelData((prev) => [
           ...prev,
-          { x: x ?? 0, y: y ?? 0, z: z ?? 0, timestamp: Date.now() },
+          { x: x ?? 0, y: y ?? 0, z: z ?? 0, timestamp: Date.now() ?? 0 },
         ]);
       }
     };
 
     const handleOrientation = (event: DeviceOrientationEvent) => {
+      console.log('handleOrientation');
       const { alpha, beta, gamma } = event;
       setGyroData((prev) => [
         ...prev,
-        { alpha: alpha ?? 0, beta: beta ?? 0, gamma: gamma ?? 0, timestamp: Date.now() },
+        { alpha: alpha ?? 0, beta: beta ?? 0, gamma: gamma ?? 0, timestamp: Date.now() ?? 0 },
       ]);
     };
 
@@ -104,7 +105,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   return (
     <>
       <div 
-        className={`relative w-full h-dvh flex justify-center items-center ${
+        className={`relative w-full h-dvh flex flex-col justify-center items-center ${
           measurementStarted ? 'bg-black/80' : ''
         }`}
         onClick={handleMainLayer}
@@ -113,8 +114,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           isMainMenuOpen ? '-top-12' : 'top-0'
         }`}>Balance</h1>
         {/* Una vez finalizada la medición, mostramos el gráfico */}
-        {accelData.length > 0 && gyroData.length > 0 && (
-          <BalanceChart accelData={accelData} gyroData={gyroData} />
+        {(results && !measurementStarted) && (
+          <div className='h-[50vh] p-4'>
+            <BalanceChart accelData={accelData} gyroData={gyroData} />
+          </div>
         )}
         {measurementStarted && (
           <div 
@@ -132,7 +135,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         )}
         {(results && !measurementStarted) && (
           <div className='p-4'>
-            <h2>Results:</h2>
             <p><strong>Static Balance Quality:</strong> {results.balanceQuality}</p>
             <p>
               <strong>Sway - Lateral:</strong> {results.sway.lateral} |{" "}
