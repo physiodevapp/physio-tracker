@@ -39,10 +39,26 @@ interface ForceSettings {
   velocityVariationThreshold?: number;
 }
 
+// Interfaz para BalanceSettings
+interface BalanceSettings {
+  testDuration: number; // Duración de la prueba en segundos
+  classificationThresholds: {
+    excellent: number;
+    good: number;
+    fair: number;
+  };
+  sensorWeights: {
+    accelerometer: number; // El peso del giroscopio se asume como 1 - accelerometer
+  };
+  sampleWindow: number;   // Ventana de muestreo en milisegundos
+  smoothingWindow: number; // Tamaño de la ventana de suavizado (número de muestras)
+}
+
 interface Settings {
   pose: PoseSettings;
   color: ColorSettings;
   force: ForceSettings;
+  balance: BalanceSettings;
 }
 
 // Extendemos la interfaz del contexto para incluir setters para force
@@ -51,7 +67,7 @@ interface SettingsContextProps {
   // Setters para pose
   setSelectedJoints: (joints: CanvasKeypointName[]) => void;
   setAngularHistorySize: (size: number) => void;
-  setVelocityHistorySize: (size: number) => void;
+  setPoseVelocityHistorySize: (size: number) => void;
   setPoseTimeWindow: (timeInSeconds: number) => void;
   setPoseUpdateInterval: (timeInMiliseconds: number) => void;
   setPoseGraphSample: (sample: number) => void;
@@ -76,9 +92,16 @@ interface SettingsContextProps {
   setHysteresis: (value: number) => void;
   setVelocityWeight: (value: number) => void;
   setVelocityVariationThreshold: (value: number) => void;
+  // Setter para balance
+  setBalanceTestDuration: (value: number) => void;
+  setBalanceClassificationThresholds: (thresholds: { excellent: number; good: number; fair: number; }) => void;
+  setBalanceAccelerometerWeight: (value: number) => void;
+  setBalanceSampleWindow: (value: number) => void;
+  setBalanceSmoothingWindow: (value: number) => void;
   // Función para resetear los settings
   resetForceSettings: () => void;
   resetColorSettings: () => void;
+  resetBalanceSettings: () => void;
 }
 
 const SettingsContext = createContext<SettingsContextProps | undefined>(undefined);
@@ -111,7 +134,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       minValue: 50,
     },
     force: {
-      // Valores por defecto para force (puedes modificarlos según necesites)
       movingAverageWindow: 3_000,       // 3 segundos por defecto (en ms)
       minAvgAmplitude: 0.5,             // Ejemplo: 0.5 kg
       maxAvgDuration: 2_000,            // Ejemplo: 2000 ms
@@ -120,6 +142,19 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       hysteresis: 0.1,                  // Factor de histéresis por defecto
       velocityWeight: 0.7,              // alpha = 0.7
       velocityVariationThreshold: 0.2,  // Antes 0.2 en la detección de fatiga
+    },
+    balance: {
+      testDuration: 30,                 // Duración de la prueba en segundos (por defecto 30)
+      classificationThresholds: {
+        excellent: 0.5,
+        good: 1.0,
+        fair: 1.5,
+      },
+      sensorWeights: {
+        accelerometer: 0.5,             // El peso del giroscopio será 1 - 0.5 = 0.5
+      },
+      sampleWindow: 1000,               // Ventana de muestreo en ms (por defecto 1000 ms)
+      smoothingWindow: 5,               // Tamaño de la ventana de suavizado (por defecto 5 muestras)      
     },
   };
 
@@ -142,7 +177,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     }
   };
 
-  const setVelocityHistorySize = (size: number) => {
+  const setPoseVelocityHistorySize = (size: number) => {
     if (size >= 1 && size <= 20) {
       setSettings(prev => ({ ...prev, pose: { ...prev.pose, velocityHistorySize: size } }));
     }
@@ -200,6 +235,36 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     setSettings(prev => ({ ...prev, force: defaultConfig.force }));
   };  
 
+  // Setter para balance: testDuration (en segundos)
+  const setBalanceTestDuration = (value: number) =>
+    setSettings(prev => ({ ...prev, balance: { ...prev.balance, testDuration: value } }));
+  const setBalanceClassificationThresholds = (thresholds: { excellent: number; good: number; fair: number; }) =>
+    setSettings(prev => ({
+      ...prev,
+      balance: { ...prev.balance, classificationThresholds: thresholds }
+    }));
+
+  const setBalanceAccelerometerWeight = (value: number) =>
+    setSettings(prev => ({
+      ...prev,
+      balance: { ...prev.balance, sensorWeights: { ...prev.balance.sensorWeights, accelerometer: value } }
+    }));
+
+  const setBalanceSampleWindow = (value: number) =>
+    setSettings(prev => ({
+      ...prev,
+      balance: { ...prev.balance, sampleWindow: value }
+    }));
+
+  const setBalanceSmoothingWindow = (value: number) =>
+    setSettings(prev => ({
+      ...prev,
+      balance: { ...prev.balance, smoothingWindow: value }
+    }));
+  const resetBalanceSettings = () => {
+    setSettings(prev => ({ ...prev, balance: defaultConfig.balance }));
+  }; 
+
   useEffect(() => {
     localStorage.setItem("settings", JSON.stringify(settings));
   }, [settings]);
@@ -210,7 +275,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         settings,
         setSelectedJoints,
         setAngularHistorySize,
-        setVelocityHistorySize,
+        setPoseVelocityHistorySize,
         setPoseTimeWindow,
         setPoseUpdateInterval,
         setPoseGraphSample,
@@ -234,9 +299,15 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setHysteresis,
         setVelocityWeight,
         setVelocityVariationThreshold,
-        resetForceSettings
+        resetForceSettings,
+        setBalanceTestDuration,
+        setBalanceAccelerometerWeight,
+        setBalanceClassificationThresholds,
+        setBalanceSampleWindow,
+        setBalanceSmoothingWindow,
+        resetBalanceSettings,
       }}
-    >
+      >
       {children}
     </SettingsContext.Provider>
   );

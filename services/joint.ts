@@ -164,7 +164,7 @@ export const updateJoint = ({
   angleHistorySize = 5,
   withVelocity = false,
   mirror = false,
-  videoProcessed = false,
+  drawVelocity = true,
 }: UpdateJointParams): JointData => {
   // Buscar los keypoints de la articulación
   const jointKeypoints = getJointKeypoints(jointName, keypoints);
@@ -266,7 +266,7 @@ export const updateJoint = ({
   drawAngle({ctx, kp: kpB, angle: smoothedAngle, mirror});
 
   // Dibujar la velocidad angular solo si withVelocity es true
-  if (withVelocity && !videoProcessed) {
+  if (withVelocity && drawVelocity === true) {
     drawAngularVelocity({ctx, kp: kpB, angularVelocity: jointData.angularVelocity, mirror});
   }
 

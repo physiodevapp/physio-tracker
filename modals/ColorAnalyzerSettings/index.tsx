@@ -25,11 +25,11 @@ const Index: React.FC = () => {
     <section
       data-element="non-swipeable"
       className="absolute bottom-0 w-full h-[61vh] bg-gradient-to-b from-black/40 to-black rounded-t-lg p-4"
-    >
+      >
       <div
         className="w-full h-9 flex justify-end text-white/60 italic font-light cursor-pointer"
         onClick={resetColorSettings}
-      >
+        >
         Set default values{" "}
         <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>

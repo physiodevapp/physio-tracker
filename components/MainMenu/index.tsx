@@ -1,5 +1,5 @@
 import { MainMenuOption } from '@/interfaces/menu';
-import { DevicePhoneMobileIcon, PaintBrushIcon, UserIcon } from '@heroicons/react/24/solid';
+import { DevicePhoneMobileIcon, PaintBrushIcon, ScaleIcon, UserIcon } from '@heroicons/react/24/solid';
 import React from 'react';
 
 interface IndexProps {
@@ -16,7 +16,7 @@ const Index: React.FC<IndexProps> = ({ isMainMenuOpen, navigateTo, currentPage }
   return (
     <div
       className={`
-        fixed z-10 left-1/2 -translate-x-1/2 w-[50vw] h-12  rounded-b-3xl bg-gray-800 text-white 
+        fixed z-10 left-1/2 -translate-x-1/2 w-[60vw] h-12  rounded-b-3xl bg-gray-800 text-white 
         flex items-center justify-center gap-6 
         transform transition-transform duration-300
         ${isMainMenuOpen ? 'translate-y-0 top-0' : '-translate-y-full top-0'}
@@ -33,6 +33,10 @@ const Index: React.FC<IndexProps> = ({ isMainMenuOpen, navigateTo, currentPage }
       <PaintBrushIcon 
         className={`w-6 h-6 text-white ${currentPage === 'bodychart' ? 'opacity-100' : 'opacity-40'}`}
         onClick={() => handleClick('bodychart')}
+        />
+      <ScaleIcon 
+        className={`w-6 h-6 text-white ${currentPage === 'balance' ? 'opacity-100' : 'opacity-40'}`}
+        onClick={() => handleClick('balance')}
         />
     </div>
   );

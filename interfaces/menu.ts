@@ -1,1 +1,1 @@
-export type MainMenuOption = 'pose' | 'force' | 'bodychart';
+export type MainMenuOption = 'pose' | 'force' | 'bodychart' | 'balance';

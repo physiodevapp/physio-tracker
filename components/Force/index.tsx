@@ -450,7 +450,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               )}
               {(isRecording && !showMassCalibration) && (
                 <StopIcon
-                  className={`w-6 h-6 text-white ${isRecording ? 'animate-pulse' : ''}`}
+                  className={`w-6 h-6 ${isRecording ? 'animate-pulse text-green-500' : 'text-white'}`}
                   onClick={stopMeasurement}
                   />
               )}
@@ -504,7 +504,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           <div className="flex-1 flex justify-start gap-4">
             {isEstimatingMass ? 
               <StopIcon 
-                className="w-14 h-14"
+                className="w-14 h-14 text-green-500 animate-pulse"
                 onClick={stopMassEstimation}
                 />
               : <PlayIcon 

@@ -10,7 +10,7 @@ const Index = ({
   isModalOpen,
   handleModal,
 }: IndexProps) => {
-  const { settings, setAngularHistorySize, setVelocityHistorySize } = useSettings();
+  const { settings, setAngularHistorySize, setPoseVelocityHistorySize } = useSettings();
 
   const [angleSmoothing, setAngleSmoothing] = useState(settings.pose.angularHistorySize);
   const [angleVelocitySmoothing, setVelocitySmoothing] = useState(settings.pose.velocityHistorySize);
@@ -28,7 +28,7 @@ const Index = ({
 
     setVelocitySmoothing(value);
 
-    setVelocityHistorySize(value);
+    setPoseVelocityHistorySize(value);
   };
 
   if (!isModalOpen) return null;

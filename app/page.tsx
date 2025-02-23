@@ -9,10 +9,11 @@ import { MainMenuOption } from '@/interfaces/menu';
 
 const Pose = dynamic(() => import('../components/Pose').then(mod => mod.default), { ssr: false });
 const Force = dynamic(() => import('../components/Force').then(mod => mod.default), { ssr: false });
-const BodyChart = dynamic(() => import('../components/ColorAnalyzer').then(mod => mod.default), { ssr: false });
+const ColorAnalyzer = dynamic(() => import('../components/ColorAnalyzer').then(mod => mod.default), { ssr: false });
+const Balance = dynamic(() => import('../components/Balance').then(mod => mod.default), { ssr: false });
 
 export default function Home() {
-  const [page, setPage] = useState<MainMenuOption>('force');
+  const [page, setPage] = useState<MainMenuOption>('balance');
 
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
 
@@ -25,6 +26,7 @@ export default function Home() {
 
       if (page === 'pose') setPage('force');
       if (page === 'force') setPage('bodychart');
+      if (page === 'bodychart') setPage('balance');
     },
     onSwipedRight: (eventData) => {
       const targetElement = eventData.event.target as HTMLElement;
@@ -32,8 +34,9 @@ export default function Home() {
 
       if (!isSwipeable) return;
 
-      if (page === 'force') setPage('pose');
+      if (page === 'balance') setPage('bodychart');
       if (page === 'bodychart') setPage('force');
+      if (page === 'force') setPage('pose');
     },
     trackMouse: true
   });
@@ -93,7 +96,20 @@ export default function Home() {
                   exit="exit"
                   transition={{ ease: "easeInOut", duration: 0.25 }}
                   >
-                  <BodyChart handleMainMenu={handleMainMenu} isMainMenuOpen={isMainMenuOpen} />
+                  <ColorAnalyzer handleMainMenu={handleMainMenu} isMainMenuOpen={isMainMenuOpen} />
+                </motion.div>
+              );
+            case 'balance':
+              return (
+                <motion.div
+                  key="balance"
+                  variants={variants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={{ ease: "easeInOut", duration: 0.25 }}
+                  >
+                  <Balance handleMainMenu={handleMainMenu} isMainMenuOpen={isMainMenuOpen} />
                 </motion.div>
               );
             default:

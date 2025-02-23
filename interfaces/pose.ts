@@ -55,6 +55,7 @@ export interface UpdateJointParams {
   angleHistorySize?: number;
   withVelocity?: boolean;
   mirror?: boolean;
+  drawVelocity?: boolean
 }
 
 export type JointConfigMap = Partial<{ [key in CanvasKeypointName]: { invert: boolean } }>;

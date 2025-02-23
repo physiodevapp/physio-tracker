@@ -141,8 +141,8 @@ const Index = ({
             : jointData.angularVelocityPoints;
 
         // Si la cantidad de puntos es mayor que el threshold deseado, los reducimos.
-        if (dataPoints.length > settings.poseGraphSampleThreshold) {
-          dataPoints = lttbDownsample(dataPoints, settings.poseGraphSample);
+        if (dataPoints.length > settings.pose.poseGraphSampleThreshold) {
+          dataPoints = lttbDownsample(dataPoints, settings.pose.poseGraphSample);
         }
   
         result.push({
@@ -159,7 +159,7 @@ const Index = ({
     });
 
     return result;
-  }, [chartData, joints, valueTypes, settings.poseGraphSample, settings.poseGraphSampleThreshold]);
+  }, [chartData, joints, valueTypes, settings.pose.poseGraphSample, settings.pose.poseGraphSampleThreshold]);
 
 
   // Calculamos el rango del eje X usando el tiempo normalizado
@@ -169,14 +169,14 @@ const Index = ({
     const allXValues = Object.values(chartData)
     .flatMap(data => data.anglePoints.map(point => point.x));
     normalizedMaxX = allXValues.length > 0 
-      ? Math.min(Math.max(...allXValues), settings.poseTimeWindow) 
+      ? Math.min(Math.max(...allXValues), settings.pose.poseTimeWindow) 
       : 0;
     normalizedMinX = 0;
   } else {
     normalizedMaxX = startTimeRef.current
       ? (currentTime - startTimeRef.current) / 1000
       : currentTime / 1000;
-    normalizedMinX = normalizedMaxX - settings.poseTimeWindow;
+    normalizedMinX = normalizedMaxX - settings.pose.poseTimeWindow;
   }
 
   const handleChartClick = (
@@ -208,7 +208,7 @@ const Index = ({
       const now = performance.now();
       setCurrentTime(now);
 
-      if (now - lastUpdate >= settings.poseUpdateInterval) {
+      if (now - lastUpdate >= settings.pose.poseUpdateInterval) {
         joints.forEach((joint) => {
           const newData = getDataForJoint(joint);
           if (newData) {
@@ -250,12 +250,12 @@ const Index = ({
               const updatedAnglePoints = [
                 ...anglePoints,
                 { x: normalizedTime, y: newData.angle },
-              ].slice(-settings.poseGraphSample);
+              ].slice(-settings.pose.poseGraphSample);
   
               const updatedAngularVelocityPoints = [
                 ...angularVelocityPoints,
                 { x: normalizedTime, y: newData.angularVelocity },
-              ].slice(-settings.poseGraphSample);
+              ].slice(-settings.pose.poseGraphSample);
   
               return {
                 ...prev,
@@ -278,7 +278,7 @@ const Index = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [getDataForJoint, joints, settings.poseUpdateInterval, settings.poseGraphSample, settings.poseGraphSampleThreshold, realTime]);
+  }, [getDataForJoint, joints, settings.pose.poseUpdateInterval, settings.pose.poseGraphSample, settings.pose.poseGraphSampleThreshold, realTime]);
 
   useEffect(() => {
     if (recordedPositions) {
