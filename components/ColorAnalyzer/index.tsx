@@ -51,25 +51,46 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
 
   // Verificamos la inicialización de OpenCV
   useEffect(() => {
-    // Si OpenCV ya está inicializado, lo usamos directamente.
-    if (window.cv && typeof window.cv.getBuildInformation === "function") {
-      setCvInstance(window.cv);
-      setLoading(false);
-      return;
-    }
-    // Si no, asignamos el callback.
-    window.cv.onRuntimeInitialized = () => {
-      setCvInstance(window.cv);
-      setLoading(false);
+    // eslint-disable-next-line prefer-const
+    let intervalId: NodeJS.Timeout;
+    let timeoutId: NodeJS.Timeout;
+  
+    const pollForCv = () => {
+      if (window.cv) {
+        clearInterval(intervalId);
+        // Si OpenCV ya está inicializado, lo usamos directamente.
+        if (typeof window.cv.getBuildInformation === "function") {
+          setCvInstance(window.cv);
+          setLoading(false);
+        } else {
+          // Si aún no se ha inicializado, asignamos el callback.
+          window.cv.onRuntimeInitialized = () => {
+            setCvInstance(window.cv);
+            setLoading(false);
+          };
+        }
+      }
     };
-    const timeoutId = setTimeout(() => {
+  
+    // Empezamos a verificar cada 100ms.
+    intervalId = setInterval(pollForCv, 100);
+  
+    // Timeout de 15 segundos
+    // eslint-disable-next-line prefer-const
+    timeoutId = setTimeout(() => {
+      clearInterval(intervalId);
       if (loading) {
         setError("Timeout: OpenCV no se inicializó en el tiempo esperado.");
         setLoading(false);
       }
     }, 15000);
-    return () => clearTimeout(timeoutId);
+  
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+    };
   }, [loading]);
+  
 
   // Función para analizar contornos y calcular áreas
   const analyzeContours = (mask: cv.Mat, colorPixels: number): { 
