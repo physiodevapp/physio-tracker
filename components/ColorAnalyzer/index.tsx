@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
+// import cv from "@techstark/opencv-js";
 import Webcam from "react-webcam";
-import cv from "@techstark/opencv-js";
 import { ArrowPathIcon, Bars3Icon, CameraIcon, Cog6ToothIcon, DocumentArrowDownIcon, PresentationChartBarIcon, SwatchIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import { VideoConstraints } from "@/interfaces/camera";
 import { useSettings } from "@/providers/Settings";
 import ColorAnalyzerSettings from "@/modals/ColorAnalyzerSettings";
+import Script from "next/script";
 
 interface ColorAnalysis {
   percentage: number;
@@ -44,6 +45,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
 
   // Estado para OpenCV y análisis
   const [loading, setLoading] = useState<boolean>(true);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [cvInstance, setCvInstance] = useState<typeof cv | null>(null);
@@ -51,49 +53,30 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
 
   // Verificamos la inicialización de OpenCV
   useEffect(() => {
-    // eslint-disable-next-line prefer-const
-    let intervalId: NodeJS.Timeout;
-    let timeoutId: NodeJS.Timeout;
-  
-    const pollForCv = () => {
-      if (window.cv) {
-        clearInterval(intervalId);
-        // Si OpenCV ya está inicializado, lo usamos directamente.
-        if (typeof window.cv.getBuildInformation === "function") {
-          setCvInstance(window.cv);
-          setLoading(false);
-        } else {
-          // Si aún no se ha inicializado, asignamos el callback.
-          window.cv.onRuntimeInitialized = () => {
-            setCvInstance(window.cv);
-            setLoading(false);
-          };
-        }
-      }
-    };
-  
-    // Empezamos a verificar cada 100ms.
-    intervalId = setInterval(pollForCv, 100);
-  
-    // Timeout de 15 segundos
-    // eslint-disable-next-line prefer-const
-    timeoutId = setTimeout(() => {
-      clearInterval(intervalId);
+    if (!scriptLoaded) return; 
+
+    if (window.cv && typeof window.cv.getBuildInformation === "function") {
+      setCvInstance(window.cv);
+      setLoading(false);
+    } else {
+      window.cv.onRuntimeInitialized = () => {
+        setCvInstance(window.cv);
+        setLoading(false);
+      };
+    }
+
+    const timeoutId = setTimeout(() => {
       if (loading) {
         setError("Timeout: OpenCV no se inicializó en el tiempo esperado.");
         setLoading(false);
       }
-    }, 30000);
-  
-    return () => {
-      clearInterval(intervalId);
-      clearTimeout(timeoutId);
-    };
-  }, [loading]);
-  
+    }, 16000);
+
+    return () => clearTimeout(timeoutId);
+  }, [scriptLoaded, loading]);
 
   // Función para analizar contornos y calcular áreas
-  const analyzeContours = (mask: cv.Mat, colorPixels: number): { 
+  const analyzeContours = (mask: InstanceType<typeof cv.Mat>, colorPixels: number): { 
     count: number; 
     totalArea: number; 
     averageArea: number; 
@@ -150,7 +133,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       captureCtx.drawImage(img, 0, 0, img.width, img.height);
 
       // Procesar la imagen: convertirla a Mat, pasar a HSV y crear máscaras
-      const src: cv.Mat = cvInstance.imread(captureCanvas);
+      const src: InstanceType<typeof cv.Mat> = cvInstance.imread(captureCanvas);
       const hsv = new cvInstance.Mat();
       cvInstance.cvtColor(src, src, cvInstance.COLOR_RGBA2RGB);
       cvInstance.cvtColor(src, hsv, cvInstance.COLOR_RGB2HSV);
@@ -415,6 +398,11 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
 
   return (
     <>
+      <Script 
+        src="/opencv.js" 
+        strategy="afterInteractive" 
+        onLoad={() => setScriptLoaded(true)}
+        />
       <div 
         className="relative w-full h-dvh"
         onClick={handleMainLayer}
@@ -448,7 +436,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
                 Cargando OpenCV... {!error && <ArrowPathIcon className="w-8 h-8 animate-spin"/>}
               </p>
             )}
-            {error && <p>Error: {error}</p>}
+            {error && <p className="p-4 text-center">Error: {error}</p>}
           </div>
         )}          
       </div>

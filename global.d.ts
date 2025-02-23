@@ -1,5 +1,4 @@
 // types for bluetooth connection
-
 interface Navigator {
   bluetooth: Bluetooth;
 }
@@ -19,5 +18,15 @@ interface BluetoothDevice extends EventTarget {
   readonly id: string;
   readonly name?: string;
   readonly gatt?: BluetoothRemoteGATTServer;
-  // Puedes agregar otros miembros que necesites según la documentación
 }
+
+// opencv-js
+import cv from "@techstark/opencv-js";
+
+declare global {
+  interface Window {
+    cv: typeof cv; 
+  }
+}
+
+export {};
