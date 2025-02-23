@@ -136,10 +136,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         {(results && !measurementStarted) && (
           <div className='p-4'>
             <p><strong>Static Balance Quality:</strong> {results.balanceQuality}</p>
-            <p>
-              <strong>Sway - Lateral:</strong> {results.sway.lateral} |{" "}
-              <strong>Anterior-Posterior:</strong> {results.sway.anteriorPosterior}
-            </p>
+            <p><strong>Sway - Lateral:</strong> {results.sway.lateral}</p>
+            <p><strong>Anterior-Posterior:</strong> {results.sway.anteriorPosterior}</p>
             <p>
               <strong>Vibration Range:</strong> {results.vibration.vibrationRange}{" "}
               (Index: {results.vibration.vibrationIndex.toFixed(2)})
