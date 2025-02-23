@@ -4,12 +4,20 @@ import { useSettings } from "@/providers/Settings";
 import React, { useState, useEffect } from "react";
 
 interface IndexProps {
-  size?: number; // Tamaño en píxeles. Si no se especifica, se usa un valor por defecto.
-  thickness?: number;  // Grosor del anillo. Valor por defecto: 8.
-  backgroundThickness?: number; // Grosor del anillo de fondo. Si no se especifica, se usa thickness.
+  size?: number;                   // Tamaño en píxeles. Si no se especifica, se usa un valor por defecto.
+  thickness?: number;             // Grosor del anillo. Valor por defecto: 8.
+  backgroundThickness?: number;   // Grosor del anillo de fondo. Si no se especifica, se usa thickness.
+  color?: string;
+  backgroundColor?: string;
 }
 
-const Index = ({ size = 100, thickness = 8, backgroundThickness }: IndexProps) => {
+const Index = ({ 
+  size = 100, 
+  thickness = 8, 
+  backgroundThickness, 
+  color = "limegreen", 
+  backgroundColor = "#444" 
+}: IndexProps) => {
   const { settings } = useSettings();
   const totalDuration = settings.balance.testDuration;
   
@@ -47,16 +55,16 @@ const Index = ({ size = 100, thickness = 8, backgroundThickness }: IndexProps) =
           cx={center}
           cy={center}
           r={radius}
-          stroke="#444"
+          stroke={backgroundColor}
           strokeWidth={bgThickness}
           fill="transparent"
-        />
+          />
         {/* Círculo de progreso, rotado -90° para iniciar en la parte superior */}
         <circle
           cx={center}
           cy={center}
           r={radius}
-          stroke="limegreen"
+          stroke={color}
           strokeWidth={thickness}
           fill="transparent"
           strokeDasharray={circumference}
@@ -64,7 +72,7 @@ const Index = ({ size = 100, thickness = 8, backgroundThickness }: IndexProps) =
           strokeLinecap="round"
           transform={`rotate(-90 ${center} ${center})`}
           style={{ transition: "stroke-dashoffset 1s linear" }}
-        />
+          />
       </svg>
       {/* Tiempo restante en el centro */}
       <span className="absolute text-6xl font-bold text-white animate-pulse">
