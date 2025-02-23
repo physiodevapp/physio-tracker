@@ -180,7 +180,7 @@ const Index: React.FC<BalanceChartProps> = ({ accelData, gyroData }) => {
           display: true,
           text: "Frontal",
         },
-        type: "linear",
+        type: "linear" as const,
         suggestedMin: -1,
         suggestedMax: 1,
       },
