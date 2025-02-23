@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
-// import cv from "@techstark/opencv-js";
+import type * as cv from "@techstark/opencv-js";
 import Webcam from "react-webcam";
 import { ArrowPathIcon, Bars3Icon, CameraIcon, Cog6ToothIcon, DocumentArrowDownIcon, PresentationChartBarIcon, SwatchIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import { VideoConstraints } from "@/interfaces/camera";
@@ -82,15 +82,15 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
     averageArea: number; 
     dispersionIndex: number;
   } => {
-    const contours = new cv.MatVector();
-    const hierarchy = new cv.Mat();
-    cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+    const contours = new cvInstance!.MatVector();
+    const hierarchy = new cvInstance!.Mat();
+    cvInstance!.findContours(mask, contours, hierarchy, cvInstance!.RETR_EXTERNAL, cvInstance!.CHAIN_APPROX_SIMPLE);
 
     let totalArea = 0;
     const contourCount = contours.size();
     for (let i = 0; i < contourCount; i++) {
       const contour = contours.get(i);
-      const area = cv.contourArea(contour);
+      const area = cvInstance!.contourArea(contour);
       totalArea += area;
       contour.delete();
     }
