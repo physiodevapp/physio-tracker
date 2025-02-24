@@ -73,9 +73,9 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
     }, 16000);
 
     return () => clearTimeout(timeoutId);
-  }, [scriptLoaded]);
+  }, [scriptLoaded, loading]);
 
-  // Función para analizar contornos y calcular áreas
+  // Función para analizar contornos y calcular Areas
   const analyzeContours = (mask: InstanceType<typeof cv.Mat>, colorPixels: number): { 
     count: number; 
     totalArea: number; 
@@ -496,45 +496,43 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         <ColorAnalyzerSettings />
       )}
       {(showData && analysisResult) && (
-        <section className="absolute bottom-0 w-full h-[54vh] bg-gradient-to-b from-black/40 to-black rounded-t-lg p-4 text-white">
-          <div className="space-y-2">
-            <div className="bg-red-400/60 p-2 rounded-md space-y-2">
-              <div className="flex justify-between">
-                <p><strong>Rojo:</strong> <span className="underline underline-offset-4">{analysisResult.red.percentage.toFixed(2)}%</span></p>
-                <p>Índice de Dispersión: <span className="underline underline-offset-4">{analysisResult.red.dispersionIndex.toFixed(2)}</span></p>
-              </div>
-              <div className="flex justify-between gap-4 flex-1">
-                <p className="flex-1">Nº<span className="align-sub uppercase text-[0.6rem]"> Áreas</span>: {analysisResult.red.contours}</p>
-                <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">tot</span>: {analysisResult.red.totalArea.toFixed(0)}</p>
-                <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">prom</span>: {analysisResult.red.averageArea.toFixed(0)}</p>
-              </div>
+        <section className="absolute bottom-0 w-full px-4 pt-[1rem] pb-[2rem] bg-gradient-to-b from-black/40 to-black rounded-t-lg text-white space-y-2">
+          <div className="bg-red-400/60 p-2 rounded-md space-y-2">
+            <div className="flex justify-between">
+              <p><strong>Red:</strong> <span className="underline underline-offset-4">{analysisResult.red.percentage.toFixed(2)}%</span></p>
+              <p>Idx<span className="align-sub uppercase text-[0.6rem]"> spread</span>: <span className="underline underline-offset-4">{analysisResult.red.dispersionIndex.toFixed(2)}</span></p>
             </div>
-            <div className="bg-green-400/60 p-2 rounded-md space-y-2">
-              <div className="flex justify-between gap-4 flex-1">
-                <p><strong>Verde:</strong> <span className="underline underline-offset-4">{analysisResult.green.percentage.toFixed(2)}%</span></p>
-                <p>Índice de Dispersión: <span className="underline underline-offset-4">{analysisResult.green.dispersionIndex.toFixed(2)}</span></p>
-              </div>
-              <div className="flex justify-between gap-4 flex-1">
-                <p className="flex-1">Nº<span className="align-sub uppercase text-[0.6rem]"> Áreas</span>: {analysisResult.green.contours}</p>
-                <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">tot</span>: {analysisResult.green.totalArea.toFixed(0)}</p>
-                <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">prom</span>: {analysisResult.green.averageArea.toFixed(0)}</p>
-              </div>
+            <div className="flex justify-between gap-2 flex-1">
+              <p className="flex-[0.6]">{analysisResult.red.contours} A</p>
+              <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">tot</span>: {analysisResult.red.totalArea.toFixed(0)}</p>
+              <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">avg</span>: {analysisResult.red.averageArea.toFixed(0)}</p>
             </div>
-            <div className="bg-blue-400/60 p-2 rounded-md space-y-2">
-              <div className="flex justify-between">
-                <p><strong>Azul:</strong> <span className="underline underline-offset-4">{analysisResult.blue.percentage.toFixed(2)}%</span></p>
-                <p>Índice de Dispersión: <span className="underline underline-offset-4">{analysisResult.blue.dispersionIndex.toFixed(2)}</span></p>
-              </div>
-              <div className="flex justify-between gap-4 flex-1">
-                <p className="flex-1">Nº<span className="align-sub uppercase text-[0.6rem]"> Áreas</span>: {analysisResult.blue.contours}</p>
-                <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">tot</span>: {analysisResult.blue.totalArea.toFixed(0)}</p>
-                <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">prom</span>: {analysisResult.blue.averageArea.toFixed(0)}</p>
-              </div>
+          </div>
+          <div className="bg-green-400/60 p-2 rounded-md space-y-2">
+            <div className="flex justify-between gap-2 flex-1">
+              <p><strong>Green:</strong> <span className="underline underline-offset-4">{analysisResult.green.percentage.toFixed(2)}%</span></p>
+              <p>Idx<span className="align-sub uppercase text-[0.6rem]"> spread</span>: <span className="underline underline-offset-4">{analysisResult.green.dispersionIndex.toFixed(2)}</span></p>
             </div>
-            <div className="px-2 py-1">
-              <strong>Otros:</strong> {analysisResult.others.percentage.toFixed(2)}%
-              <p className="text-[0.8rem] italic">*El índice de dispersión se normaliza según el total de píxeles detectados para el color.</p>
+            <div className="flex justify-between gap-2 flex-1">
+              <p className="flex-[0.6]">{analysisResult.green.contours} A</p>
+              <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">tot</span>: {analysisResult.green.totalArea.toFixed(0)}</p>
+              <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">avg</span>: {analysisResult.green.averageArea.toFixed(0)}</p>
             </div>
+          </div>
+          <div className="bg-blue-400/60 p-2 rounded-md space-y-2">
+            <div className="flex justify-between">
+              <p><strong>Blue:</strong> <span className="underline underline-offset-4">{analysisResult.blue.percentage.toFixed(2)}%</span></p>
+              <p>Idx<span className="align-sub uppercase text-[0.6rem]"> spread</span>: <span className="underline underline-offset-4">{analysisResult.blue.dispersionIndex.toFixed(2)}</span></p>
+            </div>
+            <div className="flex justify-between gap-2 flex-1">
+              <p className="flex-[0.6]">{analysisResult.blue.contours} A</p>
+              <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">tot</span>: {analysisResult.blue.totalArea.toFixed(0)}</p>
+              <p className="flex-1">A <span className="align-sub uppercase text-[0.6rem]">avg</span>: {analysisResult.blue.averageArea.toFixed(0)}</p>
+            </div>
+          </div>
+          <div className="px-2">
+            <strong>Others:</strong> {analysisResult.others.percentage.toFixed(2)}%
+            <p className="text-[0.8rem] italic">*The dispersion index is normalized based on the total number of pixels detected for the color.</p>
           </div>
         </section>
       )}
