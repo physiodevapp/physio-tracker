@@ -571,8 +571,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               {((videoUrl && videoProcessed) || !videoUrl) && (
                 <PresentationChartBarIcon 
                   data-element="non-swipeable"
-                  className="h-6 w-6 text-white cursor-pointer" 
-                  onClick={handleGrahpsVisibility}
+                  className={`h-6 w-6 text-white cursor-pointer ${
+                    recording ? 'opacity-40' : ''
+                  }`} 
+                  onClick={() => !recording && handleGrahpsVisibility()}
                   />
               )}
             </section>
@@ -581,22 +583,32 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
             >
               <CameraIcon 
-                className="h-6 w-6 text-white cursor-pointer" 
-                onClick={toggleCamera}
+                className={`h-6 w-6 text-white cursor-pointer ${
+                  recording ? 'opacity-40' : ''
+                }`}
+                onClick={() => !recording && toggleCamera()}
                 />
               <UserIcon 
-                className="h-6 w-6 text-white cursor-pointer" 
-                onClick={handlePoseModal}
+                className={`h-6 w-6 text-white cursor-pointer  ${
+                  recording ? 'opacity-40' : ''
+                }`}
+                onClick={() => !recording && handlePoseModal()}
                 />
               {maxKinematicsAllowed > 1 && (
                 <ChevronDoubleDownIcon 
-                  className={`h-6 w-6 text-white cursor-pointer ${visibleKinematics.length > 1 ? 'border-2 rounded-full p-[0.1rem] animate-pulse' : ''}`}
-                  onClick={() => handleKinematicsSelection(Kinematics.ANGULAR_VELOCITY)}
+                  className={`h-6 w-6 text-white cursor-pointer ${
+                    visibleKinematics.length > 1 ? 'border-2 rounded-full p-[0.1rem] animate-pulse' : ''
+                  } ${
+                    recording ? 'opacity-40' : ''
+                  }`}
+                  onClick={() => !recording && handleKinematicsSelection(Kinematics.ANGULAR_VELOCITY)}
                   />
               )}
               <Cog6ToothIcon 
-                className="h-6 w-6 text-white cursor-pointer"
-                onClick={handleSettingsModal}
+                className={`h-6 w-6 text-white cursor-pointer ${
+                  recording ? 'opacity-40' : ''
+                }`}
+                onClick={() => !recording && handleSettingsModal()}
                 />
             </section>
           </>
