@@ -15,6 +15,7 @@ import {
   LegendItem
 } from "chart.js";
 import { getInterpolatedColor } from "@/services/chart";
+import { Acceleration } from "@/interfaces/balance";
 
 // Registrar los componentes necesarios de Chart.js
 ChartJS.register(
@@ -33,37 +34,19 @@ interface CustomDataset {
   // Puedes agregar otras propiedades si las necesitas
 }
 
-interface Acceleration {
-  x: number;
-  y: number;
-  z: number;
-  timestamp: number;
-}
-
-interface Gyroscope {
-  alpha: number;
-  beta: number;
-  gamma: number;
-  timestamp: number;
-}
-
 interface BalanceChartProps {
   accelData: Acceleration[];
-  gyroData: Gyroscope[];
 }
 
-const Index: React.FC<BalanceChartProps> = ({ accelData, gyroData }) => {
+const Index: React.FC<BalanceChartProps> = ({ accelData }) => {
   // Asegurarse de que existen datos para generar las etiquetas y calcular los rangos
-  if (accelData.length === 0 || gyroData.length === 0) {
+  if (accelData.length === 0) {
     return <div>No hay datos suficientes</div>;
   }
 
   // Para los datasets basados en acelerómetro (primeros dos):
   const accelStartTime = accelData[0].timestamp;
   const accelEndTime = accelData[accelData.length - 1].timestamp;
-  // Para el dataset basado en giroscopio:
-  const gyroStartTime = gyroData[0].timestamp;
-  const gyroEndTime = gyroData[gyroData.length - 1].timestamp;
 
   // Convertir los datos en objetos que contengan x, y y timestamp.
   // Usaremos como eje x el tiempo transcurrido en segundos desde el primer dato.
@@ -75,11 +58,6 @@ const Index: React.FC<BalanceChartProps> = ({ accelData, gyroData }) => {
   const accelDataY = accelData.map((d) => ({
     x: ((d.timestamp - accelStartTime) / 1000).toFixed(1),
     y: d.y,
-    timestamp: d.timestamp,
-  }));
-  const gyroDataBeta = gyroData.map((d) => ({
-    x: ((d.timestamp - gyroStartTime) / 1000).toFixed(1),
-    y: d.beta,
     timestamp: d.timestamp,
   }));
 
@@ -120,24 +98,6 @@ const Index: React.FC<BalanceChartProps> = ({ accelData, gyroData }) => {
           }
           // Para este dataset se parte de rgba(255,99,132,0.5) hasta rgba(255,99,132,1)
           return "rgba(255,99,132,1)"
-        },
-        borderWidth: 2,
-        tension: 0.4,
-        fill: false,
-        pointBackgroundColor: "white",
-      },
-      {
-        label: "Pitch",
-        data: gyroDataBeta,
-        legendColor: "rgba(54,162,235,1)",
-        borderColor: (context: ScriptableContext<"line">) => {
-          const point = context.raw as { timestamp: number };
-          if (point && point.timestamp !== undefined) {
-            const ratio = (point.timestamp - gyroStartTime) / (gyroEndTime - gyroStartTime);
-            return getInterpolatedColor(ratio, 0.5, 1, 54, 162, 235);
-          }
-          // Para este dataset se parte de rgba(54,162,235,0.5) hasta rgba(54,162,235,1)
-          return "rgba(54,162,235,1)";
         },
         borderWidth: 2,
         tension: 0.4,

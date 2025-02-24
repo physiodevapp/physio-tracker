@@ -1,84 +1,69 @@
-import { Acceleration, Gyroscope } from "@/interfaces/balance";
+import { Acceleration } from "@/interfaces/balance";
 
 /**
  * Calculates static balance quality using both accelerometer and gyroscope data.
  */
-export const calculateStaticBalanceQuality = (
-  accelData: Acceleration[],
-  gyroData: Gyroscope[]
-): string => {
-  if (accelData.length === 0 || gyroData.length === 0) return "No data";
+export const calculateStaticBalanceQuality = ({
+  accelData,
+  useX = true,
+  useY = true,
+  useZ = true,
+}: {
+  accelData: Acceleration[];
+  useX?: boolean;
+  useY?: boolean;
+  useZ?: boolean;
+}): string => {
+  if (accelData.length === 0) return "No data";
 
-  // Accelerometer calculations
+  // Calculamos la suma de las aceleraciones solo en los ejes seleccionados
   const accelSum = accelData.reduce(
     (acc, current) => ({
-      x: acc.x + current.x,
-      y: acc.y + current.y,
-      z: acc.z + current.z,
+      x: useX ? acc.x + current.x : acc.x,
+      y: useY ? acc.y + current.y : acc.y,
+      z: useZ ? acc.z + (current.z ?? 0) : acc.z,
     }),
     { x: 0, y: 0, z: 0 }
   );
+
   const nAccel = accelData.length;
   const accelMean = {
-    x: accelSum.x / nAccel,
-    y: accelSum.y / nAccel,
-    z: accelSum.z / nAccel,
+    x: useX ? accelSum.x / nAccel : 0,
+    y: useY ? accelSum.y / nAccel : 0,
+    z: useZ ? accelSum.z / nAccel : 0,
   };
+
+  // Calculamos la varianza solo en los ejes seleccionados
   const accelVariance = accelData.reduce(
     (acc, current) => ({
-      x: acc.x + Math.pow(current.x - accelMean.x, 2),
-      y: acc.y + Math.pow(current.y - accelMean.y, 2),
-      z: acc.z + Math.pow(current.z - accelMean.z, 2),
+      x: useX ? acc.x + Math.pow(current.x - accelMean.x, 2) : acc.x,
+      y: useY ? acc.y + Math.pow(current.y - accelMean.y, 2) : acc.y,
+      z: useZ ? acc.z + Math.pow((current.z ?? 0) - accelMean.z, 2) : acc.z,
     }),
     { x: 0, y: 0, z: 0 }
   );
+
+  // Desviación estándar
   const accelStdDev = {
-    x: Math.sqrt(accelVariance.x / nAccel),
-    y: Math.sqrt(accelVariance.y / nAccel),
-    z: Math.sqrt(accelVariance.z / nAccel),
+    x: useX ? Math.sqrt(accelVariance.x / nAccel) : 0,
+    y: useY ? Math.sqrt(accelVariance.y / nAccel) : 0,
+    z: useZ ? Math.sqrt(accelVariance.z / nAccel) : 0,
   };
+
+  // Índice de estabilidad combinando solo los ejes activos
   const accelIndex = Math.sqrt(
-    Math.pow(accelStdDev.x, 2) +
-      Math.pow(accelStdDev.y, 2) +
-      Math.pow(accelStdDev.z, 2)
+    (useX ? Math.pow(accelStdDev.x, 2) : 0) +
+    (useY ? Math.pow(accelStdDev.y, 2) : 0) +
+    (useZ ? Math.pow(accelStdDev.z, 2) : 0)
   );
 
-  // Gyroscope calculations
-  const gyroSum = gyroData.reduce(
-    (acc, current) => ({
-      alpha: acc.alpha + current.alpha,
-      beta: acc.beta + current.beta,
-      gamma: acc.gamma + current.gamma,
-    }),
-    { alpha: 0, beta: 0, gamma: 0 }
-  );
-  const nGyro = gyroData.length;
-  const gyroMean = {
-    alpha: gyroSum.alpha / nGyro,
-    beta: gyroSum.beta / nGyro,
-    gamma: gyroSum.gamma / nGyro,
-  };
-  const gyroVariance = gyroData.reduce(
-    (acc, current) => ({
-      alpha: acc.alpha + Math.pow(current.alpha - gyroMean.alpha, 2),
-      beta: acc.beta + Math.pow(current.beta - gyroMean.beta, 2),
-      gamma: acc.gamma + Math.pow(current.gamma - gyroMean.gamma, 2),
-    }),
-    { alpha: 0, beta: 0, gamma: 0 }
-  );
-  const gyroStdDev = {
-    alpha: Math.sqrt(gyroVariance.alpha / nGyro),
-    beta: Math.sqrt(gyroVariance.beta / nGyro),
-    gamma: Math.sqrt(gyroVariance.gamma / nGyro),
-  };
-  const gyroIndex = Math.sqrt(
-    Math.pow(gyroStdDev.alpha, 2) +
-      Math.pow(gyroStdDev.beta, 2) +
-      Math.pow(gyroStdDev.gamma, 2)
-  );
+  // Contamos cuántos ejes están en uso para la normalización
+  const activeAxes = [useX, useY, useZ].filter(Boolean).length || 1; // Evita división por 0
 
-  // Combined index and classification thresholds
-  const combinedIndex = (accelIndex + gyroIndex) / 2;
+  // Normalizamos el índice según el número de ejes utilizados
+  const combinedIndex = accelIndex / activeAxes;
+
+  // Clasificación de la calidad del equilibrio
   if (combinedIndex < 0.5) return "Excellent";
   if (combinedIndex < 1) return "Good";
   if (combinedIndex < 1.5) return "Fair";
@@ -87,37 +72,33 @@ export const calculateStaticBalanceQuality = (
 
 /**
  * Classifies lateral (side-to-side) and anterior-posterior (forward/backward) sway
- * using accelerometer (x, y) and gyroscope (alpha, beta) data.
+ * using accelerometer
  */
-export const classifySwayWithGyro = (
-  accelData: Acceleration[],
-  gyroData: Gyroscope[]
+export const classifySway = (
+  accelData: Acceleration[]
 ): { lateral: string; anteriorPosterior: string } => {
-  if (accelData.length === 0 || gyroData.length === 0) {
+  if (accelData.length === 0) {
     return { lateral: "No data", anteriorPosterior: "No data" };
   }
 
   const computeStdDev = (data: number[]): number => {
-    const n = data.length;
-    const mean = data.reduce((a, b) => a + b, 0) / n;
-    const variance = data.reduce((acc, value) => acc + Math.pow(value - mean, 2), 0) / n;
+    if (data.length === 0) return 0;
+    const mean = data.reduce((sum, value) => sum + value, 0) / data.length;
+    const variance =
+      data.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) /
+      data.length;
     return Math.sqrt(variance);
   };
 
-  // Lateral sway: accelerometer x and gyroscope alpha
-  const accelX = accelData.map((d) => d.x);
-  const gyroAlpha = gyroData.map((d) => d.alpha);
-  const stdDevAccelX = computeStdDev(accelX);
-  const stdDevGyroAlpha = computeStdDev(gyroAlpha);
-  const lateralIndex = (stdDevAccelX + stdDevGyroAlpha) / 2;
+  // Lateral sway (X-axis acceleration)
+  const stdDevAccelX = computeStdDev(accelData.map((d) => d.x));
+  const lateralIndex = stdDevAccelX / 2;
 
-  // Anterior-posterior sway: accelerometer y and gyroscope beta
-  const accelY = accelData.map((d) => d.y);
-  const gyroBeta = gyroData.map((d) => d.beta);
-  const stdDevAccelY = computeStdDev(accelY);
-  const stdDevGyroBeta = computeStdDev(gyroBeta);
-  const anteriorPosteriorIndex = (stdDevAccelY + stdDevGyroBeta) / 2;
+  // Anterior-posterior sway (Y-axis acceleration)
+  const stdDevAccelY = computeStdDev(accelData.map((d) => d.y));
+  const anteriorPosteriorIndex = stdDevAccelY / 2;
 
+  // Umbrales de clasificación del balanceo
   const minimalThreshold = 0.2;
   const moderateThreshold = 0.5;
   const classify = (index: number): string => {
@@ -132,46 +113,60 @@ export const classifySwayWithGyro = (
   };
 };
 
+
 /**
  * Detects vibration range based on accelerometer and gyroscope data,
  * returning a descriptive label and the calculated vibration index.
  */
-export const detectVibrationRange = (
-  accelData: Acceleration[],
-  gyroData: Gyroscope[]
-): { vibrationRange: string; vibrationIndex: number } => {
-  if (accelData.length === 0 || gyroData.length === 0) {
+export const detectVibrationRange = ({
+  accelData,
+  useX = true,
+  useY = true,
+  useZ = true,
+  vibrationThreshold = 1,
+}: {
+  accelData: Acceleration[];
+  useX?: boolean;
+  useY?: boolean;
+  useZ?: boolean;
+  vibrationThreshold?: number;
+}): { vibrationRange: string; vibrationIndex: number } => {
+  if (accelData.length === 0) {
     return { vibrationRange: "No data", vibrationIndex: 0 };
   }
 
   const computeStdDev = (data: number[]): number => {
-    const n = data.length;
-    const mean = data.reduce((a, b) => a + b, 0) / n;
-    const variance = data.reduce((acc, value) => acc + Math.pow(value - mean, 2), 0) / n;
+    if (data.length === 0) return 0;
+    const mean = data.reduce((a, b) => a + b, 0) / data.length;
+    const variance =
+      data.reduce((acc, value) => acc + Math.pow(value - mean, 2), 0) /
+      data.length;
     return Math.sqrt(variance);
   };
 
-  const stdDevX = computeStdDev(accelData.map((d) => d.x));
-  const stdDevY = computeStdDev(accelData.map((d) => d.y));
-  const stdDevZ = computeStdDev(accelData.map((d) => d.z));
+  // Calculamos la desviación estándar solo para los ejes habilitados
+  const stdDevX = useX ? computeStdDev(accelData.map((d) => d.x)) : 0;
+  const stdDevY = useY ? computeStdDev(accelData.map((d) => d.y)) : 0;
+  const stdDevZ = useZ ? computeStdDev(accelData.map((d) => d.z ?? 0)) : 0;
+
+  // Índice de vibración combinado solo con los ejes activos
   const accelVibrationIndex = Math.sqrt(
-    Math.pow(stdDevX, 2) + Math.pow(stdDevY, 2) + Math.pow(stdDevZ, 2)
+    (useX ? Math.pow(stdDevX, 2) : 0) +
+      (useY ? Math.pow(stdDevY, 2) : 0) +
+      (useZ ? Math.pow(stdDevZ, 2) : 0)
   );
 
-  const stdDevAlpha = computeStdDev(gyroData.map((d) => d.alpha));
-  const stdDevBeta = computeStdDev(gyroData.map((d) => d.beta));
-  const stdDevGamma = computeStdDev(gyroData.map((d) => d.gamma));
-  const gyroVibrationIndex = Math.sqrt(
-    Math.pow(stdDevAlpha, 2) + Math.pow(stdDevBeta, 2) + Math.pow(stdDevGamma, 2)
-  );
+  // Normalización dinámica según la cantidad de ejes usados
+  const activeAxes = [useX, useY, useZ].filter(Boolean).length || 1; // Evitar dividir por 0
+  const combinedVibrationIndex = accelVibrationIndex / activeAxes;
 
-  const combinedVibrationIndex = (accelVibrationIndex + gyroVibrationIndex) / 2;
+  // Clasificación del rango de vibración
   let vibrationRange = "";
-  if (combinedVibrationIndex < 0.5) {
+  if (combinedVibrationIndex < vibrationThreshold * 0.5) {
     vibrationRange = "Low";
-  } else if (combinedVibrationIndex < 1.0) {
+  } else if (combinedVibrationIndex < vibrationThreshold) {
     vibrationRange = "Moderate";
-  } else if (combinedVibrationIndex < 1.5) {
+  } else if (combinedVibrationIndex < vibrationThreshold * 1.5) {
     vibrationRange = "High";
   } else {
     vibrationRange = "Severe";
@@ -179,3 +174,4 @@ export const detectVibrationRange = (
 
   return { vibrationRange, vibrationIndex: combinedVibrationIndex };
 };
+

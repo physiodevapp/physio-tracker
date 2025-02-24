@@ -47,11 +47,13 @@ interface BalanceSettings {
     good: number;
     fair: number;
   };
-  sensorWeights: {
-    accelerometer: number; // El peso del giroscopio se asume como 1 - accelerometer
-  };
-  sampleWindow: number;   // Ventana de muestreo en milisegundos
-  smoothingWindow: number; // Tamaño de la ventana de suavizado (número de muestras)
+  baselineCalibrationTime: number; // Duración de calibración en segundos
+  samplingRate: number; // Frecuencia de muestreo en ms
+  maxOscillation: number; // Umbral de balanceo máximo de oscilación antes de la normalización en [-1,1]
+  vibrationThreshold: number; // Umbral de vibración antes de considerarla significativa
+  useX: boolean; // Activar/desactivar eje X
+  useY: boolean; // Activar/desactivar eje Y
+  useZ: boolean; // Activar/desactivar eje Z
 }
 
 interface Settings {
@@ -94,10 +96,14 @@ interface SettingsContextProps {
   setVelocityVariationThreshold: (value: number) => void;
   // Setter para balance
   setBalanceTestDuration: (value: number) => void;
+  setBalanceBaselineCalibrationTime: (value: number) => void;
+  setBalanceSamplingRate: (value: number) => void;
   setBalanceClassificationThresholds: (thresholds: { excellent: number; good: number; fair: number; }) => void;
-  setBalanceAccelerometerWeight: (value: number) => void;
-  setBalanceSampleWindow: (value: number) => void;
-  setBalanceSmoothingWindow: (value: number) => void;
+  setBalanceMaxOscillation: (value: number) => void; 
+  setBalanceVibrationThreshold: (value: number) => void;
+  setBalanceUseX: (value: boolean) => void;
+  setBalanceUseY: (value: boolean) => void;
+  setBalanceUseZ: (value: boolean) => void;
   // Función para resetear los settings
   resetForceSettings: () => void;
   resetColorSettings: () => void;
@@ -144,17 +150,19 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       velocityVariationThreshold: 0.2,  // Antes 0.2 en la detección de fatiga
     },
     balance: {
-      testDuration: 30,                 // Duración de la prueba en segundos (por defecto 30)
+      testDuration: 30,                 // Duración de la prueba en segundos
+      baselineCalibrationTime: 3,       // Duración en segundos
+      samplingRate: 50,                 // frecuencia de muestreo en ms
       classificationThresholds: {
         excellent: 0.5,
         good: 1.0,
         fair: 1.5,
-      },
-      sensorWeights: {
-        accelerometer: 0.5,             // El peso del giroscopio será 1 - 0.5 = 0.5
-      },
-      sampleWindow: 1000,               // Ventana de muestreo en ms (por defecto 1000 ms)
-      smoothingWindow: 5,               // Tamaño de la ventana de suavizado (por defecto 5 muestras)      
+      },  
+      maxOscillation: 0.2,
+      vibrationThreshold: 0.5,  
+      useX: false,
+      useY: true,
+      useZ: true,
     },
   };
 
@@ -170,31 +178,25 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const setSelectedJoints = (joints: CanvasKeypointName[]) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, selectedJoints: joints } }));
   };
-
   const setAngularHistorySize = (size: number) => {
     if (size >= 1 && size <= 20) {
       setSettings(prev => ({ ...prev, pose: { ...prev.pose, angularHistorySize: size } }));
     }
   };
-
   const setPoseVelocityHistorySize = (size: number) => {
     if (size >= 1 && size <= 20) {
       setSettings(prev => ({ ...prev, pose: { ...prev.pose, velocityHistorySize: size } }));
     }
   };
-
   const setPoseTimeWindow = (timeInSeconds: number) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseTimeWindow: timeInSeconds } }));
   };
-
   const setPoseUpdateInterval = (timeInMiliseconds: number) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseUpdateInterval: timeInMiliseconds } }));
   };
-
   const setPoseGraphSample = (sample: number) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseGraphSample: sample } }));
   };
-
   const setPoseGraphSampleThreshold = (sampleThreshold: number) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseGraphSampleThreshold: sampleThreshold } }));
   };
@@ -238,29 +240,28 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   // Setter para balance: testDuration (en segundos)
   const setBalanceTestDuration = (value: number) =>
     setSettings(prev => ({ ...prev, balance: { ...prev.balance, testDuration: value } }));
+  const setBalanceBaselineCalibrationTime = (value: number) =>
+    setSettings(prev => ({ ...prev, balance: { ...prev.balance, baselineCalibrationTime: value } }));
+  const setBalanceSamplingRate = (value: number) =>
+    setSettings(prev => ({ ...prev, balance: { ...prev.balance, samplingRate: value } }));
   const setBalanceClassificationThresholds = (thresholds: { excellent: number; good: number; fair: number; }) =>
     setSettings(prev => ({
       ...prev,
       balance: { ...prev.balance, classificationThresholds: thresholds }
     }));
-
-  const setBalanceAccelerometerWeight = (value: number) =>
-    setSettings(prev => ({
+  const setBalanceMaxOscillation = (value: number) =>
+    setSettings((prev) => ({
       ...prev,
-      balance: { ...prev.balance, sensorWeights: { ...prev.balance.sensorWeights, accelerometer: value } }
+      balance: { ...prev.balance, maxOscillation: value },
     }));
-
-  const setBalanceSampleWindow = (value: number) =>
-    setSettings(prev => ({
-      ...prev,
-      balance: { ...prev.balance, sampleWindow: value }
-    }));
-
-  const setBalanceSmoothingWindow = (value: number) =>
-    setSettings(prev => ({
-      ...prev,
-      balance: { ...prev.balance, smoothingWindow: value }
-    }));
+  const setBalanceVibrationThreshold = (value: number) =>
+    setSettings(prev => ({ ...prev, balance: { ...prev.balance, vibrationThreshold: value } }));
+  const setBalanceUseX = (value: boolean) =>
+    setSettings(prev => ({ ...prev, balance: { ...prev.balance, useX: value } }));
+  const setBalanceUseY = (value: boolean) =>
+    setSettings(prev => ({ ...prev, balance: { ...prev.balance, useY: value } }));
+  const setBalanceUseZ = (value: boolean) =>
+    setSettings(prev => ({ ...prev, balance: { ...prev.balance, useZ: value } }));
   const resetBalanceSettings = () => {
     setSettings(prev => ({ ...prev, balance: defaultConfig.balance }));
   }; 
@@ -301,11 +302,15 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setVelocityVariationThreshold,
         resetForceSettings,
         setBalanceTestDuration,
-        setBalanceAccelerometerWeight,
+        setBalanceBaselineCalibrationTime,
+        setBalanceSamplingRate,
         setBalanceClassificationThresholds,
-        setBalanceSampleWindow,
-        setBalanceSmoothingWindow,
-        resetBalanceSettings,
+        setBalanceMaxOscillation,
+        setBalanceVibrationThreshold,
+        setBalanceUseX,
+        setBalanceUseY,
+        setBalanceUseZ,
+        resetBalanceSettings
       }}
       >
       {children}

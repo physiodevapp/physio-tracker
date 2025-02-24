@@ -1,11 +1,21 @@
 "use client";
 
-import { Acceleration, Gyroscope } from '@/interfaces/balance';
-import { calculateStaticBalanceQuality, classifySwayWithGyro, detectVibrationRange } from '@/services/balance';
-import { Bars3Icon, Cog6ToothIcon, PlayIcon, StopIcon, XMarkIcon } from '@heroicons/react/24/solid';
-import React, { useState, useEffect, useRef } from 'react';
-import BalanceSettings from "@/modals/BalanceSettings"
-import { useSettings } from '@/providers/Settings';
+import { Acceleration } from "@/interfaces/balance";
+import {
+  calculateStaticBalanceQuality,
+  classifySway,
+  detectVibrationRange,
+} from "@/services/balance";
+import {
+  Bars3Icon,
+  Cog6ToothIcon,
+  PlayIcon,
+  StopIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/solid";
+import React, { useState, useEffect, useRef } from "react";
+import BalanceSettings from "@/modals/BalanceSettings";
+import { useSettings } from "@/providers/Settings";
 import CountdownRing from "./Counter";
 import BalanceChart from "./Graph";
 
@@ -16,43 +26,59 @@ export interface IndexProps {
 
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [showSettings, setShowSettings] = useState(false);
-
   const { settings } = useSettings();
-  
-  const [accelData, setAccelData] = useState<Acceleration[]>([]);
-  const [gyroData, setGyroData] = useState<Gyroscope[]>([]);
+
+  const [accelProcessedData, setAccelProcessedData] = useState<Acceleration[]>([]);
   const [measurementStarted, setMeasurementStarted] = useState<boolean>(false);
+  const [calibrating, setCalibrating] = useState<boolean>(false);
+  const baselineX = useRef<number | null>(null);
+  const baselineY = useRef<number | null>(null);
+  const baselineZ = useRef<number | null>(null);
+  const baselineSamples = useRef<{ x: number; y: number; z: number }[]>([]);
+
   const [results, setResults] = useState<{
     balanceQuality: string;
     sway: { lateral: string; anteriorPosterior: string };
     vibration: { vibrationRange: string; vibrationIndex: number };
   } | null>(null);
+
   const measurementTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Start measurement and collect data for 30 seconds.
+  // Iniciar medición con calibración inicial
   const startMeasurement = () => {
-    setAccelData([]);
-    setGyroData([]);
+    setAccelProcessedData([]);
     setResults(null);
     setMeasurementStarted(true);
+    setCalibrating(true);
+    baselineX.current = null;
+    baselineY.current = null;
+    baselineZ.current = null;
+    baselineSamples.current = [];
     toggleSettings(false);
 
-    // Schedule end of measurement after 30 seconds.
+    // Finalizar medición después de X segundos (configurable)
     measurementTimeoutRef.current = setTimeout(() => {
       finishMeasurement();
-    }, (settings.balance.testDuration + 1) * 1000);
+    }, settings.balance.testDuration * 1000);
   };
 
-  // Finish measurement and compute results.
+  // Finalizar medición y calcular resultados
   const finishMeasurement = () => {
     setMeasurementStarted(false);
-    const balanceQuality = calculateStaticBalanceQuality(accelData, gyroData);
-    const sway = classifySwayWithGyro(accelData, gyroData);
-    const vibration = detectVibrationRange(accelData, gyroData);
+    const balanceQuality = calculateStaticBalanceQuality({
+      accelData: accelProcessedData,
+      useZ: settings.balance.useX, // Z en protocolo es X en sensor
+    });
+    const vibration = detectVibrationRange({
+      accelData: accelProcessedData,
+      useZ: settings.balance.useX, // Z en protocolo es X en sensor
+      vibrationThreshold: settings.balance.vibrationThreshold
+    });
+    const sway = classifySway(accelProcessedData);
     setResults({ balanceQuality, sway, vibration });
   };
 
-  // Cancel measurement manually and process data collected so far.
+  // Cancelar medición manualmente
   const cancelMeasurement = () => {
     if (measurementTimeoutRef.current) {
       clearTimeout(measurementTimeoutRef.current);
@@ -60,47 +86,89 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     finishMeasurement();
   };
 
-  // Event listeners for sensor data while measurement is active.
+  // Capturar datos del sensor solo si la medición está activa
   useEffect(() => {
     if (!measurementStarted) return;
+
+    let motionData: { x: number; y: number; z: number } | null = null;
+    let calibrationCompleted = false;
+    baselineSamples.current = [];
+
     const handleMotion = (event: DeviceMotionEvent) => {
-      console.log('handleMotion');
       if (event.accelerationIncludingGravity) {
         const { x, y, z } = event.accelerationIncludingGravity;
-        setAccelData((prev) => [
-          ...prev,
-          { x: x ?? 0, y: y ?? 0, z: z ?? 0, timestamp: Date.now() ?? 0 },
-        ]);
+
+        if (x === null || y === null || z === null) return;
+
+        if (!calibrationCompleted) {
+          // Guardar muestras de calibración
+          baselineSamples.current.push({ x, y, z });
+          return;
+        }
+
+        motionData = { x, y, z };
       }
     };
 
-    const handleOrientation = (event: DeviceOrientationEvent) => {
-      console.log('handleOrientation');
-      const { alpha, beta, gamma } = event;
-      setGyroData((prev) => [
-        ...prev,
-        { alpha: alpha ?? 0, beta: beta ?? 0, gamma: gamma ?? 0, timestamp: Date.now() ?? 0 },
-      ]);
-    };
-
     window.addEventListener("devicemotion", handleMotion);
-    window.addEventListener("deviceorientation", handleOrientation);
+
+    // **Cálculo del baseline después del tiempo de calibración**
+    const calibrationTimeout = setTimeout(() => {
+      if (baselineSamples.current.length > 0) {
+        baselineY.current =
+          baselineSamples.current.reduce((sum, sample) => sum + sample.y, 0) /
+          baselineSamples.current.length
+        baselineZ.current =
+          baselineSamples.current.reduce((sum, sample) => sum + sample.z, 0) /
+          baselineSamples.current.length
+        baselineX.current =
+          baselineSamples.current.reduce((sum, sample) => sum + sample.x, 0) /
+          baselineSamples.current.length;
+      }
+      calibrationCompleted = true;
+    }, settings.balance.baselineCalibrationTime * 1000);
+
+    // **Intervalo para procesar los datos cada `samplingRate` ms**
+    const samplingInterval = setInterval(() => {
+      if (!motionData || !calibrationCompleted) return;
+
+      // Oscilación lateral (ML Sway) en Y
+      const deltaX = motionData.y - (baselineY.current ?? 0);
+
+      // Oscilación anteroposterior (AP Sway) en Z
+      const deltaY = motionData.z - (baselineZ.current ?? 0);
+
+      // Oscilación vertical en X
+      const deltaZ = motionData.x - (baselineX.current ?? 0);
+
+      // Normalización
+      const maxOscillation = settings.balance.maxOscillation;
+      const normX = Math.max(-1, Math.min(1, deltaX / maxOscillation));
+      const normY = Math.max(-1, Math.min(1, deltaY / maxOscillation));
+      const normZ = Math.max(-1, Math.min(1, deltaZ / maxOscillation));
+
+      setAccelProcessedData((prev) => [
+        ...prev,
+        { x: normX, y: normY, z: normZ, timestamp: Date.now() },
+      ]);
+    }, settings.balance.samplingRate);
 
     return () => {
       window.removeEventListener("devicemotion", handleMotion);
-      window.removeEventListener("deviceorientation", handleOrientation);
+      clearTimeout(calibrationTimeout);
+      clearInterval(samplingInterval);
     };
-  }, [measurementStarted]);
+  }, [measurementStarted, settings.balance.samplingRate, settings.balance.baselineCalibrationTime, settings.balance.maxOscillation]);
 
   const toggleSettings = (visibility?: boolean) => {
     setShowSettings(visibility === undefined ? !showSettings : visibility);
-  }
+  };
 
   const handleMainLayer = () => {
     handleMainMenu(false);
     toggleSettings(false);
     if (measurementStarted) cancelMeasurement();
-  }
+  };
 
   return (
     <>
@@ -116,7 +184,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         {/* Una vez finalizada la medición, mostramos el gráfico */}
         {(results && !measurementStarted) && (
           <div className='h-[50vh] p-4'>
-            <BalanceChart accelData={accelData} gyroData={gyroData} />
+            <BalanceChart accelData={accelProcessedData} />
           </div>
         )}
         {measurementStarted && (
@@ -128,7 +196,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               size={200}
               thickness={12}
               backgroundThickness={11}
-              color='limegreen'
+              color={calibrating ? 'yellow' : 'limegreen'}
               backgroundColor='#444'
               />
           </div>

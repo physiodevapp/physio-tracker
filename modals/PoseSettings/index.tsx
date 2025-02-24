@@ -35,42 +35,44 @@ const Index = ({
 
   return (
     <div 
-      className='fixed z-10 bottom-0 left-0 w-full px-4 pb-[2rem] flex items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg'
+      className='fixed z-10 bottom-0 left-0 w-full px-4 pt-[1rem] pb-[2rem] flex items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg'
       data-element="non-swipeable"
       onClick={handleModal}
       >
-        <form className='w-full flex flex-col justify-center px-8 py-2 gap-4'>
-          <div className='w-full flex flex-col justify-between gap-2'>
-            <label
-              htmlFor='time-window'
-              className='text-white'
-              >
-              Angle<span className='align-sub uppercase text-[0.6rem]'> smoothing</span>: {angleSmoothing}
-            </label>
-            <input
-              id='time-window'
-              type='range'
-              value={angleSmoothing}
-              min="5"
-              max="20"
-              onChange={handleAngleChange}
-              />
-          </div>
-          <div className='w-full flex flex-col justify-between gap-2'>
-            <label
-              htmlFor='update-interval'
-              className='text-white'
-              >
-              Velocity<span className='align-sub uppercase text-[0.6rem]'> smoothing</span>: {angleVelocitySmoothing}
-            </label>
-            <input
-              id='update-interval'
-              type='range'
-              value={angleVelocitySmoothing}
-              min="5"
-              max="20"
-              onChange={handleAngularVelocityChange}
-              />
+        <form className='w-full flex flex-col justify-center'>
+          <div className='flex w-full gap-2'>
+            <div className='flex-1 flex flex-col justify-between gap-2'>
+              <label
+                htmlFor='time-window'
+                className='text-white'
+                >
+                Angle<span className='align-sub uppercase text-[0.6rem]'> Smth</span>: {angleSmoothing}
+              </label>
+              <input
+                id='time-window'
+                type='range'
+                value={angleSmoothing}
+                min="5"
+                max="20"
+                onChange={handleAngleChange}
+                />
+            </div>
+            <div className='flex-1 flex flex-col justify-between gap-2'>
+              <label
+                htmlFor='update-interval'
+                className='text-white'
+                >
+                Velocity<span className='align-sub uppercase text-[0.6rem]'> Smth</span>: {angleVelocitySmoothing}
+              </label>
+              <input
+                id='update-interval'
+                type='range'
+                value={angleVelocitySmoothing}
+                min="5"
+                max="20"
+                onChange={handleAngularVelocityChange}
+                />
+            </div>
           </div>
         </form>
     </div>

@@ -175,7 +175,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       setIsDeviceAvailable(false);
       setTaringStatus(null);
     } catch (error) {
-      console.error("Error connecting to sensor:", error);
+      console.log("Error connecting to sensor:", error);
       setIsConnected(false);
       setDevice(null);
       setIsDeviceAvailable(true);
@@ -184,7 +184,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const tareSensor = async () => {
     if (!controlCharacteristic) {
-      console.error("Control characteristic not available");
+      console.log("Control characteristic not available");
       setTaringStatus(0);
       return;
     }
@@ -195,7 +195,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       console.log('Tared');
       setTaringStatus(1);
     } catch (error) {
-      console.error("Error taring sensor:", error);
+      console.log("Error taring sensor:", error);
       setTaringStatus(0);
     }
   };
@@ -203,7 +203,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const startMeasurement = async () => {
     if (taringStatus !== 1) return;
     if (!controlCharacteristic) {
-      console.error("Control characteristic not available");
+      console.log("Control characteristic not available");
       return;
     }
     try {      
@@ -213,47 +213,47 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
       setIsRecording(true);
     } catch (error) {
-      console.error("Error starting measurement:", error);
+      console.log("Error starting measurement:", error);
     }
   };
 
   const stopMeasurement = async () => {
     if (!controlCharacteristic) {
-      console.error("Control characteristic not available");
+      console.log("Control characteristic not available");
       return;
     }
     try {
       await controlCharacteristic.writeValue(new Uint8Array([CMD_STOP_WEIGHT_MEAS]));
       setIsRecording(false);
     } catch (error) {
-      console.error("Error stopping measurement:", error);
+      console.log("Error stopping measurement:", error);
     }
   };
 
   const startMassEstimation = async() => {
     if (taringStatus !== 1) return;
     if (!controlCharacteristic) {
-      console.error("Control characteristic not available");
+      console.log("Control characteristic not available");
       return;
     }
     try { 
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));  
       setIsEstimatingMass(true); 
     } catch (error) {
-      console.error("Error starting measurement:", error);
+      console.log("Error starting measurement:", error);
     }
   }
 
   const stopMassEstimation = async () => {
     if (!controlCharacteristic) {
-      console.error("Control characteristic not available");
+      console.log("Control characteristic not available");
       return;
     }
     try {
       await controlCharacteristic.writeValue(new Uint8Array([CMD_STOP_WEIGHT_MEAS]));
       setIsEstimatingMass(false);  
     } catch (error) {
-      console.error("Error stopping measurement:", error);
+      console.log("Error stopping measurement:", error);
     }
   };
 
@@ -268,14 +268,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }, 12000);
     console.log('Device shut down');
     if (!controlCharacteristic) {
-      console.error("Control characteristic not available");
+      console.log("Control characteristic not available");
       return;
     }
     try {
       await controlCharacteristic.writeValue(new Uint8Array([CMD_ENTER_SLEEP]));    
 
     } catch (error) {
-      console.error("Error shutting down the device:", error);
+      console.log("Error shutting down the device:", error);
     }
   };
 

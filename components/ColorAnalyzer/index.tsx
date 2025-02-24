@@ -401,10 +401,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       <Script 
         src="/opencv.js" 
         strategy="afterInteractive" 
-        onLoad={() => {
-          console.log('onLoad');
-          setScriptLoaded(true);
-        }}
+        onLoad={() => setScriptLoaded(true)}
         />
       <div 
         className="relative w-full h-dvh"
