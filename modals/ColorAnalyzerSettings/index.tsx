@@ -172,7 +172,7 @@ const Index: React.FC = () => {
         <div className="flex justify-around gap-6 p-2">
           <div className="flex-1">
             <label className="block text-sm">
-              Min Saturation: {settings.color.minSaturation}
+              Min Sat: {settings.color.minSaturation}
             </label>
             <input
               type="range"

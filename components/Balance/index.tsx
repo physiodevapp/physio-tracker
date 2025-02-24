@@ -59,7 +59,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     // Finalizar medición después de X segundos (configurable)
     measurementTimeoutRef.current = setTimeout(() => {
       finishMeasurement();
-    }, settings.balance.testDuration * 1000);
+    }, ((settings.balance.testDuration + 1) * 1000));
   };
 
   // Finalizar medición y calcular resultados
@@ -126,7 +126,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           baselineSamples.current.length;
       }
       calibrationCompleted = true;
-    }, settings.balance.baselineCalibrationTime * 1000);
+      setCalibrating(false);
+    }, ((settings.balance.baselineCalibrationTime + 1) * 1000));
 
     // **Intervalo para procesar los datos cada `samplingRate` ms**
     const samplingInterval = setInterval(() => {
