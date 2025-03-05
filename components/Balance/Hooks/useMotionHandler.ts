@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { IFilterState, IFrequencyData, IMotionData, IMotionStats } from "@/interfaces/balance";
 import { butterworthLowPass_SampleGeneric, getFrequencyFeatures, calculateSTD, calculateCOP_Stats } from "@/services/balance";
 
@@ -27,17 +27,12 @@ export function useMotionHandler() {
   const [samplingFrequency, setSamplingFrequency] = useState<number | null>(null);
   const samplingFrequencyRef = useRef<number | null>(null);
   const motionDataRef = useRef<IMotionData[]>([]);
-  const updateMotionData = (newRecord: IMotionData) => {
-    motionDataRef.current.push(newRecord);
-  };
   
   // 🛠️ Variables de la calibracion
   const [isCalibrated, setIsCalibrated] = useState(false);
   const [isBaselineCalibrated, setIsBaselineCalibrated] = useState(false);
   const isBaselineCalibratedRef = useRef<boolean>(false);
   const baseline = useRef({ x: 0, y: 0, z: 0 });
-  const std_y = useRef<number>(0);
-  const std_z = useRef<number>(0);
   const calibrationAttempts = useRef<number>(0);
   const calibrationCyclesCompleted = useRef<boolean>(false);
   const calibrated = useRef<boolean>(false);
@@ -63,6 +58,7 @@ export function useMotionHandler() {
     dominantFrequency_z: null,
   });
   const [log, setLog] = useState("");
+  const logRef = useRef<string>("");
   const [motionStatsData, setMotionStats] = useState<IMotionStats>({
     zeroFrequency: {
       ML_Y: parseFloat(calibratedData.current.domFreq_y?.toFixed(1) ?? "0"),
@@ -94,6 +90,7 @@ export function useMotionHandler() {
     }
 
     if (now - measurementStartTime.current < CALIBRATION_DELAY) {
+      logRef.current = `Esperando ${((CALIBRATION_DELAY - (now - measurementStartTime.current)) / 1000).toFixed(0)} segundos...`;
       setIsAcquiring(false);
       return false;
     }
@@ -108,41 +105,46 @@ export function useMotionHandler() {
 
     if (!calibrated.current) {
       if (motionDataRef.current.length < CALIBRATION_POINTS) {
-        setLog(`Calibrando... Datos insuficientes: ${motionDataRef.current.length} puntos`);
+        logRef.current = `Calibrando... Datos insuficientes: ${motionDataRef.current.length} puntos`;
         return false;
       }
 
       // Evaluar estabilidad de la señal
-      std_y.current = calculateSTD({
+      const std_y = calculateSTD({
         values: motionDataRef.current.slice(-CALIBRATION_POINTS).map(record => record.noGravity.y)
       });
-      std_z.current = calculateSTD({
+      const std_z = calculateSTD({
         values: motionDataRef.current.slice(-CALIBRATION_POINTS).map(record => record.noGravity.z)
       });
 
-      if (std_y.current > CALIBRATION_STD_THRESHOLD || std_z.current > CALIBRATION_STD_THRESHOLD) {
-        setLog(`Calibrando... STD Y: ${std_y.current.toFixed(3)} m/s², STD Z: ${std_z.current.toFixed(3)} m/s²`);
+      if (std_y > CALIBRATION_STD_THRESHOLD || std_z > CALIBRATION_STD_THRESHOLD) {
+        logRef.current = `Calibrando... STD Y: ${std_y.toFixed(3)} m/s², STD Z: ${std_z.toFixed(3)} m/s²`;
         return false;
       }
 
+      logRef.current = `STD Y | Z: ${std_y} | ${std_z} m/s²`;
+
       const {
-        dominantFrequency_y: domFreq_y, dominantFrequency_z: domFreq_z
+        dominantFrequency_y: domFreq_y, 
+        dominantFrequency_z: domFreq_z,
       } = getFrequencyFeatures({
         calculationMode: "realTime",
         motionData: motionDataRef.current.slice(-CALIBRATION_POINTS),
         cutoffFrequency: CUTOFF_FREQUENCY,
-        samplingFrequency: samplingFrequency!
+        samplingFrequency: samplingFrequencyRef.current!,
       });
 
       if (domFreq_y > CALIBRATION_DOM_FREQ_THRESHOLD || domFreq_z > CALIBRATION_DOM_FREQ_THRESHOLD) {
-        setLog(`Calibrando... frecuencia dominante (Y: ${domFreq_y.toFixed(2)} Hz, Z: ${domFreq_z.toFixed(2)} Hz) supera el umbral`);
+        logRef.current = `Calibrando... frecuencia dominante (Y: ${domFreq_y.toFixed(2)} Hz, Z: ${domFreq_z.toFixed(2)} Hz) supera el umbral`;
         return false;
       }
 
+      logRef.current = `Dom. freq. Y | Z: ${domFreq_y} | ${domFreq_z} Hz`;
+
       calibrated.current = true;
       calibratedData.current = { 
-        std_y: std_y.current, 
-        std_z: std_z.current, 
+        std_y, 
+        std_z,
         domFreq_y, 
         domFreq_z };
       return false;
@@ -206,18 +208,18 @@ export function useMotionHandler() {
           x0: (noGravity.y ?? 0) - (isBaselineCalibratedRef.current ? baseline.current.y : 0),
           states: [filterStateY.current, filterStateY_2.current],
           cutoffFrequency: CUTOFF_FREQUENCY,
-          samplingFrequency: samplingFrequency!
+          samplingFrequency: samplingFrequencyRef.current!
         }) ?? 0;
 
         const filteredZ = butterworthLowPass_SampleGeneric({
           x0: (noGravity.z ?? 0) - (isBaselineCalibratedRef.current ? baseline.current.z : 0),
           states: [filterStateZ.current, filterStateZ_2.current],
           cutoffFrequency: CUTOFF_FREQUENCY,
-          samplingFrequency: samplingFrequency!
+          samplingFrequency: samplingFrequencyRef.current!
         }) ?? 0;
 
         // Almacenar datos
-        updateMotionData({
+        motionDataRef.current.push({
           timestamp,
           interval,
           gravity: { x: gravityX, y: gravityY, z: gravityZ },
@@ -257,8 +259,6 @@ export function useMotionHandler() {
       domFreq_y: null,
       domFreq_z: null,
     };
-    std_y.current = 0;
-    std_z.current = 0;
     setIsCalibrated(false);
     setIsBaselineCalibrated(false);
     isBaselineCalibratedRef.current = false;
@@ -269,6 +269,7 @@ export function useMotionHandler() {
     setSamplingFrequency(null);
     samplingFrequencyRef.current = null;
     setLog("");
+    logRef.current = "";
     setMotionStats({
       zeroFrequency: {
         ML_Y: 0,
@@ -341,7 +342,7 @@ export function useMotionHandler() {
           calculationMode,
           motionData: motionDataRef.current,
           cutoffFrequency: CUTOFF_FREQUENCY,
-          samplingFrequency: samplingFrequency!,
+          samplingFrequency: samplingFrequencyRef.current!,
           timeWindow: 4, // últimos segundos,
         });
   
@@ -404,11 +405,15 @@ export function useMotionHandler() {
         },
         copPoints,
       });
-      setLog(`Y: ${dominantFrequency_y} | Z: ${dominantFrequency_z}`)
+      logRef.current = `Y: ${dominantFrequency_y} | Z: ${dominantFrequency_z}`;
     } catch (error) {
-      setLog(`Unsufficient data. , ${error}`)
+      logRef.current = `Unsufficient data. , ${error}`;
     }
   }
+
+  useEffect(() => {
+    setLog(logRef.current);
+  }, [motionDataRef.current.length]);
 
   return { 
     samplingFrequency, 
