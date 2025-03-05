@@ -306,7 +306,7 @@ export function useMotionHandler() {
     filterStateY_2.current = { x1: 0, x2: 0, y1: 0, y2: 0 };
     filterStateZ.current = { x1: 0, x2: 0, y1: 0, y2: 0 };
     filterStateZ_2.current = { x1: 0, x2: 0, y1: 0, y2: 0 };
-    }  
+  }  
 
   // ⚙️ ** Iniciar prueba **
   function startMotion() {
@@ -331,8 +331,7 @@ export function useMotionHandler() {
 
   // ⚙️ ** Analizar los datos del evento DeviceMotion **
   function analyzeDeviceMotionData ({ calculationMode }: {calculationMode: "realTime" | "postProcessing"}) {
-    try {
-      
+    try {      
       // Frequencies
       const {
         frequencies_y, amplitudes_y,
@@ -405,6 +404,7 @@ export function useMotionHandler() {
         },
         copPoints,
       });
+      setLog(`Y: ${dominantFrequency_y} | Z: ${dominantFrequency_z}`)
     } catch (error) {
       setLog(`Unsufficient data. , ${error}`)
     }

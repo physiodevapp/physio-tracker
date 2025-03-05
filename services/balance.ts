@@ -338,7 +338,7 @@ export function getFrequencySpectrum({
   let recentSignal: number[];
 
   // Extraer los datos de los últimos "timeWindow" segundos.
-  if (timeWindow === Infinity) {
+  if (timeWindow === undefined) {
     // Usar toda la señal, descartando los primeros y últimos segundos
     const startSamples = Math.floor(samplingFrequency * discardStartSeconds);
     const endSamples = Math.floor(samplingFrequency * discardEndSeconds);

@@ -29,7 +29,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     startMotion, stopMotion,
     isBaselineCalibrated, 
     frequencyData,
-    // isAc onStatsData,
+    log,
   } = useMotionHandler();
 
   const toggleSettings = (visibility?: boolean) => {
@@ -75,7 +75,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               />
           </div>
         )} */}
-        {(isRecording && isBaselineCalibrated) && (
+        <div>Log:: {log}</div>
+        {isBaselineCalibrated && (
           <SpectrumChart 
             canvasId="spectrum"
             spectrumParamsY={{
