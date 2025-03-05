@@ -105,9 +105,9 @@ const Index = () => {
           {/* Parámetros de oscilación */}
           <div className="flex-1">
             <label className="block text-sm">
-              Osc: {settings.balance.maxOscillation}
+              Osc: {settings.balance.maxOscillation.toFixed(2)}
             </label>
-            <input
+            <input 
               type="range"
               min="0.1"
               max="0.5"

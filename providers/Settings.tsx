@@ -41,19 +41,7 @@ interface ForceSettings {
 
 // Interfaz para BalanceSettings
 interface BalanceSettings {
-  testDuration: number; // Duración de la prueba en segundos
-  classificationThresholds: {
-    excellent: number;
-    good: number;
-    fair: number;
-  };
-  baselineCalibrationTime: number; // Duración de calibración en segundos
-  samplingRate: number; // Frecuencia de muestreo en ms
-  maxOscillation: number; // Umbral de balanceo máximo de oscilación antes de la normalización en [-1,1]
-  vibrationThreshold: number; // Umbral de vibración antes de considerarla significativa
-  useX: boolean; // Activar/desactivar eje X
-  useY: boolean; // Activar/desactivar eje Y
-  useZ: boolean; // Activar/desactivar eje Z
+  
 }
 
 interface Settings {
@@ -95,15 +83,7 @@ interface SettingsContextProps {
   setVelocityWeight: (value: number) => void;
   setVelocityVariationThreshold: (value: number) => void;
   // Setter para balance
-  setBalanceTestDuration: (value: number) => void;
-  setBalanceBaselineCalibrationTime: (value: number) => void;
-  setBalanceSamplingRate: (value: number) => void;
-  setBalanceClassificationThresholds: (thresholds: { excellent: number; good: number; fair: number; }) => void;
-  setBalanceMaxOscillation: (value: number) => void; 
-  setBalanceVibrationThreshold: (value: number) => void;
-  setBalanceUseX: (value: boolean) => void;
-  setBalanceUseY: (value: boolean) => void;
-  setBalanceUseZ: (value: boolean) => void;
+
   // Función para resetear los settings
   resetForceSettings: () => void;
   resetColorSettings: () => void;
@@ -150,19 +130,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       velocityVariationThreshold: 0.2,  // Antes 0.2 en la detección de fatiga
     },
     balance: {
-      testDuration: 30,                 // Duración de la prueba en segundos
-      baselineCalibrationTime: 3,       // Duración en segundos
-      samplingRate: 50,                 // frecuencia de muestreo en ms
-      classificationThresholds: {
-        excellent: 0.5,
-        good: 1.0,
-        fair: 1.5,
-      },  
-      maxOscillation: 0.2,
-      vibrationThreshold: 0.5,  
-      useX: false,
-      useY: true,
-      useZ: true,
+      
     },
   };
 
@@ -238,30 +206,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   };  
 
   // Setter para balance: testDuration (en segundos)
-  const setBalanceTestDuration = (value: number) =>
-    setSettings(prev => ({ ...prev, balance: { ...prev.balance, testDuration: value } }));
-  const setBalanceBaselineCalibrationTime = (value: number) =>
-    setSettings(prev => ({ ...prev, balance: { ...prev.balance, baselineCalibrationTime: value } }));
-  const setBalanceSamplingRate = (value: number) =>
-    setSettings(prev => ({ ...prev, balance: { ...prev.balance, samplingRate: value } }));
-  const setBalanceClassificationThresholds = (thresholds: { excellent: number; good: number; fair: number; }) =>
-    setSettings(prev => ({
-      ...prev,
-      balance: { ...prev.balance, classificationThresholds: thresholds }
-    }));
-  const setBalanceMaxOscillation = (value: number) =>
-    setSettings((prev) => ({
-      ...prev,
-      balance: { ...prev.balance, maxOscillation: value },
-    }));
-  const setBalanceVibrationThreshold = (value: number) =>
-    setSettings(prev => ({ ...prev, balance: { ...prev.balance, vibrationThreshold: value } }));
-  const setBalanceUseX = (value: boolean) =>
-    setSettings(prev => ({ ...prev, balance: { ...prev.balance, useX: value } }));
-  const setBalanceUseY = (value: boolean) =>
-    setSettings(prev => ({ ...prev, balance: { ...prev.balance, useY: value } }));
-  const setBalanceUseZ = (value: boolean) =>
-    setSettings(prev => ({ ...prev, balance: { ...prev.balance, useZ: value } }));
   const resetBalanceSettings = () => {
     setSettings(prev => ({ ...prev, balance: defaultConfig.balance }));
   }; 
@@ -301,15 +245,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setVelocityWeight,
         setVelocityVariationThreshold,
         resetForceSettings,
-        setBalanceTestDuration,
-        setBalanceBaselineCalibrationTime,
-        setBalanceSamplingRate,
-        setBalanceClassificationThresholds,
-        setBalanceMaxOscillation,
-        setBalanceVibrationThreshold,
-        setBalanceUseX,
-        setBalanceUseY,
-        setBalanceUseZ,
         resetBalanceSettings
       }}
       >
