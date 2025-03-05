@@ -1,6 +1,6 @@
 "use client";
 
-import { useSettings } from "@/providers/Settings";
+// import { useSettings } from "@/providers/Settings";
 import React, { useState, useEffect } from "react";
 
 interface IndexProps {
@@ -18,8 +18,8 @@ const Index = ({
   color = "limegreen", 
   backgroundColor = "#444" 
 }: IndexProps) => {
-  const { settings } = useSettings();
-  const totalDuration = settings.balance.testDuration;
+  // const { settings } = useSettings();
+  const totalDuration = 15 //settings.balance.testDuration;
   
   const [timeLeft, setTimeLeft] = useState(totalDuration);
 

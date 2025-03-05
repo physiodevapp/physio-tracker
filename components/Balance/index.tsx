@@ -11,10 +11,10 @@ import {
 } from "@heroicons/react/24/solid";
 import React, { useEffect, useState } from "react";
 import BalanceSettings from "@/modals/BalanceSettings";
-import { useSettings } from "@/providers/Settings";
-import CountdownRing from "./Counter";
 import { useMotionHandler } from "./Hooks/useMotionHandler";
 import SpectrumChart from "./FrequencyGraph"
+// import CountdownRing from "./Counter";
+// import { useSettings } from "@/providers/Settings";
 
 export interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
@@ -23,15 +23,13 @@ export interface IndexProps {
 
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [showSettings, setShowSettings] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const { settings } = useSettings();
+  const [isRecording, setIsRecording] = useState<boolean | null>(null);
+  // const { settings } = useSettings();
   const { 
     startMotion, stopMotion,
-    isAcquiring, isCalibrated, isBaselineCalibrated, 
-    samplingFrequency, 
-    log, 
-    motionStatsData,
+    isBaselineCalibrated, 
     frequencyData,
+    // isAc onStatsData,
   } = useMotionHandler();
 
   const toggleSettings = (visibility?: boolean) => {
@@ -44,25 +42,26 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   };
 
   useEffect(() => {
+    if (isRecording === null) return;
+
     if (isRecording) {
-      stopMotion();
-    } else {
       startMotion();
+    } 
+    else {
+      stopMotion();
     }
   }, [isRecording])
 
   return (
     <>
       <div 
-        className={`relative w-full h-dvh flex flex-col justify-center items-center ${
-          isRecording ? 'bg-black/80' : ''
-        }`}
+        className={`relative w-full h-dvh flex flex-col justify-center items-center`}
         onClick={handleMainLayer}
         >
         <h1 className={`absolute left-1/2 -translate-x-1/2 z-10 text-xl text-white bg-black/40 rounded-full py-1 px-4 font-bold mt-2 transition-[top] duration-300 ease-in-out whitespace-nowrap ${
           isMainMenuOpen ? '-top-12' : 'top-0'
         }`}>Balance</h1>
-        {(isRecording && !isBaselineCalibrated) && (
+        {/* {(isRecording && !isBaselineCalibrated) && (
           <div 
             data-element="non-swipeable"
             className='w-full h-dvh z-50 flex justify-center items-center bg-black/30'
@@ -75,7 +74,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               backgroundColor='#444'
               />
           </div>
-        )}
+        )} */}
         {(isRecording && isBaselineCalibrated) && (
           <SpectrumChart 
             canvasId="spectrum"

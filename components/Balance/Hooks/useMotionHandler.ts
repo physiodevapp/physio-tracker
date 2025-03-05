@@ -130,7 +130,7 @@ export function useMotionHandler() {
       } = getFrequencyFeatures({
         calculationMode: "realTime",
         motionData: motionDataRef.current.slice(-CALIBRATION_POINTS),
-        CUTOFF_FREQUENCY,
+        cutoffFrequency: CUTOFF_FREQUENCY,
         samplingFrequency: samplingFrequency!
       });
 
@@ -310,15 +310,14 @@ export function useMotionHandler() {
 
   // ⚙️ ** Iniciar prueba **
   function startMotion() {
-    if (!motionListenerActive.current && window.DeviceMotionEvent) {
+    if (!window.DeviceMotionEvent) {
+      console.log('DeviceMotionEvent no es soportado en este navegador.');
+    } 
+    else {
       console.log("🔵 Motion Listener ACTIVADO");
       reset();
       window.addEventListener("devicemotion", handleMotion, false);
-    } else if (!window.DeviceMotionEvent) {
-      console.log('DeviceMotionEvent no es soportado en este navegador.');
-    } else {
-      console.log('Listener ya está iniciado.');
-    }
+    } 
   }
 
   // ⚙️ ** Finalizar prueba **
@@ -332,78 +331,83 @@ export function useMotionHandler() {
 
   // ⚙️ ** Analizar los datos del evento DeviceMotion **
   function analyzeDeviceMotionData ({ calculationMode }: {calculationMode: "realTime" | "postProcessing"}) {
-    // Frequencies
-    const {
-      frequencies_y, amplitudes_y,
-      frequencies_z, amplitudes_z,
-      dominantFrequency_y, dominantFrequency_z,
-    } = getFrequencyFeatures({
-        calculationMode,
-        motionData: motionDataRef.current,
-        cutoffFrequency: CUTOFF_FREQUENCY,
-        samplingFrequency: samplingFrequency!,
-        timeWindow: 4, // últimos segundos,
+    try {
+      
+      // Frequencies
+      const {
+        frequencies_y, amplitudes_y,
+        frequencies_z, amplitudes_z,
+        dominantFrequency_y, dominantFrequency_z,
+      } = getFrequencyFeatures({
+          calculationMode,
+          motionData: motionDataRef.current,
+          cutoffFrequency: CUTOFF_FREQUENCY,
+          samplingFrequency: samplingFrequency!,
+          timeWindow: 4, // últimos segundos,
+        });
+  
+      setFrequencyData({
+        frequencies_y, frequencies_z,
+        amplitudes_y, amplitudes_z,
+        dominantFrequency_y, dominantFrequency_z
       });
-
-    setFrequencyData({
-      frequencies_y, frequencies_z,
-      amplitudes_y, amplitudes_z,
-      dominantFrequency_y, dominantFrequency_z
-    });
-
-    // COP
-    const {
-      copPoints,
-      rmsML, rmsAP,
-      varianceML, varianceAP, globalVariance,
-      ellipse: { semiMajor, semiMinor, orientation, centerX, centerY },
-      copArea: { points: copAreaBoundaryPoints, value: copArea},
-      jerkML, jerkAP
-    } = calculateCOP_Stats({
-        calculationMode,
-        motionData: motionDataRef.current,
-        cutoffFrequency: CUTOFF_FREQUENCY,
-        samplingFrequency: samplingFrequency!,
-        gravity: GRAVITY
+  
+      // COP
+      const {
+        copPoints,
+        rmsML, rmsAP,
+        varianceML, varianceAP, globalVariance,
+        ellipse: { semiMajor, semiMinor, orientation, centerX, centerY },
+        copArea: { points: copAreaBoundaryPoints, value: copArea},
+        jerkML, jerkAP
+      } = calculateCOP_Stats({
+          calculationMode,
+          motionData: motionDataRef.current,
+          cutoffFrequency: CUTOFF_FREQUENCY,
+          samplingFrequency: samplingFrequency!,
+          gravity: GRAVITY
+        });
+  
+      setMotionStats({
+        zeroFrequency: {
+          ML_Y: calibratedData.current.domFreq_y!,
+          AP_Z: calibratedData.current.domFreq_z!,
+        },
+        zeroSTD: {
+          ML_Y: calibratedData.current.std_y!,
+          AP_Z: calibratedData.current.std_z!,
+        },
+        mainFrequency: {
+          ML_Y: parseFloat(dominantFrequency_y?.toFixed(3) ?? "0"),
+          AP_Z: parseFloat(dominantFrequency_z?.toFixed(3) ?? "0"),
+        },
+        RMS: {
+          ML_Y: parseFloat(rmsML?.toFixed(1) ?? "0"),
+          AP_Z: parseFloat(rmsAP?.toFixed(1) ?? "0"),
+        },
+        Variance: {
+          ML_Y: parseFloat(varianceML?.toFixed(3) ?? "0"),
+          AP_Z: parseFloat(varianceAP?.toFixed(3) ?? "0"),
+          Global: parseFloat(globalVariance?.toFixed(3) ?? "0"),
+        },
+        jerk: {
+          ML_Y: parseFloat(jerkML.toFixed(2)),
+          AP_Z: parseFloat(jerkAP.toFixed(2)),
+        },
+        copArea: {
+          value: parseFloat(copArea.toFixed(2)),
+          boundaryPoints: copAreaBoundaryPoints
+        },
+        ellipse: {
+          semiMajor, semiMinor,
+          orientation,
+          centerX, centerY
+        },
+        copPoints,
       });
-
-    setMotionStats({
-      zeroFrequency: {
-        ML_Y: calibratedData.current.domFreq_y!,
-        AP_Z: calibratedData.current.domFreq_z!,
-      },
-      zeroSTD: {
-        ML_Y: calibratedData.current.std_y!,
-        AP_Z: calibratedData.current.std_z!,
-      },
-      mainFrequency: {
-        ML_Y: parseFloat(dominantFrequency_y?.toFixed(3) ?? "0"),
-        AP_Z: parseFloat(dominantFrequency_z?.toFixed(3) ?? "0"),
-      },
-      RMS: {
-        ML_Y: parseFloat(rmsML?.toFixed(1) ?? "0"),
-        AP_Z: parseFloat(rmsAP?.toFixed(1) ?? "0"),
-      },
-      Variance: {
-        ML_Y: parseFloat(varianceML?.toFixed(3) ?? "0"),
-        AP_Z: parseFloat(varianceAP?.toFixed(3) ?? "0"),
-        Global: parseFloat(globalVariance?.toFixed(3) ?? "0"),
-      },
-      jerk: {
-        ML_Y: parseFloat(jerkML.toFixed(2)),
-        AP_Z: parseFloat(jerkAP.toFixed(2)),
-      },
-      copArea: {
-        value: parseFloat(copArea.toFixed(2)),
-        boundaryPoints: copAreaBoundaryPoints
-      },
-      ellipse: {
-        semiMajor, semiMinor,
-        orientation,
-        centerX, centerY
-      },
-      copPoints,
-    });
+    } catch (error) {
+      setLog(`Unsufficient data. , ${error}`)
+    }
   }
 
   return { 

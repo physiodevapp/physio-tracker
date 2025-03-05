@@ -1,4 +1,4 @@
-import { ICOPPoint, ICOPRMS, ICOPStats, IFilterState } from "@/interfaces/balance";
+import { ICOPPoint, ICOPRMS, ICOPStats, IFilterState, IMotionData } from "@/interfaces/balance";
 import { FFT } from "dsp.js-browser";
 
 // Aplica un filtro Butterworth de manera incremental a una muestra de datos.
@@ -156,7 +156,7 @@ export function getFrequencyFeatures({
   windowSize = 10,
 }: {
   calculationMode: "realTime" | "postProcessing";
-  motionData: MotionRecord[];
+  motionData: IMotionData[];
   cutoffFrequency: number;
   samplingFrequency: number;
   timeWindow?: number;

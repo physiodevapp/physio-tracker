@@ -48,7 +48,7 @@ const Index: React.FC<IndexProps> = ({
     };
 
     const { freqs: finalFrequenciesY, amps: finalAmplitudesY } = filterData(frequenciesY, amplitudesY);
-    const { freqs: finalFrequenciesZ, amps: finalAmplitudesZ } = filterData(frequenciesZ, amplitudesZ);
+    const { amps: finalAmplitudesZ } = filterData(frequenciesZ, amplitudesZ);
 
     // Configuración del gráfico
     const config: ChartConfiguration = {
@@ -139,7 +139,11 @@ const Index: React.FC<IndexProps> = ({
     };
   }, [spectrumParamsY, spectrumParamsZ, maxFreq]);
 
-  return <canvas id={canvasId} ref={canvasRef} />;
+  return (
+    <>
+      <canvas id={canvasId} ref={canvasRef} className="w-full h-auto max-w-screen" />
+    </>
+  );
 };
 
 export default Index;
