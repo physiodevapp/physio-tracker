@@ -14,6 +14,7 @@ import BalanceSettings from "@/modals/BalanceSettings";
 import { useSettings } from "@/providers/Settings";
 import CountdownRing from "./Counter";
 import { useMotionHandler } from "./Hooks/useMotionHandler";
+import SpectrumChart from "./FrequencyGraph"
 
 export interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
@@ -25,9 +26,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const { settings } = useSettings();
   const { 
-    samplingFrequency, 
-    isAcquiring, isCalibrated, isBaselineCalibrated, 
     startMotion, stopMotion,
+    isAcquiring, isCalibrated, isBaselineCalibrated, 
+    samplingFrequency, 
     log, 
     motionStatsData,
     frequencyData,
@@ -61,7 +62,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         <h1 className={`absolute left-1/2 -translate-x-1/2 z-10 text-xl text-white bg-black/40 rounded-full py-1 px-4 font-bold mt-2 transition-[top] duration-300 ease-in-out whitespace-nowrap ${
           isMainMenuOpen ? '-top-12' : 'top-0'
         }`}>Balance</h1>
-        {isRecording && (
+        {(isRecording && !isBaselineCalibrated) && (
           <div 
             data-element="non-swipeable"
             className='w-full h-dvh z-50 flex justify-center items-center bg-black/30'
@@ -74,6 +75,20 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               backgroundColor='#444'
               />
           </div>
+        )}
+        {(isRecording && isBaselineCalibrated) && (
+          <SpectrumChart 
+            canvasId="spectrum"
+            spectrumParamsY={{
+              frequencies: frequencyData.frequencies_y,
+              amplitudes: frequencyData.amplitudes_y
+            }}
+            spectrumParamsZ={{
+              frequencies: frequencyData.frequencies_z,
+              amplitudes: frequencyData.amplitudes_z
+            }}
+            maxFreq={10}
+            />
         )}
       </div>
       {(showSettings && !isRecording) && (
