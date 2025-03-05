@@ -11,7 +11,7 @@ const CALIBRATION_STD_THRESHOLD = 1.00; // m/s²
 const CALIBRATION_DOM_FREQ_THRESHOLD = 2.0; // Hz
 const REQUIRED_CALIBRATION_ATTEMPTS = 2; // Se requieren 2 ciclos exitosos
 const GRAVITY = 9.81;
-const cutoffFrequency = 5; // Frecuencia de corte recomendada
+const CUTOFF_FREQUENCY = 5; // Frecuencia de corte recomendada
 
 export function useMotionHandler() {  
   // 🛠️ Variables del filtro Butterworth
@@ -130,7 +130,7 @@ export function useMotionHandler() {
       } = getFrequencyFeatures({
         calculationMode: "realTime",
         motionData: motionDataRef.current.slice(-CALIBRATION_POINTS),
-        cutoffFrequency,
+        CUTOFF_FREQUENCY,
         samplingFrequency: samplingFrequency!
       });
 
@@ -205,14 +205,14 @@ export function useMotionHandler() {
         const filteredY = butterworthLowPass_SampleGeneric({
           x0: (noGravity.y ?? 0) - (isBaselineCalibratedRef.current ? baseline.current.y : 0),
           states: [filterStateY.current, filterStateY_2.current],
-          cutoffFrequency,
+          cutoffFrequency: CUTOFF_FREQUENCY,
           samplingFrequency: samplingFrequency!
         }) ?? 0;
 
         const filteredZ = butterworthLowPass_SampleGeneric({
           x0: (noGravity.z ?? 0) - (isBaselineCalibratedRef.current ? baseline.current.z : 0),
           states: [filterStateZ.current, filterStateZ_2.current],
-          cutoffFrequency,
+          cutoffFrequency: CUTOFF_FREQUENCY,
           samplingFrequency: samplingFrequency!
         }) ?? 0;
 
@@ -340,7 +340,7 @@ export function useMotionHandler() {
     } = getFrequencyFeatures({
         calculationMode,
         motionData: motionDataRef.current,
-        cutoffFrequency,
+        cutoffFrequency: CUTOFF_FREQUENCY,
         samplingFrequency: samplingFrequency!,
         timeWindow: 4, // últimos segundos,
       });
@@ -362,7 +362,7 @@ export function useMotionHandler() {
     } = calculateCOP_Stats({
         calculationMode,
         motionData: motionDataRef.current,
-        cutoffFrequency,
+        cutoffFrequency: CUTOFF_FREQUENCY,
         samplingFrequency: samplingFrequency!,
         gravity: GRAVITY
       });
