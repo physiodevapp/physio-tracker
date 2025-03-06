@@ -12,7 +12,8 @@ import {
 import React, { useEffect, useState } from "react";
 import BalanceSettings from "@/modals/BalanceSettings";
 import { useMotionHandler } from "./Hooks/useMotionHandler";
-import SpectrumChart from "./FrequencyGraph"
+import SpectrumChart from "./FrequencyGraph";
+import COPChart from "./COPGraph";
 // import CountdownRing from "./Counter";
 // import { useSettings } from "@/providers/Settings";
 
@@ -135,7 +136,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             </table>
 
             <SpectrumChart 
-              canvasId="spectrum"
               spectrumParamsY={{
                 frequencies: frequencyData.frequencies_y,
                 amplitudes: frequencyData.amplitudes_y
@@ -144,10 +144,29 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 frequencies: frequencyData.frequencies_z,
                 amplitudes: frequencyData.amplitudes_z
               }}
-              maxFreq={10}
+              options={{                
+                canvasId: "spectrum",
+                maxFreq: 10
+              }}
               />
             {!isRecording && (
               <>
+                <COPChart 
+                  areaParams={{
+                    copAreaPoints: motionStatsData.copArea!.boundaryPoints!
+                  }}
+                  ellipseParams={{
+                    copPoints: motionStatsData.copPoints!,
+                    semiMajor: motionStatsData.ellipse!.semiMajor!,
+                    semiMinor: motionStatsData.ellipse!.semiMinor!,
+                    orientation: motionStatsData.ellipse!.orientation!,
+                    centerX: motionStatsData.ellipse!.centerX!,
+                    centerY: motionStatsData.ellipse!.centerY!
+                  }}
+                  options={{
+                    canvasId: "cop"
+                  }}
+                  />
               </>
             )}
           </>

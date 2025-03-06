@@ -13,18 +13,20 @@ interface SpectrumParams {
 interface IndexProps {
   spectrumParamsY: SpectrumParams;
   spectrumParamsZ: SpectrumParams;
-  canvasId: string;
-  maxFreq?: number;
+  options: {
+    canvasId: string;
+    maxFreq?: number;
+  }
 }
 
 const Index: React.FC<IndexProps> = ({
   spectrumParamsY,
   spectrumParamsZ,
-  canvasId,
-  maxFreq = 10,
+  options,
 }) => {
   const chartRef = useRef<Chart | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const { canvasId, maxFreq = 10 } = options;
 
   const { filteredFreqsY, filteredAmpsY, filteredAmpsZ } = useMemo(() => {
     const filterData = (frequencies: number[], amplitudes: number[]) => {
