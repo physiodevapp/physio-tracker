@@ -386,12 +386,12 @@ export function useMotionHandler() {
           Global: parseFloat(globalVariance?.toFixed(3) ?? "0"),
         },
         jerk: {
-          ML_Y: parseFloat(jerkML?.toFixed(2)),
-          AP_Z: parseFloat(jerkAP?.toFixed(2)),
+          ML_Y: jerkML != null ? parseFloat(jerkML?.toFixed(2)) : null,
+          AP_Z: jerkAP != null ? parseFloat(jerkAP?.toFixed(2)) : null,
         },
         copArea: {
-          value: parseFloat(copArea?.toFixed(2)),
-          boundaryPoints: copAreaBoundaryPoints
+          value: copArea != null ? parseFloat(copArea.toFixed(2)) : null,
+          boundaryPoints: copAreaBoundaryPoints,
         },
         ellipse: {
           semiMajor, semiMinor,

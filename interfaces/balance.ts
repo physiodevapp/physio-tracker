@@ -80,16 +80,16 @@ export interface IMotionStats {
   };
   // Variables opcionales
   jerk?: {
-    ML_Y?: number;
-    AP_Z?: number;
-    Global?: number;
+    ML_Y?: number | null;
+    AP_Z?: number | null;
+    Global?: number | null;
   };
   copArea?: {
     boundaryPoints?: {
         x: number;
         y: number;
       }[];
-    value?: number;
+    value?: number | null;
   };
   ellipse?: {
     semiMajor?: number;
