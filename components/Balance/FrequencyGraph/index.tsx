@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Chart, ChartConfiguration, registerables } from "chart.js";
 
 Chart.register(...registerables);
@@ -26,14 +26,7 @@ const Index: React.FC<IndexProps> = ({
   const chartRef = useRef<Chart | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  useEffect(() => {
-    if (!canvasRef.current) return;
-
-    // Extraer datos de frecuencias y amplitudes
-    const { frequencies: frequenciesY, amplitudes: amplitudesY } = spectrumParamsY;
-    const { frequencies: frequenciesZ, amplitudes: amplitudesZ } = spectrumParamsZ;
-
-    // Filtrar valores dentro del rango 0 - maxFreq Hz
+  const { filteredFreqsY, filteredAmpsY, filteredAmpsZ } = useMemo(() => {
     const filterData = (frequencies: number[], amplitudes: number[]) => {
       return frequencies.reduce<{ freqs: number[]; amps: number[] }>(
         (acc, freq, i) => {
@@ -47,18 +40,27 @@ const Index: React.FC<IndexProps> = ({
       );
     };
 
-    const { freqs: finalFrequenciesY, amps: finalAmplitudesY } = filterData(frequenciesY, amplitudesY);
-    const { amps: finalAmplitudesZ } = filterData(frequenciesZ, amplitudesZ);
+    const { freqs: filteredFreqsY, amps: filteredAmpsY } = filterData(
+      spectrumParamsY.frequencies,
+      spectrumParamsY.amplitudes
+    );
+    const { amps: filteredAmpsZ } = filterData(
+      spectrumParamsZ.frequencies,
+      spectrumParamsZ.amplitudes
+    );
 
-    // Configuración del gráfico
-    const config: ChartConfiguration = {
+    return { filteredFreqsY, filteredAmpsY, filteredAmpsZ };
+  }, [spectrumParamsY, spectrumParamsZ, maxFreq]);
+
+  const chartConfig = useMemo<ChartConfiguration>(
+    () => ({
       type: "line",
       data: {
-        labels: finalFrequenciesY,
+        labels: filteredFreqsY,
         datasets: [
           {
             label: "Amplitud Y",
-            data: finalAmplitudesY,
+            data: filteredAmpsY,
             borderColor: "rgba(75, 192, 192, 1)",
             backgroundColor: "rgba(75, 192, 192, 0.2)",
             fill: false,
@@ -66,7 +68,7 @@ const Index: React.FC<IndexProps> = ({
           },
           {
             label: "Amplitud Z",
-            data: finalAmplitudesZ,
+            data: filteredAmpsZ,
             borderColor: "rgba(255, 99, 132, 1)",
             backgroundColor: "rgba(255, 99, 132, 0.2)",
             fill: false,
@@ -78,9 +80,7 @@ const Index: React.FC<IndexProps> = ({
         responsive: true,
         animation: false,
         plugins: {
-          legend: {
-            display: true,
-          },
+          legend: { display: true },
           tooltip: {
             callbacks: {
               label: function (context) {
@@ -97,47 +97,43 @@ const Index: React.FC<IndexProps> = ({
             type: "linear",
             min: 0,
             max: maxFreq,
-            title: {
-              display: true,
-              text: "Frecuencia (Hz)",
-            },
+            title: { display: true, text: "Frecuencia (Hz)" },
             ticks: {
               stepSize: 1,
-              callback: function (value) {
-                return Number(value).toFixed(0);
-              },
+              callback: value => Number(value).toFixed(0),
             },
           },
           y: {
-            title: {
-              display: true,
-              text: "Amplitud (m/s²)",
-            },
+            title: { display: true, text: "Amplitud (m/s²)" },
             ticks: {
-              callback: function (value) {
-                return Number(value).toFixed(1);
-              },
+              callback: value => Number(value).toFixed(1),
             },
           },
         },
       },
-    };
+    }),
+    [filteredFreqsY, filteredAmpsY, filteredAmpsZ, maxFreq]
+  );
 
-    // Crear o actualizar el gráfico
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const ctx = canvasRef.current.getContext("2d");
+    if (!ctx) return;
+
     if (chartRef.current) {
-      chartRef.current.data.labels = finalFrequenciesY;
-      chartRef.current.data.datasets[0].data = finalAmplitudesY;
-      chartRef.current.data.datasets[1].data = finalAmplitudesZ;
+      chartRef.current.data.labels = filteredFreqsY;
+      chartRef.current.data.datasets[0].data = filteredAmpsY;
+      chartRef.current.data.datasets[1].data = filteredAmpsZ;
       chartRef.current.update();
     } else {
-      chartRef.current = new Chart(canvasRef.current, config);
+      chartRef.current = new Chart(ctx, chartConfig);
     }
 
     return () => {
       chartRef.current?.destroy();
       chartRef.current = null;
     };
-  }, [spectrumParamsY, spectrumParamsZ, maxFreq]);
+  }, [chartConfig]);
 
   return (
     <>
