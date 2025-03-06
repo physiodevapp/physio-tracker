@@ -82,7 +82,7 @@ const Index: React.FC<IndexProps> = ({
         responsive: true,
         animation: false,
         plugins: {
-          legend: { display: true },
+          legend: { display: true, labels: { usePointStyle: true } },
           tooltip: {
             callbacks: {
               label: function (context) {
