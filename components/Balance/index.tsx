@@ -130,15 +130,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 </tr>
                 <tr>
                   <td className="font-bold">Jerk</td>
-                  <td>{motionStatsData.jerk?.ML_Y!.toFixed(2)} m/s³</td>
-                  <td>{motionStatsData.jerk?.AP_Z!.toFixed(2)} m/s³</td>
+                  <td>{motionStatsData.jerk?.ML_Y?.toFixed(2) ?? "-"} m/s³</td>
+                  <td>{motionStatsData.jerk?.AP_Z?.toFixed(2) ?? "-"} m/s³</td>
                   <td>-</td>
                 </tr>
                 <tr>
                   <td className="font-bold">Area<sub> COP</sub></td>
                   <td>-</td>
                   <td>-</td>
-                  <td>{motionStatsData.copArea?.value!.toFixed(2)} cm²</td>
+                  <td>{motionStatsData.copArea?.value?.toFixed(2) ?? "-"} cm²</td>
                 </tr>
               </tbody>
             </table>

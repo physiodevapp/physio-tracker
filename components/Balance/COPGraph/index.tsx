@@ -125,7 +125,7 @@ const Index: React.FC<IndexProps> = ({ ellipseParams, areaParams, options }) => 
 
   return (
     <>
-      <canvas id={canvasId} ref={canvasRef} className="w-full h-[400px] bg-white" />;
+      <canvas id={canvasId} ref={canvasRef} className="w-full h-auto max-w-screen bg-white" />;
     </>
   )
 }
