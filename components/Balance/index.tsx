@@ -86,9 +86,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           </div>
         )} */}
         <p className="px-4 py-2">Log:: {log}</p>
-        {isBaselineDefined && (
+        {isBaselineDefined && (  
           <>
-            <section className="flex flex-col gap-4">
+            <section className="flex flex-col gap-4 m-0 p-0">
               <table className="w-full border-collapse text-center border border-black">
                 <thead>
                   <tr>
