@@ -49,7 +49,7 @@ export default function PWAInstallPrompt() {
           initial={{ y: "100%", opacity: 0 }}
           animate={{ y: "0%", opacity: 1 }}
           exit={{ y: "100%", opacity: 0 }}
-          transition={{ type: "spring", stiffness: 100, damping: 15 }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
         >
           <p className="text-gray-300 text-md text-center flex-1">Full experience:</p>
           <div className="flex gap-3">

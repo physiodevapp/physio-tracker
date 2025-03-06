@@ -67,7 +67,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         Balance
       </motion.h1>
       <div 
-        className={`relative w-full h-dvh flex flex-col justify-center items-center`}
+        className={`relative w-full h-dvh flex flex-col items-center overflow-auto pt-[6rem]`}
         onClick={handleMainLayer}
         >
 
