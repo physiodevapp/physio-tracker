@@ -14,6 +14,7 @@ import BalanceSettings from "@/modals/BalanceSettings";
 import { useMotionHandler } from "./Hooks/useMotionHandler";
 import SpectrumChart from "./FrequencyGraph";
 import COPChart from "./COPGraph";
+import { motion } from "framer-motion";
 // import CountdownRing from "./Counter";
 // import { useSettings } from "@/providers/Settings";
 
@@ -56,13 +57,20 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   return (
     <>
+      <motion.h1
+        initial={{ y: 0, opacity: 1 }}
+        animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 100, damping: 15 }}
+        className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-black/40 
+        rounded-full py-1 px-4 font-bold mt-2 whitespace-nowrap"
+      >
+        Balance
+      </motion.h1>
       <div 
         className={`relative w-full h-dvh flex flex-col justify-center items-center`}
         onClick={handleMainLayer}
         >
-        <h1 className={`absolute left-1/2 -translate-x-1/2 z-10 text-xl text-white bg-black/40 rounded-full py-1 px-4 font-bold mt-2 transition-[top] duration-300 ease-in-out whitespace-nowrap ${
-          isMainMenuOpen ? '-top-12' : 'top-0'
-        }`}>Balance</h1>
+
         {/* {(isRecording && !isBaselineDefined) && (
           <div 
             data-element="non-swipeable"

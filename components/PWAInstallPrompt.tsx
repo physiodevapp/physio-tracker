@@ -1,0 +1,73 @@
+"use client";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => void;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+}
+
+export default function PWAInstallPrompt() {
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event: Event) => {
+      console.log("🔥 `beforeinstallprompt` event fired!");
+      event.preventDefault();
+      setDeferredPrompt(event as BeforeInstallPromptEvent);
+      setShowPrompt(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    console.log("🛠️ Calling prompt()...");
+    deferredPrompt.prompt();
+    const choice = await deferredPrompt.userChoice;
+    console.log("✅ User choice:", choice.outcome);
+    setDeferredPrompt(null);
+    setShowPrompt(false);
+  };
+
+  const handleCancelClick = () => {
+    console.log("❌ User dismissed the PWA prompt.");
+    setShowPrompt(false);
+  };
+
+  return (
+    <AnimatePresence>
+      {showPrompt && (
+        <motion.div
+          className="fixed bottom-4 left-4 right-4 z-50 bg-gray-800 text-white p-4 rounded-lg shadow-xl flex justify-between items-center"
+          initial={{ y: "100%", opacity: 0 }}
+          animate={{ y: "0%", opacity: 1 }}
+          exit={{ y: "100%", opacity: 0 }}
+          transition={{ type: "spring", stiffness: 100, damping: 15 }}
+        >
+          <p className="text-gray-300 text-md">Full experience:</p>
+          <div className="flex gap-3">
+            <button
+              onClick={handleInstallClick}
+              className="bg-white hover:bg-gray-600 text-black font-bold px-4 py-2 rounded-lg transition"
+            >
+              Install
+            </button>
+            <button
+              onClick={handleCancelClick}
+              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}

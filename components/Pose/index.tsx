@@ -15,6 +15,7 @@ import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Pose";
 import PoseGraphSettingsModal from "@/modals/PoseGraphSettings";
 import PoseSettingsModal from "@/modals/PoseSettings";
+import { motion } from "framer-motion";
 
 interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
@@ -501,11 +502,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       <div className={`relative z-10 flex flex-col items-center justify-start ${
         displayGraphs ? "h-[50dvh]" : "h-dvh"
       }`}>
-        {true && (
-          <h1 className={`absolute left-1/2 -translate-x-1/2 z-10 text-xl text-white bg-black/40 rounded-full py-1 px-4 font-bold mt-2 transition-[top] duration-300 ease-in-out whitespace-nowrap  ${
-            isMainMenuOpen ? '-top-12' : 'top-0'
-          }`}>Kinematics</h1>
-        )}
+        <motion.h1
+          initial={{ y: 0, opacity: 1 }}
+          animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 100, damping: 15 }}
+          className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-black/40 
+          rounded-full py-1 px-4 font-bold mt-2 whitespace-nowrap"
+        >
+          Kinematics
+        </motion.h1>
         {!videoUrl && (
           <Webcam
             ref={webcamRef}

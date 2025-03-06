@@ -8,6 +8,7 @@ import { Bars3Icon, BookmarkIcon as BookmarkIconSolid } from "@heroicons/react/2
 import { useSettings } from "@/providers/Settings";
 import ForceSettings from "@/modals/ForceGraphSettings";
 import Image from "next/image";
+import { motion } from "framer-motion";
 
 // ----------------- Comandos y Códigos -----------------
 const CMD_TARE_SCALE = 100;
@@ -327,15 +328,21 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   // ----------------- Renderizado de la UI -----------------
   return (
     <>
+      <motion.h1
+        initial={{ y: 0, opacity: 1 }}
+        animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 100, damping: 15 }}
+        className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-black/40 
+        rounded-full py-1 px-4 font-bold mt-2 whitespace-nowrap"
+      >
+        Force Tracker
+      </motion.h1>
       <div
         className={`relative h-dvh p-5 transition-all duration-300 ease-in-out ${
           isMainMenuOpen ? "pt-16" : "pt-16"
         }`}
         onClick={handleMainLayer}
         >
-        <h1 className={`absolute left-1/2 -translate-x-1/2 z-10 text-xl text-white bg-black/40 rounded-full py-1 px-4 font-bold mt-2 transition-[top] duration-300 ease-in-out whitespace-nowrap  ${
-          isMainMenuOpen ? '-top-12' : 'top-0'
-        }`}>Force tracker</h1>
         {/* Conexión del dispositivo */}
         <div className="flex flex-col justify-center items-center">
           {device && isConnected && (

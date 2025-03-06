@@ -8,6 +8,8 @@ import { VideoConstraints } from "@/interfaces/camera";
 import { useSettings } from "@/providers/Settings";
 import ColorAnalyzerSettings from "@/modals/ColorAnalyzerSettings";
 import Script from "next/script";
+import { motion } from "framer-motion";
+
 
 interface ColorAnalysis {
   percentage: number;
@@ -403,13 +405,19 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         strategy="afterInteractive" 
         onLoad={() => setScriptLoaded(true)}
         />
+      <motion.h1
+        initial={{ y: 0, opacity: 1 }}
+        animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 100, damping: 15 }}
+        className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-black/40 
+        rounded-full py-1 px-4 font-bold mt-2 whitespace-nowrap"
+      >
+        Color Analyzer
+      </motion.h1>
       <div 
         className="relative w-full h-dvh"
         onClick={handleMainLayer}
         >
-        <h1 className={`absolute left-1/2 -translate-x-1/2 z-10 text-xl text-white bg-black/40 rounded-full py-1 px-4 font-bold mt-2 transition-[top] duration-300 ease-in-out whitespace-nowrap ${
-          isMainMenuOpen ? '-top-12' : 'top-0'
-        }`}>Color Analyzer</h1>
         {/* Video de Webcam */}
         <Webcam
           audio={false}
