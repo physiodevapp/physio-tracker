@@ -98,6 +98,7 @@ const Index: React.FC<IndexProps> = ({ ellipseParams, areaParams, options }) => 
       },
       options: {
         responsive: true,
+        animation: false,
         maintainAspectRatio: false,
         aspectRatio: 1,
         scales: {
