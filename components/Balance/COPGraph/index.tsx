@@ -62,61 +62,63 @@ const Index: React.FC<IndexProps> = ({ ellipseParams, areaParams, options }) => 
       chartInstance.current.data.datasets[1].data = convertedCOPPoints;
       chartInstance.current.data.datasets[2].data = copAreaPoints;
       chartInstance.current.update();
-      return;
+    }
+    // 🟠 Crear nuevo gráfico
+    else {
+      chartInstance.current = new Chart(ctx, {
+        type: "line",
+        data: {
+          datasets: [
+            {
+              label: "Ellipse",
+              data: ellipsePoints,
+              borderColor: "rgba(75, 192, 192, 1)",
+              fill: false,
+              pointRadius: 0,
+              tension: 0,
+            },
+            {
+              label: "Points",
+              data: convertedCOPPoints,
+              borderColor: "rgba(255, 99, 132, 1)",
+              backgroundColor: "rgba(255, 99, 132, 0.5)",
+              pointRadius: 1,
+              showLine: false,
+            },
+            {
+              label: "Area",
+              data: copAreaPoints,
+              borderColor: "rgba(0, 123, 255, 1)",
+              backgroundColor: "rgba(0, 123, 255, 0.2)",
+              fill: true,
+              pointRadius: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          animation: false,
+          // maintainAspectRatio: true,
+          // aspectRatio: 1,
+          scales: {
+            x: {
+              type: "linear",
+              title: { display: true, text: "ML (cm)" },
+              ticks: { callback: value => (typeof value === "number" ? value.toFixed(1) : value) },
+            },
+            y: {
+              title: { display: true, text: "AP (cm)" },
+            },
+          },
+          plugins: {
+            legend: { display: true, labels: { usePointStyle: true } },
+            tooltip: { enabled: false },
+          },
+        },
+      });
     }
 
-    // 🟠 Crear nuevo gráfico
-    chartInstance.current = new Chart(ctx, {
-      type: "line",
-      data: {
-        datasets: [
-          {
-            label: "Ellipse",
-            data: ellipsePoints,
-            borderColor: "rgba(75, 192, 192, 1)",
-            fill: false,
-            pointRadius: 0,
-            tension: 0,
-          },
-          {
-            label: "Points",
-            data: convertedCOPPoints,
-            borderColor: "rgba(255, 99, 132, 1)",
-            backgroundColor: "rgba(255, 99, 132, 0.5)",
-            pointRadius: 1,
-            showLine: false,
-          },
-          {
-            label: "Area",
-            data: copAreaPoints,
-            borderColor: "rgba(0, 123, 255, 1)",
-            backgroundColor: "rgba(0, 123, 255, 0.2)",
-            fill: true,
-            pointRadius: 0,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        animation: false,
-        maintainAspectRatio: false,
-        aspectRatio: 1,
-        scales: {
-          x: {
-            type: "linear",
-            title: { display: true, text: "ML (cm)" },
-            ticks: { callback: value => (typeof value === "number" ? value.toFixed(1) : value) },
-          },
-          y: {
-            title: { display: true, text: "AP (cm)" },
-          },
-        },
-        plugins: {
-          legend: { display: true, labels: { usePointStyle: true } },
-          tooltip: { enabled: false },
-        },
-      },
-    });
+    canvasRef.current.height = canvasRef.current.clientWidth; // Set height equal to width
 
     return () => {
       chartInstance.current?.destroy();

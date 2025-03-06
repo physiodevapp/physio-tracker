@@ -42,14 +42,14 @@ export interface ICOPStats {
     centerY: number,          // el meanAP del COP (cm)
   };
   copArea: {
-    value: number,            // en cm²
+    value: number | null,            // en cm²
     points: {
         x: number;
         y: number;
       }[],
   },
-  jerkML: number,             // en cm/s³
-  jerkAP: number,             // en cm/s³
+  jerkML: number | null,             // en cm/s³
+  jerkAP: number | null,             // en cm/s³
 }
 
 export interface IMotionStats {

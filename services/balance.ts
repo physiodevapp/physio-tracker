@@ -437,6 +437,7 @@ export function calculateCOP_Stats({
       covariance
     };
   }
+
   function calculateCOP_RMS({
     mlAccs,
     apAccs,
@@ -471,6 +472,7 @@ export function calculateCOP_Stats({
       global
     };
   }
+
   function calculateCOP_Ellipse({
     varianceML,
     varianceAP,
@@ -503,6 +505,7 @@ export function calculateCOP_Stats({
   
     return { semiMajor, semiMinor, orientation };
   }
+
   function calculateCOP_OscillationArea({
     copPoints
   }: {
@@ -572,6 +575,7 @@ export function calculateCOP_Stats({
   
     return { area, hull };
   }
+
   function calculateCOP_Jerk({
     accelerationY,
     accelerationZ,
@@ -717,11 +721,11 @@ export function calculateCOP_Stats({
       centerY: meanAP ?? 0,
     },
     copArea: {
-      value: copArea ?? 0,
+      value: copArea,
       points: copAreaPoints ?? [],
     },
-    jerkML: jerkML ?? 0, 
-    jerkAP: jerkAP ?? 0,
+    jerkML, 
+    jerkAP,
   };
 }
 
