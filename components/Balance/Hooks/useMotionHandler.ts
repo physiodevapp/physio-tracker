@@ -30,7 +30,7 @@ export function useMotionHandler() {
   
   // 🛠️ Variables de la calibracion
   const [isCalibrated, setIsCalibrated] = useState(false);
-  const [isBaselineCalibrated, setIsBaselineCalibrated] = useState(false);
+  const [isBaselineDefined, setIsBaselineDefined] = useState(false);
   const isBaselineCalibratedRef = useRef<boolean>(false);
   const baseline = useRef({ x: 0, y: 0, z: 0 });
   const calibrationAttempts = useRef<number>(0);
@@ -170,7 +170,7 @@ export function useMotionHandler() {
       sumZ += record.noGravity.z;
     }
     baseline.current = { x: sumX / n, y: sumY / n, z: sumZ / n };
-    setIsBaselineCalibrated(true);
+    setIsBaselineDefined(true);
     isBaselineCalibratedRef.current = true;
   }
 
@@ -255,7 +255,7 @@ export function useMotionHandler() {
       domFreq_z: null,
     };
     setIsCalibrated(false);
-    setIsBaselineCalibrated(false);
+    setIsBaselineDefined(false);
     isBaselineCalibratedRef.current = false;
     baseline.current = { x: 0, y: 0, z: 0 };
     
@@ -415,7 +415,7 @@ export function useMotionHandler() {
 
   return { 
     samplingFrequency, 
-    isAcquiring, isCalibrated, isBaselineCalibrated, 
+    isAcquiring, isCalibrated, isBaselineDefined, 
     startMotion, stopMotion,
     log, 
     motionStatsData,
