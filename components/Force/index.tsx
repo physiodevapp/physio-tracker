@@ -333,7 +333,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 100, damping: 15 }}
         className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-black/40 
-        rounded-full py-1 px-4 font-bold mt-2 whitespace-nowrap"
+        rounded-full py-2 px-4 font-bold mt-2 whitespace-nowrap"
       >
         Force Tracker
       </motion.h1>
