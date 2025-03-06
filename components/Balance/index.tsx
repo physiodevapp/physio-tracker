@@ -66,6 +66,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       >
         Balance
       </motion.h1>
+      <div className="absolute top-0 left-0 z-[1] w-full h-[6rem] bg-white/30 backdrop-blur-lg mask-blur-gradient pointer-events-none"></div>
       <div 
         className={`relative w-full h-dvh flex flex-col items-center overflow-auto pt-[6rem]`}
         onClick={handleMainLayer}
@@ -88,8 +89,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         <p className="px-4 py-2">Log:: {log}</p>
         {isBaselineDefined && (  
           <>
-            <section className="flex flex-col gap-4 m-0 p-0">
-              <table className="w-full border-collapse text-center border border-black">
+            <section className="flex flex-row flex-wrap w-full px-1">
+              <table className="flex-1 basis-full border-collapse text-center border border-black">
                 <thead>
                   <tr>
                     <th className="text-left px-4 py-2"></th>
@@ -143,38 +144,42 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   </tr>
                 </tbody>
               </table>
-              <SpectrumChart 
-                spectrumParamsY={{
-                  frequencies: frequencyData.frequencies_y,
-                  amplitudes: frequencyData.amplitudes_y
-                }}
-                spectrumParamsZ={{
-                  frequencies: frequencyData.frequencies_z,
-                  amplitudes: frequencyData.amplitudes_z
-                }}
-                options={{                
-                  canvasId: "spectrum",
-                  maxFreq: 10
-                }}
-                />
-              {!isRecording && (
-                <COPChart 
-                  areaParams={{
-                    copAreaPoints: motionStatsData.copArea!.boundaryPoints!
+              <div className="flex-1 basis-full">
+                <SpectrumChart 
+                  spectrumParamsY={{
+                    frequencies: frequencyData.frequencies_y,
+                    amplitudes: frequencyData.amplitudes_y
                   }}
-                  ellipseParams={{
-                    copPoints: motionStatsData.copPoints!,
-                    semiMajor: motionStatsData.ellipse!.semiMajor!,
-                    semiMinor: motionStatsData.ellipse!.semiMinor!,
-                    orientation: motionStatsData.ellipse!.orientation!,
-                    centerX: motionStatsData.ellipse!.centerX!,
-                    centerY: motionStatsData.ellipse!.centerY!
+                  spectrumParamsZ={{
+                    frequencies: frequencyData.frequencies_z,
+                    amplitudes: frequencyData.amplitudes_z
                   }}
-                  options={{
-                    canvasId: "cop"
+                  options={{                
+                    canvasId: "spectrum",
+                    maxFreq: 10
                   }}
                   />
-              )}
+              </div> 
+              <div className="flex-1 basis-full">
+                {!isRecording && (
+                  <COPChart 
+                    areaParams={{
+                      copAreaPoints: motionStatsData.copArea!.boundaryPoints!
+                    }}
+                    ellipseParams={{
+                      copPoints: motionStatsData.copPoints!,
+                      semiMajor: motionStatsData.ellipse!.semiMajor!,
+                      semiMinor: motionStatsData.ellipse!.semiMinor!,
+                      orientation: motionStatsData.ellipse!.orientation!,
+                      centerX: motionStatsData.ellipse!.centerX!,
+                      centerY: motionStatsData.ellipse!.centerY!
+                    }}
+                    options={{
+                      canvasId: "cop"
+                    }}
+                    />
+                )}
+              </div>  
             </section> 
           </>
         )}
