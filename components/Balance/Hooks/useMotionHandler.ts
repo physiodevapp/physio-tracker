@@ -36,7 +36,7 @@ export function useMotionHandler() {
   const calibrationAttempts = useRef<number>(0);
   const calibrationCyclesCompleted = useRef<boolean>(false);
   const calibrated = useRef<boolean>(false);
-  const calibratedData = useRef<{
+  const calibratedDataRef = useRef<{
     std_y: number | null;
     std_z: number | null;
     domFreq_y: number | null;
@@ -60,12 +60,12 @@ export function useMotionHandler() {
   const [log, setLog] = useState("");
   const [motionStatsData, setMotionStats] = useState<IMotionStats>({
     zeroFrequency: {
-      ML_Y: parseFloat(calibratedData.current.domFreq_y?.toFixed(1) ?? "0"),
-      AP_Z: parseFloat(calibratedData.current.domFreq_z?.toFixed(1) ?? "0"),
+      ML_Y: parseFloat(calibratedDataRef.current.domFreq_y?.toFixed(1) ?? "0"),
+      AP_Z: parseFloat(calibratedDataRef.current.domFreq_z?.toFixed(1) ?? "0"),
     },
     zeroSTD: {
-      ML_Y: parseFloat(calibratedData.current.std_y?.toFixed(1) ?? "0"),
-      AP_Z: parseFloat(calibratedData.current.std_z?.toFixed(1) ?? "0"),
+      ML_Y: parseFloat(calibratedDataRef.current.std_y?.toFixed(1) ?? "0"),
+      AP_Z: parseFloat(calibratedDataRef.current.std_z?.toFixed(1) ?? "0"),
     },
     mainFrequency: {
       ML_Y: parseFloat(frequencyData.dominantFrequency_y?.toFixed(3) ?? "0"),
@@ -121,8 +121,6 @@ export function useMotionHandler() {
         return false;
       }
 
-      setLog(`STD Y | Z: ${std_y.toFixed(2)} | ${std_z.toFixed(2)} m/s²`);
-
       const {
         dominantFrequency_y: domFreq_y, 
         dominantFrequency_z: domFreq_z,
@@ -138,10 +136,8 @@ export function useMotionHandler() {
         return false;
       }
 
-      setLog(`Dom. freq. Y | Z: ${domFreq_y.toFixed(2)} | ${domFreq_z.toFixed(2)} Hz`);
-
       calibrated.current = true;
-      calibratedData.current = { 
+      calibratedDataRef.current = { 
         std_y, 
         std_z,
         domFreq_y, 
@@ -252,7 +248,7 @@ export function useMotionHandler() {
     calibrated.current = false;
     calibrationCyclesCompleted.current = false;
     calibrationAttempts.current = 0;
-    calibratedData.current = {
+    calibratedDataRef.current = {
       std_y: null,
       std_z: null,
       domFreq_y: null,
@@ -369,12 +365,12 @@ export function useMotionHandler() {
   
       setMotionStats({
         zeroFrequency: {
-          ML_Y: calibratedData.current.domFreq_y!,
-          AP_Z: calibratedData.current.domFreq_z!,
+          ML_Y: calibratedDataRef.current.domFreq_y!,
+          AP_Z: calibratedDataRef.current.domFreq_z!,
         },
         zeroSTD: {
-          ML_Y: calibratedData.current.std_y!,
-          AP_Z: calibratedData.current.std_z!,
+          ML_Y: calibratedDataRef.current.std_y!,
+          AP_Z: calibratedDataRef.current.std_z!,
         },
         mainFrequency: {
           ML_Y: parseFloat(dominantFrequency_y?.toFixed(3) ?? "0"),
@@ -404,7 +400,7 @@ export function useMotionHandler() {
         },
         copPoints,
       });
-      setLog(`Y: ${dominantFrequency_y} | Z: ${dominantFrequency_z}`);
+      setLog(`Y: ${dominantFrequency_y.toFixed(2)} | Z: ${dominantFrequency_z.toFixed(2)}`);
     } catch (error) {
       setLog(`Unsufficient data. , ${error}`);
     }

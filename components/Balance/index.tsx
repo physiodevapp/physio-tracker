@@ -27,9 +27,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   // const { settings } = useSettings();
   const { 
     startMotion, stopMotion,
-    isBaselineCalibrated, 
-    frequencyData,
+    isBaselineCalibrated,
     log,
+    motionStatsData, 
+    frequencyData,
   } = useMotionHandler();
 
   const toggleSettings = (visibility?: boolean) => {
@@ -77,18 +78,79 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         )} */}
         <div>Log:: {log}</div>
         {isBaselineCalibrated && (
-          <SpectrumChart 
-            canvasId="spectrum"
-            spectrumParamsY={{
-              frequencies: frequencyData.frequencies_y,
-              amplitudes: frequencyData.amplitudes_y
-            }}
-            spectrumParamsZ={{
-              frequencies: frequencyData.frequencies_z,
-              amplitudes: frequencyData.amplitudes_z
-            }}
-            maxFreq={10}
-            />
+          <>
+            <table className="w-full border-collapse text-center border border-black">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="text-left px-4 py-2"></th>
+                  <th>ML (Y)</th>
+                  <th>AP (Z)</th>
+                  <th>Global</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="font-bold">Zero<sub> fr</sub></td>
+                  <td>{motionStatsData.zeroFrequency.ML_Y!.toFixed(1)} Hz</td>
+                  <td>{motionStatsData.zeroFrequency.AP_Z!.toFixed(1)} Hz</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td className="font-bold">Zero<sub> STD</sub></td>
+                  <td>{motionStatsData.zeroSTD.ML_Y!.toFixed(1)} m/s²</td>
+                  <td>{motionStatsData.zeroSTD.AP_Z!.toFixed(1)} m/s²</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td className="font-bold">Main<sub> fr</sub></td>
+                  <td>{motionStatsData.mainFrequency.ML_Y!.toFixed(3)} Hz</td>
+                  <td>{motionStatsData.mainFrequency.AP_Z!.toFixed(3)} Hz</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td className="font-bold">RMS</td>
+                  <td>{motionStatsData.RMS.ML_Y!.toFixed(1)} cm</td>
+                  <td>{motionStatsData.RMS.AP_Z!.toFixed(1)} cm</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td className="font-bold">Var</td>
+                  <td>{motionStatsData.Variance.ML_Y!.toFixed(3)} cm²</td>
+                  <td>{motionStatsData.Variance.AP_Z!.toFixed(3)} cm²</td>
+                  <td>{motionStatsData.Variance.Global!.toFixed(3)} cm²</td>
+                </tr>
+                <tr>
+                  <td className="font-bold">Jerk</td>
+                  <td>{motionStatsData.jerk?.ML_Y!.toFixed(2)} m/s³</td>
+                  <td>{motionStatsData.jerk?.AP_Z!.toFixed(2)} m/s³</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td className="font-bold">Area<sub> COP</sub></td>
+                  <td>-</td>
+                  <td>-</td>
+                  <td>{motionStatsData.copArea?.value!.toFixed(2)} cm²</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <SpectrumChart 
+              canvasId="spectrum"
+              spectrumParamsY={{
+                frequencies: frequencyData.frequencies_y,
+                amplitudes: frequencyData.amplitudes_y
+              }}
+              spectrumParamsZ={{
+                frequencies: frequencyData.frequencies_z,
+                amplitudes: frequencyData.amplitudes_z
+              }}
+              maxFreq={10}
+              />
+            {!isRecording && (
+              <>
+              </>
+            )}
+          </>
         )}
       </div>
       {(showSettings && !isRecording) && (
@@ -133,7 +195,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             onClick={() => !isRecording && toggleSettings()}
             />
         </>
-       </section> 
+      </section> 
     </>
   );
 };
