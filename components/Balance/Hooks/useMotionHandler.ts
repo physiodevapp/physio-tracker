@@ -400,7 +400,6 @@ export function useMotionHandler() {
         },
         copPoints,
       });
-      setLog(`Y: ${dominantFrequency_y.toFixed(2)} | Z: ${dominantFrequency_z.toFixed(2)}`);
     } catch (error) {
       setLog(`Unsufficient data. , ${error}`);
     }
