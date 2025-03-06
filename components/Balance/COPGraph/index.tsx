@@ -98,8 +98,8 @@ const Index: React.FC<IndexProps> = ({ ellipseParams, areaParams, options }) => 
         options: {
           responsive: true,
           animation: false,
-          // maintainAspectRatio: true,
-          // aspectRatio: 1,
+          maintainAspectRatio: true,
+          aspectRatio: 1,
           scales: {
             x: {
               type: "linear",
@@ -118,7 +118,7 @@ const Index: React.FC<IndexProps> = ({ ellipseParams, areaParams, options }) => 
       });
     }
 
-    canvasRef.current.height = canvasRef.current.clientWidth; // Set height equal to width
+    // canvasRef.current.height = canvasRef.current.clientWidth; // Set height equal to width
 
     return () => {
       chartInstance.current?.destroy();
