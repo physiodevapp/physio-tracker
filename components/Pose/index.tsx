@@ -499,16 +499,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             <p>Setting up...</p>
           </div>
       )}
-      <div className={`relative z-10 flex flex-col items-center justify-start ${
-        displayGraphs ? "h-[50dvh]" : "h-dvh"
-      }`}>
+      <div className={`relative z-30 flex flex-col items-center justify-start ${
+          displayGraphs ? "h-[50dvh]" : "h-dvh"
+        }`}>
         <motion.h1
           initial={{ y: 0, opacity: 1 }}
           animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 100, damping: 15 }}
           className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-black/40 
-          rounded-full py-2 px-4 font-bold mt-2 whitespace-nowrap"
-        >
+          rounded-full py-2 px-4 font-bold mt-2 whitespace-nowrap">
           Kinematics
         </motion.h1>
         {!videoUrl && (
@@ -640,20 +639,30 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           </section>
         )}
 
-        <PoseModal 
+        {/* <PoseModal 
           isModalOpen={isPoseModalOpen} 
           handleModal={handlePoseModal} 
           jointOptions={jointOptions}
           maxSelected={maxJointsAllowed }
           initialSelectedJoints={settings.pose.selectedJoints} 
           onSelectionChange={handleJointSelection} 
-          />
+          /> */}
 
         <PoseSettingsModal 
           isModalOpen={isPoseSettingsModalOpen}
           handleModal={handleSettingsModal}
           />
       </div> 
+
+      <PoseModal 
+        isModalOpen={isPoseModalOpen} 
+        handleModal={handlePoseModal} 
+        jointOptions={jointOptions}
+        maxSelected={maxJointsAllowed }
+        initialSelectedJoints={settings.pose.selectedJoints} 
+        onSelectionChange={handleJointSelection} 
+        />
+
       {displayGraphs && (
         <>
           <PoseGraph 
