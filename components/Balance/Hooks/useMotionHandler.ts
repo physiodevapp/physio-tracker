@@ -323,8 +323,9 @@ export function useMotionHandler() {
   function stopMotion() {
     if (motionListenerActive.current) {
       console.log("🔴 Motion Listener DETENIDO");
-      window.removeEventListener("devicemotion", handleMotion);
+      motionListenerActive.current = false;
       analyzeDeviceMotionData({calculationMode: "postProcessing"});
+      window.removeEventListener('devicemotion', handleMotion, false);      
     }
   }
 
