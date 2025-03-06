@@ -58,7 +58,6 @@ export function useMotionHandler() {
     dominantFrequency_z: null,
   });
   const [log, setLog] = useState("");
-  const logRef = useRef<string>("");
   const [motionStatsData, setMotionStats] = useState<IMotionStats>({
     zeroFrequency: {
       ML_Y: parseFloat(calibratedData.current.domFreq_y?.toFixed(1) ?? "0"),
@@ -90,7 +89,7 @@ export function useMotionHandler() {
     }
 
     if (now - measurementStartTime.current < CALIBRATION_DELAY) {
-      logRef.current = `Esperando ${((CALIBRATION_DELAY - (now - measurementStartTime.current)) / 1000).toFixed(0)} segundos...`;
+      setLog(`Esperando ${((CALIBRATION_DELAY - (now - measurementStartTime.current)) / 1000).toFixed(0)} segundos...`);
       setIsAcquiring(false);
       return false;
     }
@@ -105,7 +104,7 @@ export function useMotionHandler() {
 
     if (!calibrated.current) {
       if (motionDataRef.current.length < CALIBRATION_POINTS) {
-        logRef.current = `Calibrando... Datos insuficientes: ${motionDataRef.current.length} puntos`;
+        setLog(`Calibrando... Datos insuficientes: ${motionDataRef.current.length} puntos`);
         return false;
       }
 
@@ -118,11 +117,11 @@ export function useMotionHandler() {
       });
 
       if (std_y > CALIBRATION_STD_THRESHOLD || std_z > CALIBRATION_STD_THRESHOLD) {
-        logRef.current = `Calibrando... STD Y: ${std_y.toFixed(3)} m/s², STD Z: ${std_z.toFixed(3)} m/s²`;
+        setLog(`Calibrando... STD Y: ${std_y.toFixed(3)} m/s², STD Z: ${std_z.toFixed(3)} m/s²`);
         return false;
       }
 
-      logRef.current = `STD Y | Z: ${std_y} | ${std_z} m/s²`;
+      setLog(`STD Y | Z: ${std_y.toFixed(2)} | ${std_z.toFixed(2)} m/s²`);
 
       const {
         dominantFrequency_y: domFreq_y, 
@@ -135,11 +134,11 @@ export function useMotionHandler() {
       });
 
       if (domFreq_y > CALIBRATION_DOM_FREQ_THRESHOLD || domFreq_z > CALIBRATION_DOM_FREQ_THRESHOLD) {
-        logRef.current = `Calibrando... frecuencia dominante (Y: ${domFreq_y.toFixed(2)} Hz, Z: ${domFreq_z.toFixed(2)} Hz) supera el umbral`;
+        setLog(`Calibrando... frecuencia dominante (Y: ${domFreq_y.toFixed(2)} Hz, Z: ${domFreq_z.toFixed(2)} Hz) supera el umbral`);
         return false;
       }
 
-      logRef.current = `Dom. freq. Y | Z: ${domFreq_y} | ${domFreq_z} Hz`;
+      setLog(`Dom. freq. Y | Z: ${domFreq_y.toFixed(2)} | ${domFreq_z.toFixed(2)} Hz`);
 
       calibrated.current = true;
       calibratedData.current = { 
@@ -269,7 +268,6 @@ export function useMotionHandler() {
     setSamplingFrequency(null);
     samplingFrequencyRef.current = null;
     setLog("");
-    logRef.current = "";
     setMotionStats({
       zeroFrequency: {
         ML_Y: 0,
@@ -405,15 +403,18 @@ export function useMotionHandler() {
         },
         copPoints,
       });
-      logRef.current = `Y: ${dominantFrequency_y} | Z: ${dominantFrequency_z}`;
+      setLog(`Y: ${dominantFrequency_y} | Z: ${dominantFrequency_z}`);
     } catch (error) {
-      logRef.current = `Unsufficient data. , ${error}`;
+      setLog(`Unsufficient data. , ${error}`);
     }
   }
 
   useEffect(() => {
-    setLog(logRef.current);
-  }, [motionDataRef.current.length]);
+
+    return () => {
+      window.removeEventListener("devicemotion", handleMotion);
+    }
+  }, []);  
 
   return { 
     samplingFrequency, 
