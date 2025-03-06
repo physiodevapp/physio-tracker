@@ -15,7 +15,7 @@ import { useMotionHandler } from "./Hooks/useMotionHandler";
 import SpectrumChart from "./FrequencyGraph";
 import COPChart from "./COPGraph";
 import { motion } from "framer-motion";
-// import CountdownRing from "./Counter";
+import CountdownRing from "./Counter";
 // import { useSettings } from "@/providers/Settings";
 
 export interface IndexProps {
@@ -66,122 +66,134 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       >
         Balance
       </motion.h1>
-      <div className="absolute top-0 left-0 z-[1] w-full h-[6rem] bg-white/30 backdrop-blur-lg mask-blur-gradient pointer-events-none"></div>
+      {isRecording && (
+        <div 
+          data-element="non-swipeable"
+          className='absolute w-full h-dvh z-50 flex justify-center items-center bg-black/30'
+          onClick={() => setIsRecording(false)}
+          >
+          <CountdownRing 
+            seconds={15}
+            start={isBaselineDefined}
+            size={200}
+            thickness={12}
+            backgroundThickness={11}
+            color={!isBaselineDefined ? 'yellow' : 'limegreen'}
+            backgroundColor='#444'
+            text={log}
+            />
+        </div>
+      )}
+      <div className="absolute top-0 left-0 z-[1] w-full h-[6rem] bg-gradient-to-b from-white dark:from-black to-transparent pointer-events-none"></div>
       <div 
         className={`relative w-full h-dvh flex flex-col items-center overflow-auto pt-[6rem]`}
         onClick={handleMainLayer}
         >
-
-        {/* {(isRecording && !isBaselineDefined) && (
-          <div 
-            data-element="non-swipeable"
-            className='w-full h-dvh z-50 flex justify-center items-center bg-black/30'
-            >
-            <CountdownRing 
-              size={200}
-              thickness={12}
-              backgroundThickness={11}
-              color={!isCalibrated ? 'yellow' : 'limegreen'}
-              backgroundColor='#444'
-              />
-          </div>
-        )} */}
-        <p className="px-4 py-2">Log:: {log}</p>
+        {(((motionStatsData.copPoints?.length ?? 0) < 100) && !isRecording && isBaselineDefined) && (
+          <p className="px-4 py-2">{log}</p>
+        )}
         {isBaselineDefined && (  
-          <>
-            <section className="flex flex-row flex-wrap w-full px-1">
-              <table className="flex-1 basis-full border-collapse text-center border border-black">
-                <thead>
-                  <tr>
-                    <th className="text-left px-4 py-2"></th>
-                    <th>ML (Y)</th>
-                    <th>AP (Z)</th>
-                    <th>Global</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="font-bold">Zero<sub> fr</sub></td>
-                    <td>{motionStatsData.zeroFrequency.ML_Y!.toFixed(1)} Hz</td>
-                    <td>{motionStatsData.zeroFrequency.AP_Z!.toFixed(1)} Hz</td>
-                    <td>-</td>
-                  </tr>
-                  <tr>
-                    <td className="font-bold">Zero<sub> STD</sub></td>
-                    <td>{motionStatsData.zeroSTD.ML_Y!.toFixed(1)} m/s²</td>
-                    <td>{motionStatsData.zeroSTD.AP_Z!.toFixed(1)} m/s²</td>
-                    <td>-</td>
-                  </tr>
-                  <tr>
-                    <td className="font-bold">Main<sub> fr</sub></td>
-                    <td>{motionStatsData.mainFrequency.ML_Y!.toFixed(3)} Hz</td>
-                    <td>{motionStatsData.mainFrequency.AP_Z!.toFixed(3)} Hz</td>
-                    <td>-</td>
-                  </tr>
-                  <tr>
-                    <td className="font-bold">RMS</td>
-                    <td>{motionStatsData.RMS.ML_Y!.toFixed(1)} cm</td>
-                    <td>{motionStatsData.RMS.AP_Z!.toFixed(1)} cm</td>
-                    <td>-</td>
-                  </tr>
-                  <tr>
-                    <td className="font-bold">Var</td>
-                    <td>{motionStatsData.Variance.ML_Y!.toFixed(3)} cm²</td>
-                    <td>{motionStatsData.Variance.AP_Z!.toFixed(3)} cm²</td>
-                    <td>{motionStatsData.Variance.Global!.toFixed(3)} cm²</td>
-                  </tr>
-                  <tr>
-                    <td className="font-bold">Jerk</td>
-                    <td>{motionStatsData.jerk?.ML_Y?.toFixed(2) ?? "-"} m/s³</td>
-                    <td>{motionStatsData.jerk?.AP_Z?.toFixed(2) ?? "-"} m/s³</td>
-                    <td>-</td>
-                  </tr>
-                  <tr>
-                    <td className="font-bold">Area<sub> COP</sub></td>
-                    <td>-</td>
-                    <td>-</td>
-                    <td>{motionStatsData.copArea?.value?.toFixed(2) ?? "-"} cm²</td>
-                  </tr>
-                </tbody>
-              </table>
-              <div className="flex-1 basis-full">
-                <SpectrumChart 
-                  spectrumParamsY={{
-                    frequencies: frequencyData.frequencies_y,
-                    amplitudes: frequencyData.amplitudes_y
+          <section className="flex flex-row flex-wrap w-full px-1 gap-y-4">
+            <table className="flex-1 basis-full border-collapse text-center border border-black">
+              <thead>
+                <tr>
+                  <th className="text-left px-4 py-2"></th>
+                  <th>ML (Y)</th>
+                  <th>AP (Z)</th>
+                  <th>Global</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="font-bold">Zero<sub> fr</sub></td>
+                  <td>{motionStatsData.zeroFrequency.ML_Y!.toFixed(1)} Hz</td>
+                  <td>{motionStatsData.zeroFrequency.AP_Z!.toFixed(1)} Hz</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td className="font-bold">Zero<sub> STD</sub></td>
+                  <td>{motionStatsData.zeroSTD.ML_Y!.toFixed(1)} m/s²</td>
+                  <td>{motionStatsData.zeroSTD.AP_Z!.toFixed(1)} m/s²</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td className="font-bold">Main<sub> fr</sub></td>
+                  <td>{motionStatsData.mainFrequency.ML_Y!.toFixed(3)} Hz</td>
+                  <td>{motionStatsData.mainFrequency.AP_Z!.toFixed(3)} Hz</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td className="font-bold">RMS</td>
+                  <td>{motionStatsData.RMS.ML_Y!.toFixed(1)} cm</td>
+                  <td>{motionStatsData.RMS.AP_Z!.toFixed(1)} cm</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td className="font-bold">Var</td>
+                  <td>{motionStatsData.Variance.ML_Y!.toFixed(3)} cm²</td>
+                  <td>{motionStatsData.Variance.AP_Z!.toFixed(3)} cm²</td>
+                  <td>{motionStatsData.Variance.Global!.toFixed(3)} cm²</td>
+                </tr>
+                <tr>
+                  <td className="font-bold">Jerk</td>
+                  <td>{motionStatsData.jerk?.ML_Y !== undefined 
+                    ? `${motionStatsData.jerk!.ML_Y!.toFixed(2)} m/s³` 
+                    : "-"}
+                  </td>
+                  <td>{ motionStatsData.jerk?.AP_Z !== undefined 
+                    ? `${motionStatsData.jerk!.AP_Z!.toFixed(2)} m/s³` 
+                    : "-" }
+                  </td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td className="font-bold">Area<sub> COP</sub></td>
+                  <td>-</td>
+                  <td>-</td>
+                  <td>{ motionStatsData.copArea?.value !== null 
+                    ? `${motionStatsData.copArea!.value!.toFixed(2)} cm²` 
+                    : "-" }
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="flex-1 basis-full">
+              <SpectrumChart 
+                spectrumParamsY={{
+                  frequencies: frequencyData.frequencies_y,
+                  amplitudes: frequencyData.amplitudes_y
+                }}
+                spectrumParamsZ={{
+                  frequencies: frequencyData.frequencies_z,
+                  amplitudes: frequencyData.amplitudes_z
+                }}
+                options={{                
+                  canvasId: "spectrum",
+                  maxFreq: 10
+                }}
+                />
+            </div> 
+            <div className="flex-1 basis-full">
+              {!isRecording && (
+                <COPChart 
+                  areaParams={{
+                    copAreaPoints: motionStatsData.copArea!.boundaryPoints!
                   }}
-                  spectrumParamsZ={{
-                    frequencies: frequencyData.frequencies_z,
-                    amplitudes: frequencyData.amplitudes_z
+                  ellipseParams={{
+                    copPoints: motionStatsData.copPoints!,
+                    semiMajor: motionStatsData.ellipse!.semiMajor!,
+                    semiMinor: motionStatsData.ellipse!.semiMinor!,
+                    orientation: motionStatsData.ellipse!.orientation!,
+                    centerX: motionStatsData.ellipse!.centerX!,
+                    centerY: motionStatsData.ellipse!.centerY!
                   }}
-                  options={{                
-                    canvasId: "spectrum",
-                    maxFreq: 10
+                  options={{
+                    canvasId: "cop"
                   }}
                   />
-              </div> 
-              <div className="flex-1 basis-full">
-                {!isRecording && (
-                  <COPChart 
-                    areaParams={{
-                      copAreaPoints: motionStatsData.copArea!.boundaryPoints!
-                    }}
-                    ellipseParams={{
-                      copPoints: motionStatsData.copPoints!,
-                      semiMajor: motionStatsData.ellipse!.semiMajor!,
-                      semiMinor: motionStatsData.ellipse!.semiMinor!,
-                      orientation: motionStatsData.ellipse!.orientation!,
-                      centerX: motionStatsData.ellipse!.centerX!,
-                      centerY: motionStatsData.ellipse!.centerY!
-                    }}
-                    options={{
-                      canvasId: "cop"
-                    }}
-                    />
-                )}
-              </div>  
-            </section> 
-          </>
+              )}
+            </div>  
+          </section> 
         )}
       </div>
       {(showSettings && !isRecording) && (

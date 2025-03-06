@@ -2,25 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+html {
+  @apply bg-background-light text-foreground-light transition-colors;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  @apply bg-background-dark text-foreground-dark;
 }
+
 
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
-
-  .mask-blur-gradient {
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0.4rem, rgba(0, 0, 0, 0) 6rem);
-    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0.4rem, rgba(0, 0, 0, 0) 6rem);
-  }
 }

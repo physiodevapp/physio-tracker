@@ -89,7 +89,8 @@ export function useMotionHandler() {
     }
 
     if (now - measurementStartTimeRef.current < CALIBRATION_DELAY) {
-      setLog(`Esperando ${((CALIBRATION_DELAY - (now - measurementStartTimeRef.current)) / 1000).toFixed(0)} segundos...`);
+      // console.log(`Esperando ${((CALIBRATION_DELAY - (now - measurementStartTimeRef.current)) / 1000).toFixed(0)} segundos...`);
+      setLog(`Hold still...`)
       setIsAcquiring(false);
       return false;
     }
@@ -104,7 +105,8 @@ export function useMotionHandler() {
 
     if (!calibratedRef.current) {
       if (motionDataRef.current.length < CALIBRATION_POINTS) {
-        setLog(`Calibrando... Datos insuficientes: ${motionDataRef.current.length} puntos`);
+        // console.log(`Calibrando... Datos insuficientes: ${motionDataRef.current.length} puntos`);
+        setLog(`Calibrating...`);
         return false;
       }
 
@@ -117,7 +119,8 @@ export function useMotionHandler() {
       });
 
       if (std_y > CALIBRATION_STD_THRESHOLD || std_z > CALIBRATION_STD_THRESHOLD) {
-        setLog(`Calibrando... STD Y: ${std_y.toFixed(3)} m/s², STD Z: ${std_z.toFixed(3)} m/s²`);
+        // console.log(`Calibrando... STD Y: ${std_y.toFixed(3)} m/s², STD Z: ${std_z.toFixed(3)} m/s²`);
+        setLog(`STD...`);
         return false;
       }
 
@@ -132,7 +135,8 @@ export function useMotionHandler() {
       });
 
       if (domFreq_y > CALIBRATION_DOM_FREQ_THRESHOLD || domFreq_z > CALIBRATION_DOM_FREQ_THRESHOLD) {
-        setLog(`Calibrando... frecuencia dominante (Y: ${domFreq_y.toFixed(2)} Hz, Z: ${domFreq_z.toFixed(2)} Hz) supera el umbral`);
+        // console.log(`Calibrando... frecuencia dominante (Y: ${domFreq_y.toFixed(2)} Hz, Z: ${domFreq_z.toFixed(2)} Hz) supera el umbral`);
+        setLog(`Frequency...`)
         return false;
       }
 
@@ -400,8 +404,9 @@ export function useMotionHandler() {
         },
         copPoints,
       });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      setLog(`Unsufficient data. , ${error}`);
+      setLog(`Unsufficient data`);
     }
   }
 

@@ -45,23 +45,23 @@ export default function PWAInstallPrompt() {
     <AnimatePresence>
       {showPrompt && (
         <motion.div
-          className="fixed bottom-4 left-4 right-4 z-50 bg-gray-800 text-white p-4 rounded-lg shadow-xl flex justify-between items-center gap-2"
+          className="fixed bottom-4 left-4 right-4 z-50 dark:bg-gray-800 p-4 rounded-lg shadow-xl flex justify-between items-center gap-2"
           initial={{ y: "100%", opacity: 0 }}
           animate={{ y: "0%", opacity: 1 }}
           exit={{ y: "100%", opacity: 0 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
-          <p className="text-gray-300 text-md text-center flex-1">Full experience:</p>
+          <p className="dark:text-gray-300 text-md text-center flex-1">Full experience:</p>
           <div className="flex gap-3">
             <button
               onClick={handleInstallClick}
-              className="bg-white hover:bg-gray-600 text-black font-bold px-4 py-2 rounded-lg transition"
+              className="bg-blue-500 hover:bg-gray-600 text-white font-bold px-4 py-2 rounded-lg transition"
             >
               Install
             </button>
             <button
               onClick={handleCancelClick}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition"
+              className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 px-4 py-2 rounded-lg transition"
             >
               Cancel
             </button>

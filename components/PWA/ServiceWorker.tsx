@@ -1,4 +1,4 @@
-"use client"; // Este código solo se ejecuta en el cliente
+"use client";
 
 import { useEffect } from "react";
 

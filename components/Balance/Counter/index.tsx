@@ -4,39 +4,46 @@
 import React, { useState, useEffect } from "react";
 
 interface IndexProps {
+  seconds: number;
+  start: boolean;
   size?: number;                   // Tamaño en píxeles. Si no se especifica, se usa un valor por defecto.
   thickness?: number;             // Grosor del anillo. Valor por defecto: 8.
   backgroundThickness?: number;   // Grosor del anillo de fondo. Si no se especifica, se usa thickness.
   color?: string;
   backgroundColor?: string;
+  text?: string;
 }
 
 const Index = ({ 
+  seconds,
+  start = true,
   size = 100, 
   thickness = 8, 
   backgroundThickness, 
   color = "limegreen", 
-  backgroundColor = "#444" 
+  backgroundColor = "#444",
+  text,
 }: IndexProps) => {
   // const { settings } = useSettings();
-  const totalDuration = 15 //settings.balance.testDuration;
   
-  const [timeLeft, setTimeLeft] = useState(totalDuration);
+  const [timeLeft, setTimeLeft] = useState(seconds);
 
   // Si no se especifica backgroundThickness, se utiliza thickness.
   const bgThickness = backgroundThickness !== undefined ? backgroundThickness : thickness;
 
   useEffect(() => {
-    setTimeLeft(totalDuration); // Reset al cambiar la duración
+    if (!start) return;
 
-    if (totalDuration <= 0) return;
+    setTimeLeft(seconds); // Reset al cambiar la duración
+
+    if (seconds <= 0) return;
 
     const interval = setInterval(() => {
       setTimeLeft((prev: number) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [totalDuration]);
+  }, [seconds]);
 
   // Para centrar ambos círculos, usamos el mayor de los dos grosores.
   const center = size / 2;
@@ -44,12 +51,12 @@ const Index = ({
   const radius = center - maxThickness / 2;
   const circumference = 2 * Math.PI * radius;
 
-  const progress = (timeLeft / totalDuration) * 100;
+  const progress = (timeLeft / seconds) * 100;
   const strokeDashoffset = circumference * (1 - progress / 100);
 
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className={`${!start ? 'animate-pulse' : ''}`}>
         {/* Círculo de fondo */}
         <circle
           cx={center}
@@ -75,9 +82,12 @@ const Index = ({
           />
       </svg>
       {/* Tiempo restante en el centro */}
-      <span className="absolute text-6xl font-bold text-white animate-pulse">
-        {timeLeft} s
-      </span>
+      <div className="absolute flex flex-row flex-wrap justify-center">
+        <p className={`flex-1 basis-full text-center text-6xl font-bold ${start ? 'animate-pulse' : ''}`}>{timeLeft} s</p>
+        {text && (
+          <p className={`flex-1 basis-full text-center text-2xl animate-pulse`}>{text}</p>
+        )}
+      </div>
     </div>
   );
 };

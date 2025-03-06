@@ -139,7 +139,7 @@ const Index: React.FC<IndexProps> = ({
 
   return (
     <>
-      <canvas id={canvasId} ref={canvasRef} className="w-full h-auto max-w-screen bg-white" />
+      <canvas id={canvasId} ref={canvasRef} className="w-full h-auto max-w-screen bg-white rounded-lg" />
     </>
   );
 };
