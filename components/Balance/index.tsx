@@ -90,7 +90,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           <>
             <table className="w-full border-collapse text-center border border-black">
               <thead>
-                <tr className="bg-gray-100">
+                <tr>
                   <th className="text-left px-4 py-2"></th>
                   <th>ML (Y)</th>
                   <th>AP (Z)</th>

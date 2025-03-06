@@ -5,25 +5,25 @@ import { IFilterState, IFrequencyData, IMotionData, IMotionStats } from "@/inter
 import { butterworthLowPass_SampleGeneric, getFrequencyFeatures, calculateSTD, calculateCOP_Stats } from "@/services/balance";
 
 // 🔗 Constantes
-const CALIBRATION_DELAY = 6000; // 6 segundos
+const CALIBRATION_DELAY = 6_000; // 6 segundos en milesegundos
 const CALIBRATION_POINTS = 200;
 const CALIBRATION_STD_THRESHOLD = 1.00; // m/s²
 const CALIBRATION_DOM_FREQ_THRESHOLD = 2.0; // Hz
 const REQUIRED_CALIBRATION_ATTEMPTS = 2; // Se requieren 2 ciclos exitosos
-const GRAVITY = 9.81;
+const GRAVITY = 9.81; // m/s²
 const CUTOFF_FREQUENCY = 5; // Frecuencia de corte recomendada
 
 export function useMotionHandler() {  
   // 🛠️ Variables del filtro Butterworth
-  const filterStateY = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });
-  const filterStateY_2 = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });
-  const filterStateZ = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });
-  const filterStateZ_2 = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });
+  const filterStateRef_Y = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });
+  const filterStateRef_Y_2 = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });
+  const filterStateRef_Z = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });
+  const filterStateRef_Z_2 = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });
   
   // 🛠️ Variables del listener
   const [isAcquiring, setIsAcquiring] = useState(false);
-  const motionListenerActive = useRef(false);
-  const measurementStartTime = useRef<number | null>(null);
+  const motionListenerActiveRef = useRef(false);
+  const measurementStartTimeRef = useRef<number | null>(null);
   const [samplingFrequency, setSamplingFrequency] = useState<number | null>(null);
   const samplingFrequencyRef = useRef<number | null>(null);
   const motionDataRef = useRef<IMotionData[]>([]);
@@ -31,11 +31,11 @@ export function useMotionHandler() {
   // 🛠️ Variables de la calibracion
   const [isCalibrated, setIsCalibrated] = useState(false);
   const [isBaselineDefined, setIsBaselineDefined] = useState(false);
-  const isBaselineCalibratedRef = useRef<boolean>(false);
-  const baseline = useRef({ x: 0, y: 0, z: 0 });
-  const calibrationAttempts = useRef<number>(0);
-  const calibrationCyclesCompleted = useRef<boolean>(false);
-  const calibrated = useRef<boolean>(false);
+  const isBaselineDefinedRef = useRef<boolean>(false);
+  const baselineRef = useRef({ x: 0, y: 0, z: 0 });
+  const calibrationAttemptsRef = useRef<number>(0);
+  const calibrationCyclesCompletedRef = useRef<boolean>(false);
+  const calibratedRef = useRef<boolean>(false);
   const calibratedDataRef = useRef<{
     std_y: number | null;
     std_z: number | null;
@@ -84,12 +84,12 @@ export function useMotionHandler() {
 
   // ⚙️ **Encapsulación de la verificación de adquisición**
   function isAcquisitionReady(now: number): boolean {
-    if (!measurementStartTime.current) {
-      measurementStartTime.current = now;
+    if (!measurementStartTimeRef.current) {
+      measurementStartTimeRef.current = now;
     }
 
-    if (now - measurementStartTime.current < CALIBRATION_DELAY) {
-      setLog(`Esperando ${((CALIBRATION_DELAY - (now - measurementStartTime.current)) / 1000).toFixed(0)} segundos...`);
+    if (now - measurementStartTimeRef.current < CALIBRATION_DELAY) {
+      setLog(`Esperando ${((CALIBRATION_DELAY - (now - measurementStartTimeRef.current)) / 1000).toFixed(0)} segundos...`);
       setIsAcquiring(false);
       return false;
     }
@@ -100,9 +100,9 @@ export function useMotionHandler() {
 
   // ⚙️ **Encapsulación de la calibración**
   function checkCalibration(): boolean {
-    if (calibrationCyclesCompleted.current) return true;
+    if (calibrationCyclesCompletedRef.current) return true;
 
-    if (!calibrated.current) {
+    if (!calibratedRef.current) {
       if (motionDataRef.current.length < CALIBRATION_POINTS) {
         setLog(`Calibrando... Datos insuficientes: ${motionDataRef.current.length} puntos`);
         return false;
@@ -136,7 +136,7 @@ export function useMotionHandler() {
         return false;
       }
 
-      calibrated.current = true;
+      calibratedRef.current = true;
       calibratedDataRef.current = { 
         std_y, 
         std_z,
@@ -145,21 +145,21 @@ export function useMotionHandler() {
       return false;
     } else {
       // Fase final de calibración
-      calibrationAttempts.current++;
-      if (calibrationAttempts.current < REQUIRED_CALIBRATION_ATTEMPTS) {
-        measurementStartTime.current = null;
-        calibrated.current = false;
+      calibrationAttemptsRef.current++;
+      if (calibrationAttemptsRef.current < REQUIRED_CALIBRATION_ATTEMPTS) {
+        measurementStartTimeRef.current = null;
+        calibratedRef.current = false;
         motionDataRef.current = [];
         return false;
       }
 
-      calibrationCyclesCompleted.current = true;
+      calibrationCyclesCompletedRef.current = true;
       setIsCalibrated(true);
       return true;
     }
   }
 
-  // ⚙️ **Encapsulación del baseline**
+  // ⚙️ **Encapsulación del baselineRef**
   function calibrateBaseline () {
     if (motionDataRef.current.length === 0) return;
     const n = motionDataRef.current.length;
@@ -169,15 +169,15 @@ export function useMotionHandler() {
       sumY += record.noGravity.y;
       sumZ += record.noGravity.z;
     }
-    baseline.current = { x: sumX / n, y: sumY / n, z: sumZ / n };
+    baselineRef.current = { x: sumX / n, y: sumY / n, z: sumZ / n };
     setIsBaselineDefined(true);
-    isBaselineCalibratedRef.current = true;
+    isBaselineDefinedRef.current = true;
   }
 
   // ⚙️ **Evento DeviceMotion**
   function handleMotion(event: DeviceMotionEvent) {
     try {
-      if (!motionListenerActive.current) return;
+      if (!motionListenerActiveRef.current) return;
       const now = Date.now();
       
       // Verificar si el tiempo de adquisición está listo
@@ -200,15 +200,15 @@ export function useMotionHandler() {
 
         // Filtrar datos sin gravedad
         const filteredY = butterworthLowPass_SampleGeneric({
-          x0: (noGravity.y ?? 0) - (isBaselineCalibratedRef.current ? baseline.current.y : 0),
-          states: [filterStateY.current, filterStateY_2.current],
+          x0: (noGravity.y ?? 0) - (isBaselineDefinedRef.current ? baselineRef.current.y : 0),
+          states: [filterStateRef_Y.current, filterStateRef_Y_2.current],
           cutoffFrequency: CUTOFF_FREQUENCY,
           samplingFrequency: samplingFrequencyRef.current!
         }) ?? 0;
 
         const filteredZ = butterworthLowPass_SampleGeneric({
-          x0: (noGravity.z ?? 0) - (isBaselineCalibratedRef.current ? baseline.current.z : 0),
-          states: [filterStateZ.current, filterStateZ_2.current],
+          x0: (noGravity.z ?? 0) - (isBaselineDefinedRef.current ? baselineRef.current.z : 0),
+          states: [filterStateRef_Z.current, filterStateRef_Z_2.current],
           cutoffFrequency: CUTOFF_FREQUENCY,
           samplingFrequency: samplingFrequencyRef.current!
         }) ?? 0;
@@ -219,16 +219,16 @@ export function useMotionHandler() {
           interval,
           gravity: { x: gravityX, y: gravityY, z: gravityZ },
           noGravity: {
-            x: (noGravity.x ?? 0) - (isBaselineCalibratedRef.current ? baseline.current.x : 0),
-            y: (noGravity.y ?? 0) - (isBaselineCalibratedRef.current ? baseline.current.y : 0),
-            z: (noGravity.z ?? 0) - (isBaselineCalibratedRef.current ? baseline.current.z : 0),
+            x: (noGravity.x ?? 0) - (isBaselineDefinedRef.current ? baselineRef.current.x : 0),
+            y: (noGravity.y ?? 0) - (isBaselineDefinedRef.current ? baselineRef.current.y : 0),
+            z: (noGravity.z ?? 0) - (isBaselineDefinedRef.current ? baselineRef.current.z : 0),
           },
           noGravityFiltered: { y: filteredY, z: filteredZ }
         });
 
         if (!checkCalibration()) return;
 
-        if (!isBaselineCalibratedRef.current) calibrateBaseline();
+        if (!isBaselineDefinedRef.current) calibrateBaseline();
 
         analyzeDeviceMotionData({calculationMode: "realTime"});
       }
@@ -240,14 +240,14 @@ export function useMotionHandler() {
   // ⚙️ **Restaurar variables**
   function reset() {
     // Reiniciar el listener del evento DeviceMotion
-    motionListenerActive.current = true;
+    motionListenerActiveRef.current = true;
     setIsAcquiring(false);
     
     // Resetear los datos recientes utilizados en la calibración
-    measurementStartTime.current = null;
-    calibrated.current = false;
-    calibrationCyclesCompleted.current = false;
-    calibrationAttempts.current = 0;
+    measurementStartTimeRef.current = null;
+    calibratedRef.current = false;
+    calibrationCyclesCompletedRef.current = false;
+    calibrationAttemptsRef.current = 0;
     calibratedDataRef.current = {
       std_y: null,
       std_z: null,
@@ -256,8 +256,8 @@ export function useMotionHandler() {
     };
     setIsCalibrated(false);
     setIsBaselineDefined(false);
-    isBaselineCalibratedRef.current = false;
-    baseline.current = { x: 0, y: 0, z: 0 };
+    isBaselineDefinedRef.current = false;
+    baselineRef.current = { x: 0, y: 0, z: 0 };
     
     // Resetear variables relacionadas con la medición
     motionDataRef.current = [];
@@ -297,10 +297,10 @@ export function useMotionHandler() {
     })
   
     // Resetear estados de los filtros Butterworth
-    filterStateY.current = { x1: 0, x2: 0, y1: 0, y2: 0 };
-    filterStateY_2.current = { x1: 0, x2: 0, y1: 0, y2: 0 };
-    filterStateZ.current = { x1: 0, x2: 0, y1: 0, y2: 0 };
-    filterStateZ_2.current = { x1: 0, x2: 0, y1: 0, y2: 0 };
+    filterStateRef_Y.current = { x1: 0, x2: 0, y1: 0, y2: 0 };
+    filterStateRef_Y_2.current = { x1: 0, x2: 0, y1: 0, y2: 0 };
+    filterStateRef_Z.current = { x1: 0, x2: 0, y1: 0, y2: 0 };
+    filterStateRef_Z_2.current = { x1: 0, x2: 0, y1: 0, y2: 0 };
   }  
 
   // ⚙️ ** Iniciar prueba **
@@ -317,9 +317,9 @@ export function useMotionHandler() {
 
   // ⚙️ ** Finalizar prueba **
   function stopMotion() {
-    if (motionListenerActive.current) {
+    if (motionListenerActiveRef.current) {
       console.log("🔴 Motion Listener DETENIDO");
-      motionListenerActive.current = false;
+      motionListenerActiveRef.current = false;
       analyzeDeviceMotionData({calculationMode: "postProcessing"});
       window.removeEventListener('devicemotion', handleMotion, false);      
     }
