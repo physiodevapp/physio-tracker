@@ -55,12 +55,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
   }, [isRecording]);
 
-  useEffect(() => {
-    console.log('== COPData ==');
-    console.log(COPData);
-    console.log('=====================');
-  }, [COPData])
-
   return (
     <>
       <motion.h1
@@ -91,105 +85,110 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             />
         </div>
       )}
-      <div className="absolute top-0 left-0 z-[1] w-full h-[6rem] bg-gradient-to-b from-white dark:from-black to-transparent pointer-events-none"></div>
+      <div className="absolute top-0 left-0 z-[1] w-full h-[7rem] bg-gradient-to-b from-white dark:from-black to-transparent pointer-events-none"></div>
       <div 
-        className={`relative w-full h-dvh flex flex-col items-center overflow-auto pt-[6rem]`}
+        className={`relative w-full h-dvh flex flex-col items-center overflow-auto pt-[7rem]`}
         onClick={handleMainLayer}
         >
         {(((COPData.copPoints?.length ?? 0) < 100) && !isRecording && isBaselineDefined) && (
           <p className="px-4 py-2">{log}</p>
         )}
-        {(isBaselineDefined && !isRecording) && (  
-          <section className="flex flex-row flex-wrap w-full px-1 gap-y-4">
-            <table className="flex-1 basis-full border-collapse text-center border border-black">
-              <thead>
-                <tr>
-                  <th className="text-left px-4 py-2"></th>
-                  <th>ML (Y)</th>
-                  <th>AP (Z)</th>
-                  <th>Global</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="font-bold">Zero<sub> fr</sub></td>
-                  <td>{COPData.zeroFrequency.ML_Y} Hz</td>
-                  <td>{COPData.zeroFrequency.AP_Z} Hz</td>
-                  <td>-</td>
-                </tr>
-                <tr>
-                  <td className="font-bold">Zero<sub> STD</sub></td>
-                  <td>{COPData.zeroSTD.ML_Y} m/s²</td>
-                  <td>{COPData.zeroSTD.AP_Z} m/s²</td>
-                  <td>-</td>
-                </tr>
-                <tr>
-                  <td className="font-bold">Main<sub> fr</sub></td>
-                  <td>{COPData.mainFrequency.ML_Y} Hz</td>
-                  <td>{COPData.mainFrequency.AP_Z} Hz</td>
-                  <td>-</td>
-                </tr>
-                <tr>
-                  <td className="font-bold">RMS</td>
-                  <td>{COPData.RMS.ML_Y} cm</td>
-                  <td>{COPData.RMS.AP_Z} cm</td>
-                  <td>-</td>
-                </tr>
-                <tr>
-                  <td className="font-bold">Var</td>
-                  <td>{COPData.Variance.ML_Y} cm²</td>
-                  <td>{COPData.Variance.AP_Z} cm²</td>
-                  <td>{COPData.Variance.Global} cm²</td>
-                </tr>
-                <tr>
-                  <td className="font-bold">Jerk</td>
-                  <td>{COPData.jerk?.ML_Y ?? "-"} m/s³</td>
-                  <td>{COPData.jerk?.AP_Z ?? "-"} m/s³</td>
-                  <td>-</td>
-                </tr>
-                <tr>
-                  <td className="font-bold">Area<sub> COP</sub></td>
-                  <td>-</td>
-                  <td>-</td>
-                  <td>{COPData.copArea?.value ?? "-"} cm²</td>
-                </tr>
-              </tbody>
-            </table>
-            <div className="flex-1 basis-full">
-              <SpectrumChart 
-                spectrumParamsY={{
-                  frequencies: frequencyData.frequencies_y,
-                  amplitudes: frequencyData.amplitudes_y
-                }}
-                spectrumParamsZ={{
-                  frequencies: frequencyData.frequencies_z,
-                  amplitudes: frequencyData.amplitudes_z
-                }}
-                options={{                
-                  canvasId: "spectrum",
-                  maxFreq: 10
-                }}
-                />
-            </div> 
-            <div className="flex-1 basis-full">
-              <COPChart 
-                areaParams={{
-                  copAreaPoints: COPData.copArea?.boundaryPoints ?? [{x: 0, y: 0}]
-                }}
-                ellipseParams={{
-                  copPoints: COPData.copPoints ?? [{ml: 0, ap: 0}],
-                  semiMajor: COPData.ellipse?.semiMajor ?? 0,
-                  semiMinor: COPData.ellipse?.semiMinor ?? 0,
-                  orientation: COPData.ellipse?.orientation ?? 0,
-                  centerX: COPData.ellipse?.centerX ?? 0,
-                  centerY: COPData.ellipse?.centerY ?? 0
-                }}
-                options={{
-                  canvasId: "cop"
-                }}
-                />     
-            </div>  
-          </section> 
+        {(!isRecording && isBaselineDefined) && (  
+          <>
+            <p className="absolute -translate-y-10 text-lg">Metrics analyzed</p>
+            <section className="flex flex-row flex-wrap w-full px-1 gap-y-4">
+              <div className="flex-1 basis-full py-2 border-2 border-black dark:border-white rounded-lg">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr>
+                      <th className="pr-2 w-16 py-2"></th>
+                      <th className="pl-2">ML (Y)</th>
+                      <th className="pl-2">AP (Z)</th>
+                      <th className="pl-2">Global</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="pr-2 w-16 font-bold text-right ">Z<sub> fr</sub></td>
+                      <td className="pl-2">{COPData.zeroFrequency.ML_Y} Hz</td>
+                      <td className="pl-2">{COPData.zeroFrequency.AP_Z} Hz</td>
+                      <td className="pl-2">-</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-2 w-16 font-bold text-right ">Z<sub> STD</sub></td>
+                      <td className="pl-2">{COPData.zeroSTD.ML_Y} m/s²</td>
+                      <td className="pl-2">{COPData.zeroSTD.AP_Z} m/s²</td>
+                      <td className="pl-2">-</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-2 w-16 font-bold text-right ">Main<sub> fr</sub></td>
+                      <td className="pl-2">{COPData.mainFrequency.ML_Y} Hz</td>
+                      <td className="pl-2">{COPData.mainFrequency.AP_Z} Hz</td>
+                      <td className="pl-2">-</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-2 w-16 font-bold text-right ">RMS</td>
+                      <td className="pl-2">{COPData.RMS.ML_Y} cm</td>
+                      <td className="pl-2">{COPData.RMS.AP_Z} cm</td>
+                      <td className="pl-2">-</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-2 w-16 font-bold text-right ">Var</td>
+                      <td className="pl-2">{COPData.Variance.ML_Y} cm²</td>
+                      <td className="pl-2">{COPData.Variance.AP_Z} cm²</td>
+                      <td className="pl-2">{COPData.Variance.Global} cm²</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-2 w-16 font-bold text-right ">Jerk</td>
+                      <td className="pl-2">{COPData.jerk?.ML_Y ?? "-"} m/s³</td>
+                      <td className="pl-2">{COPData.jerk?.AP_Z ?? "-"} m/s³</td>
+                      <td className="pl-2">-</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-2 w-16 font-bold text-right ">Area</td>
+                      <td className="pl-2">-</td>
+                      <td className="pl-2">-</td>
+                      <td className="pl-2">{COPData.copArea?.value ?? "-"} cm²</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex-1 basis-full">
+                <SpectrumChart 
+                  spectrumParamsY={{
+                    frequencies: frequencyData.frequencies_y,
+                    amplitudes: frequencyData.amplitudes_y
+                  }}
+                  spectrumParamsZ={{
+                    frequencies: frequencyData.frequencies_z,
+                    amplitudes: frequencyData.amplitudes_z
+                  }}
+                  options={{                
+                    canvasId: "spectrum",
+                    maxFreq: 10
+                  }}
+                  />
+              </div> 
+              <div className="flex-1 basis-full">
+                <COPChart 
+                  areaParams={{
+                    copAreaPoints: COPData.copArea?.boundaryPoints ?? [{x: 0, y: 0}]
+                  }}
+                  ellipseParams={{
+                    copPoints: COPData.copPoints ?? [{ml: 0, ap: 0}],
+                    semiMajor: COPData.ellipse?.semiMajor ?? 0,
+                    semiMinor: COPData.ellipse?.semiMinor ?? 0,
+                    orientation: COPData.ellipse?.orientation ?? 0,
+                    centerX: COPData.ellipse?.centerX ?? 0,
+                    centerY: COPData.ellipse?.centerY ?? 0
+                  }}
+                  options={{
+                    canvasId: "cop"
+                  }}
+                  />     
+              </div>  
+            </section> 
+          </>
         )}
       </div>
       {(showSettings && !isRecording) && (

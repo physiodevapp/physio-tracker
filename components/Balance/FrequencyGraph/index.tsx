@@ -81,6 +81,8 @@ const Index: React.FC<IndexProps> = ({
       options: {
         responsive: true,
         animation: false,
+        maintainAspectRatio: true,
+        aspectRatio: 1,
         plugins: {
           legend: { display: true, labels: { usePointStyle: true } },
           tooltip: {
