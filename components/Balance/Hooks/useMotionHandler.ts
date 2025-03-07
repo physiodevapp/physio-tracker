@@ -190,6 +190,8 @@ export function useMotionHandler() {
     setIsBaselineDefined(true);
     isBaselineDefinedRef.current = true;
 
+    setLog("Evaluating...")
+
     motionDataRef.current = [];
   }
 

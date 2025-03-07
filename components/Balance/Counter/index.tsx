@@ -6,6 +6,7 @@ import React, { useState, useEffect } from "react";
 interface IndexProps {
   seconds: number;
   start: boolean;
+  endTrigger: () => void;
   size?: number;                   // Tamaño en píxeles. Si no se especifica, se usa un valor por defecto.
   thickness?: number;             // Grosor del anillo. Valor por defecto: 8.
   backgroundThickness?: number;   // Grosor del anillo de fondo. Si no se especifica, se usa thickness.
@@ -17,6 +18,7 @@ interface IndexProps {
 const Index = ({ 
   seconds,
   start = true,
+  endTrigger,
   size = 100, 
   thickness = 8, 
   backgroundThickness, 
@@ -39,7 +41,14 @@ const Index = ({
     if (seconds <= 0) return;
 
     const interval = setInterval(() => {
-      setTimeLeft((prev: number) => (prev > 0 ? prev - 1 : 0));
+      setTimeLeft((prev: number) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          endTrigger(); // Llamar a la función cuando el tiempo llegue a 0 ms
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
 
     return () => clearInterval(interval);
@@ -85,7 +94,7 @@ const Index = ({
       <div className="absolute flex flex-row flex-wrap justify-center">
         <p className={`flex-1 basis-full text-center text-6xl font-bold ${start ? 'animate-pulse' : ''}`}>{timeLeft} s</p>
         {text && (
-          <p className={`flex-1 basis-full text-center text-2xl animate-pulse`}>{text}</p>
+          <p className={`flex-1 basis-full text-center text-2xl ${!start ? 'animate-pulse' : ''}`}>{text}</p>
         )}
       </div>
     </div>
