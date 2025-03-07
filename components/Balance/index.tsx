@@ -137,24 +137,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 </tr>
                 <tr>
                   <td className="font-bold">Jerk</td>
-                  <td>{motionStatsData.jerk?.ML_Y !== null 
-                    ? `${motionStatsData.jerk!.ML_Y} m/s³` 
-                    : "-"}
-                  </td>
-                  <td>{ motionStatsData.jerk?.AP_Z !== null 
-                    ? `${motionStatsData.jerk!.AP_Z} m/s³` 
-                    : "-" }
-                  </td>
+                  <td>{motionStatsData.jerk?.ML_Y ?? "-"} m/s³</td>
+                  <td>{motionStatsData.jerk?.AP_Z ?? "-"} m/s³</td>
                   <td>-</td>
                 </tr>
                 <tr>
                   <td className="font-bold">Area<sub> COP</sub></td>
                   <td>-</td>
                   <td>-</td>
-                  <td>{ motionStatsData.copArea?.value !== null 
-                    ? `${motionStatsData.copArea!.value} cm²` 
-                    : "-" }
-                  </td>
+                  <td>{motionStatsData.copArea?.value ?? "-"} cm²</td>
                 </tr>
               </tbody>
             </table>

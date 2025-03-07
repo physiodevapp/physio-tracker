@@ -34,25 +34,27 @@ const Index = ({
   const bgThickness = backgroundThickness !== undefined ? backgroundThickness : thickness;
 
   useEffect(() => {
-    if (!start) return;
-
-    setTimeLeft(seconds); // Reset al cambiar la duración
-
-    if (seconds <= 0) return;
-
+    setTimeLeft(seconds); // Resetear el tiempo cuando cambie `seconds`
+  }, [seconds]);
+  
+  useEffect(() => {
+    if (!start || seconds <= 0) return;
+  
     const interval = setInterval(() => {
       setTimeLeft((prev: number) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          endTrigger(); // Llamar a la función cuando el tiempo llegue a 0 ms
-          return 0;
+        const newTimeLeft = prev - 1;
+  
+        // 🔥 Disparar `endTrigger` cuando el porcentaje alcance un valor específico
+        if ((newTimeLeft / seconds) * 100 === 0) { // 🔹 Disparar al 0%
+          endTrigger();
         }
-        return prev - 1;
+  
+        return newTimeLeft > 0 ? newTimeLeft : 0;
       });
     }, 1000);
-
+  
     return () => clearInterval(interval);
-  }, [seconds, start]);
+  }, [start, seconds, endTrigger]);  
 
   // Para centrar ambos círculos, usamos el mayor de los dos grosores.
   const center = size / 2;
