@@ -189,8 +189,6 @@ export function useMotionHandler() {
 
     setIsBaselineDefined(true);
     isBaselineDefinedRef.current = true;
-    
-    motionDataRef.current = [];
   }
 
   // ⚙️ **Evento DeviceMotion**
