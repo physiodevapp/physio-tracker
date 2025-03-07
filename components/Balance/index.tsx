@@ -92,7 +92,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         {(((motionStatsData.copPoints?.length ?? 0) < 100) && !isRecording && isBaselineDefined) && (
           <p className="px-4 py-2">{log}</p>
         )}
-        {isBaselineDefined && (  
+        {(isBaselineDefined && !isRecording) && (  
           <section className="flex flex-row flex-wrap w-full px-1 gap-y-4">
             <table className="flex-1 basis-full border-collapse text-center border border-black">
               <thead>
