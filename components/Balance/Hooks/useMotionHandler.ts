@@ -396,16 +396,16 @@ export function useMotionHandler() {
   
       setCOPData({
         zeroFrequency: {
-          ML_Y: parseFloat((calibratedDataRef.current.domFreq_y!).toFixed(3) ?? "0"),
-          AP_Z: parseFloat((calibratedDataRef.current.domFreq_z!).toFixed(3) ?? "0"),
+          ML_Y: parseFloat((calibratedDataRef.current.domFreq_y!).toFixed(2) ?? "0"),
+          AP_Z: parseFloat((calibratedDataRef.current.domFreq_z!).toFixed(2) ?? "0"),
         },
         zeroSTD: {
           ML_Y: parseFloat((calibratedDataRef.current.std_y!).toFixed(3) ?? "0"),
           AP_Z: parseFloat((calibratedDataRef.current.std_z!).toFixed(3) ?? "0"),
         },
         mainFrequency: {
-          ML_Y: parseFloat(dominantFrequency_y?.toFixed(3) ?? "0"),
-          AP_Z: parseFloat(dominantFrequency_z?.toFixed(3) ?? "0"),
+          ML_Y: parseFloat(dominantFrequency_y?.toFixed(2) ?? "0"),
+          AP_Z: parseFloat(dominantFrequency_z?.toFixed(2) ?? "0"),
         },
         RMS: {
           ML_Y: parseFloat(rmsML?.toFixed(1) ?? "0"),

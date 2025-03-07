@@ -61,7 +61,7 @@ const Index: React.FC<IndexProps> = ({
         labels: filteredFreqsY,
         datasets: [
           {
-            label: "Amplitud Y",
+            label: "ML Amplitude",
             data: filteredAmpsY,
             borderColor: "rgba(75, 192, 192, 1)",
             backgroundColor: "rgba(75, 192, 192, 0.2)",
@@ -69,7 +69,7 @@ const Index: React.FC<IndexProps> = ({
             pointRadius: 4,
           },
           {
-            label: "Amplitud Z",
+            label: "AP Amplitude",
             data: filteredAmpsZ,
             borderColor: "rgba(255, 99, 132, 1)",
             backgroundColor: "rgba(255, 99, 132, 0.2)",
@@ -141,7 +141,7 @@ const Index: React.FC<IndexProps> = ({
 
   return (
     <>
-      <canvas id={canvasId} ref={canvasRef} className="w-full h-auto max-w-screen bg-white rounded-lg" />
+      <canvas id={canvasId} ref={canvasRef} className="w-full h-auto max-w-screen bg-white rounded-lg py-2 pr-1"/>
     </>
   );
 };
