@@ -207,14 +207,14 @@ export function useMotionHandler() {
 
       if (incGravity && noGravity) {
         // Calcular sin gravedad
-        const noGravityX = noGravity.x ?? 0;
-        const noGravityY = noGravity.y ?? 0;
-        const noGravityZ = noGravity.z ?? 0;
+        const noGravity_X = noGravity.x ?? 0;
+        const noGravity_Y = noGravity.y ?? 0;
+        const noGravity_Z = noGravity.z ?? 0;
 
         // Calcular gravedad
-        const gravityX = (incGravity.x ?? 0) - noGravityX;
-        const gravityY = (incGravity.y ?? 0) - noGravityY;
-        const gravityZ = (incGravity.z ?? 0) - noGravityZ;
+        const gravity_X = (incGravity.x ?? 0) - noGravity_X;
+        const gravity_Y = (incGravity.y ?? 0) - noGravity_Y;
+        const gravity_Z = (incGravity.z ?? 0) - noGravity_Z;
 
         // Obtener timestamp e intervalo
         const timestamp = now;
@@ -223,15 +223,15 @@ export function useMotionHandler() {
         samplingFrequencyRef.current = (1000 / interval);
 
         // Filtrar datos sin gravedad
-        const filteredY = butterworthLowPass_SampleGeneric({
-          x0: noGravityY - baselineRef.current.noGravityFiltered.y ,
+        const filtered_Y = butterworthLowPass_SampleGeneric({
+          x0: noGravity_Y - baselineRef.current.noGravityFiltered.y ,
           states: [filterStateRef_Y.current, filterStateRef_Y_2.current],
           cutoffFrequency: CUTOFF_FREQUENCY,
           samplingFrequency: samplingFrequencyRef.current!
         }) ?? 0;
 
-        const filteredZ = butterworthLowPass_SampleGeneric({
-          x0: noGravityZ - baselineRef.current.noGravityFiltered.z,
+        const filtered_Z = butterworthLowPass_SampleGeneric({
+          x0: noGravity_Z - baselineRef.current.noGravityFiltered.z,
           states: [filterStateRef_Z.current, filterStateRef_Z_2.current],
           cutoffFrequency: CUTOFF_FREQUENCY,
           samplingFrequency: samplingFrequencyRef.current!
@@ -241,13 +241,13 @@ export function useMotionHandler() {
         motionDataRef.current.push({
           timestamp,
           interval,
-          gravity: { x: gravityX, y: gravityY, z: gravityZ },
+          gravity: { x: gravity_X, y: gravity_Y, z: gravity_Z },
           noGravity: {
-            x: noGravityX - baselineRef.current.noGravity.x,
-            y: noGravityY - baselineRef.current.noGravity.y,
-            z: noGravityZ - baselineRef.current.noGravity.z,
+            x: noGravity_X - baselineRef.current.noGravity.x,
+            y: noGravity_Y - baselineRef.current.noGravity.y,
+            z: noGravity_Z - baselineRef.current.noGravity.z,
           },
-          noGravityFiltered: { y: filteredY, z: filteredZ }
+          noGravityFiltered: { y: filtered_Y, z: filtered_Z }
         });
 
         if (!checkCalibration()) return;
