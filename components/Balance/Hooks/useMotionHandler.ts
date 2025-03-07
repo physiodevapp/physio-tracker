@@ -61,7 +61,7 @@ export function useMotionHandler() {
     dominantFrequency_z: null,
   });
   const [log, setLog] = useState("");
-  const [motionStatsData, setMotionStats] = useState<IMotionStats>({
+  const [motionStatsData, setMotionStatsData] = useState<IMotionStats>({
     zeroFrequency: {
       ML_Y: parseFloat(calibratedDataRef.current.domFreq_y?.toFixed(1) ?? "0"),
       AP_Z: parseFloat(calibratedDataRef.current.domFreq_z?.toFixed(1) ?? "0"),
@@ -293,7 +293,7 @@ export function useMotionHandler() {
     setSamplingFrequency(null);
     samplingFrequencyRef.current = null;
     setLog("");
-    setMotionStats({
+    setMotionStatsData({
       zeroFrequency: {
         ML_Y: 0,
         AP_Z: 0,
@@ -367,7 +367,9 @@ export function useMotionHandler() {
           motionData: motionDataRef.current,
           cutoffFrequency: CUTOFF_FREQUENCY,
           samplingFrequency: samplingFrequencyRef.current!,
-          timeWindow: 4, // últimos segundos,
+          timeWindow: calculationMode === "postProcessing"
+            ? undefined
+            : 4, // últimos segundos
         });
   
       setFrequencyData({
@@ -392,7 +394,7 @@ export function useMotionHandler() {
           gravity: GRAVITY
         });
   
-      setMotionStats({
+      setMotionStatsData({
         zeroFrequency: {
           ML_Y: calibratedDataRef.current.domFreq_y!,
           AP_Z: calibratedDataRef.current.domFreq_z!,

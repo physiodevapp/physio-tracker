@@ -107,42 +107,42 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               <tbody>
                 <tr>
                   <td className="font-bold">Zero<sub> fr</sub></td>
-                  <td>{motionStatsData.zeroFrequency.ML_Y!.toFixed(1)} Hz</td>
-                  <td>{motionStatsData.zeroFrequency.AP_Z!.toFixed(1)} Hz</td>
+                  <td>{motionStatsData.zeroFrequency.ML_Y} Hz</td>
+                  <td>{motionStatsData.zeroFrequency.AP_Z} Hz</td>
                   <td>-</td>
                 </tr>
                 <tr>
                   <td className="font-bold">Zero<sub> STD</sub></td>
-                  <td>{motionStatsData.zeroSTD.ML_Y!.toFixed(1)} m/s²</td>
-                  <td>{motionStatsData.zeroSTD.AP_Z!.toFixed(1)} m/s²</td>
+                  <td>{motionStatsData.zeroSTD.ML_Y} m/s²</td>
+                  <td>{motionStatsData.zeroSTD.AP_Z} m/s²</td>
                   <td>-</td>
                 </tr>
                 <tr>
                   <td className="font-bold">Main<sub> fr</sub></td>
-                  <td>{motionStatsData.mainFrequency.ML_Y!.toFixed(3)} Hz</td>
-                  <td>{motionStatsData.mainFrequency.AP_Z!.toFixed(3)} Hz</td>
+                  <td>{motionStatsData.mainFrequency.ML_Y} Hz</td>
+                  <td>{motionStatsData.mainFrequency.AP_Z} Hz</td>
                   <td>-</td>
                 </tr>
                 <tr>
                   <td className="font-bold">RMS</td>
-                  <td>{motionStatsData.RMS.ML_Y!.toFixed(1)} cm</td>
-                  <td>{motionStatsData.RMS.AP_Z!.toFixed(1)} cm</td>
+                  <td>{motionStatsData.RMS.ML_Y!} cm</td>
+                  <td>{motionStatsData.RMS.AP_Z!} cm</td>
                   <td>-</td>
                 </tr>
                 <tr>
                   <td className="font-bold">Var</td>
-                  <td>{motionStatsData.Variance.ML_Y!.toFixed(3)} cm²</td>
-                  <td>{motionStatsData.Variance.AP_Z!.toFixed(3)} cm²</td>
-                  <td>{motionStatsData.Variance.Global!.toFixed(3)} cm²</td>
+                  <td>{motionStatsData.Variance.ML_Y} cm²</td>
+                  <td>{motionStatsData.Variance.AP_Z} cm²</td>
+                  <td>{motionStatsData.Variance.Global} cm²</td>
                 </tr>
                 <tr>
                   <td className="font-bold">Jerk</td>
-                  <td>{motionStatsData.jerk?.ML_Y !== undefined 
-                    ? `${motionStatsData.jerk!.ML_Y!.toFixed(2)} m/s³` 
+                  <td>{motionStatsData.jerk?.ML_Y !== null 
+                    ? `${motionStatsData.jerk!.ML_Y} m/s³` 
                     : "-"}
                   </td>
-                  <td>{ motionStatsData.jerk?.AP_Z !== undefined 
-                    ? `${motionStatsData.jerk!.AP_Z!.toFixed(2)} m/s³` 
+                  <td>{ motionStatsData.jerk?.AP_Z !== null 
+                    ? `${motionStatsData.jerk!.AP_Z} m/s³` 
                     : "-" }
                   </td>
                   <td>-</td>
@@ -152,7 +152,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   <td>-</td>
                   <td>-</td>
                   <td>{ motionStatsData.copArea?.value !== null 
-                    ? `${motionStatsData.copArea!.value!.toFixed(2)} cm²` 
+                    ? `${motionStatsData.copArea!.value} cm²` 
                     : "-" }
                   </td>
                 </tr>
