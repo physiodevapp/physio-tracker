@@ -53,7 +53,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     else {
       stopMotion();
     }
-  }, [isRecording])
+  }, [isRecording]);
+
+  useEffect(() => {
+    console.log('motionStatsData');
+    console.log('===============');
+    console.log(motionStatsData);
+    console.log('===============');
+  }, [motionStatsData])
 
   return (
     <>
