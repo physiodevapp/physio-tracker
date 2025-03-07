@@ -31,7 +31,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     startMotion, stopMotion,
     isBaselineDefined,
     log,
-    motionStatsData, 
+    COPData, 
     frequencyData,
   } = useMotionHandler();
 
@@ -56,11 +56,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }, [isRecording]);
 
   useEffect(() => {
-    console.log('motionStatsData');
-    console.log('===============');
-    console.log(motionStatsData);
-    console.log('===============');
-  }, [motionStatsData])
+    console.log('== COPData ==');
+    console.log(COPData);
+    console.log('=====================');
+  }, [COPData])
 
   return (
     <>
@@ -97,7 +96,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         className={`relative w-full h-dvh flex flex-col items-center overflow-auto pt-[6rem]`}
         onClick={handleMainLayer}
         >
-        {(((motionStatsData.copPoints?.length ?? 0) < 100) && !isRecording && isBaselineDefined) && (
+        {(((COPData.copPoints?.length ?? 0) < 100) && !isRecording && isBaselineDefined) && (
           <p className="px-4 py-2">{log}</p>
         )}
         {(isBaselineDefined && !isRecording) && (  
@@ -114,45 +113,45 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               <tbody>
                 <tr>
                   <td className="font-bold">Zero<sub> fr</sub></td>
-                  <td>{motionStatsData.zeroFrequency.ML_Y} Hz</td>
-                  <td>{motionStatsData.zeroFrequency.AP_Z} Hz</td>
+                  <td>{COPData.zeroFrequency.ML_Y} Hz</td>
+                  <td>{COPData.zeroFrequency.AP_Z} Hz</td>
                   <td>-</td>
                 </tr>
                 <tr>
                   <td className="font-bold">Zero<sub> STD</sub></td>
-                  <td>{motionStatsData.zeroSTD.ML_Y} m/s²</td>
-                  <td>{motionStatsData.zeroSTD.AP_Z} m/s²</td>
+                  <td>{COPData.zeroSTD.ML_Y} m/s²</td>
+                  <td>{COPData.zeroSTD.AP_Z} m/s²</td>
                   <td>-</td>
                 </tr>
                 <tr>
                   <td className="font-bold">Main<sub> fr</sub></td>
-                  <td>{motionStatsData.mainFrequency.ML_Y} Hz</td>
-                  <td>{motionStatsData.mainFrequency.AP_Z} Hz</td>
+                  <td>{COPData.mainFrequency.ML_Y} Hz</td>
+                  <td>{COPData.mainFrequency.AP_Z} Hz</td>
                   <td>-</td>
                 </tr>
                 <tr>
                   <td className="font-bold">RMS</td>
-                  <td>{motionStatsData.RMS.ML_Y!} cm</td>
-                  <td>{motionStatsData.RMS.AP_Z!} cm</td>
+                  <td>{COPData.RMS.ML_Y!} cm</td>
+                  <td>{COPData.RMS.AP_Z!} cm</td>
                   <td>-</td>
                 </tr>
                 <tr>
                   <td className="font-bold">Var</td>
-                  <td>{motionStatsData.Variance.ML_Y} cm²</td>
-                  <td>{motionStatsData.Variance.AP_Z} cm²</td>
-                  <td>{motionStatsData.Variance.Global} cm²</td>
+                  <td>{COPData.Variance.ML_Y} cm²</td>
+                  <td>{COPData.Variance.AP_Z} cm²</td>
+                  <td>{COPData.Variance.Global} cm²</td>
                 </tr>
                 <tr>
                   <td className="font-bold">Jerk</td>
-                  <td>{motionStatsData.jerk?.ML_Y ?? "-"} m/s³</td>
-                  <td>{motionStatsData.jerk?.AP_Z ?? "-"} m/s³</td>
+                  <td>{COPData.jerk?.ML_Y ?? "-"} m/s³</td>
+                  <td>{COPData.jerk?.AP_Z ?? "-"} m/s³</td>
                   <td>-</td>
                 </tr>
                 <tr>
                   <td className="font-bold">Area<sub> COP</sub></td>
                   <td>-</td>
                   <td>-</td>
-                  <td>{motionStatsData.copArea?.value ?? "-"} cm²</td>
+                  <td>{COPData.copArea?.value ?? "-"} cm²</td>
                 </tr>
               </tbody>
             </table>
@@ -173,24 +172,22 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 />
             </div> 
             <div className="flex-1 basis-full">
-              {!isRecording && (
-                <COPChart 
-                  areaParams={{
-                    copAreaPoints: motionStatsData.copArea!.boundaryPoints!
-                  }}
-                  ellipseParams={{
-                    copPoints: motionStatsData.copPoints!,
-                    semiMajor: motionStatsData.ellipse!.semiMajor!,
-                    semiMinor: motionStatsData.ellipse!.semiMinor!,
-                    orientation: motionStatsData.ellipse!.orientation!,
-                    centerX: motionStatsData.ellipse!.centerX!,
-                    centerY: motionStatsData.ellipse!.centerY!
-                  }}
-                  options={{
-                    canvasId: "cop"
-                  }}
-                  />
-              )}
+              <COPChart 
+                areaParams={{
+                  copAreaPoints: COPData.copArea!.boundaryPoints! ?? [{x: 0, y: 0}]
+                }}
+                ellipseParams={{
+                  copPoints: COPData.copPoints! ?? [{ml: 0, ap: 0}],
+                  semiMajor: COPData.ellipse!.semiMajor! ?? 0,
+                  semiMinor: COPData.ellipse!.semiMinor! ?? 0,
+                  orientation: COPData.ellipse!.orientation! ?? 0,
+                  centerX: COPData.ellipse!.centerX! ?? 0,
+                  centerY: COPData.ellipse!.centerY! ?? 0
+                }}
+                options={{
+                  canvasId: "cop"
+                }}
+                />     
             </div>  
           </section> 
         )}

@@ -611,23 +611,23 @@ export function calculateCOP_Stats({
   let mlValues: number[] = [];
   let apValues: number[] = [];
 
-  mlValues = calculationMode === "realTime" ? 
-    motionData.map(record => ((record.noGravityFiltered.y) * (sensorHeight_m / 9.81)) * 100) : 
-    butterworthLowPass_BlockGeneric({
-      data: motionData.map(record => record.noGravity.y), 
-      cutoffFrequency, 
-      samplingFrequency,
-      order: 4
-    }).map(val => (val * (sensorHeight_m / 9.81)) * 100);
+  mlValues = calculationMode === "realTime" 
+    ? motionData.map(record => ((record.noGravityFiltered.y) * (sensorHeight_m / 9.81)) * 100) 
+    : butterworthLowPass_BlockGeneric({
+        data: motionData.map(record => record.noGravity.y), 
+        cutoffFrequency, 
+        samplingFrequency,
+        order: 4
+      }).map(val => (val * (sensorHeight_m / 9.81)) * 100);
 
-  apValues = calculationMode === "realTime" ? 
-    motionData.map(record => ((record.noGravityFiltered.z) * (sensorHeight_m / 9.81)) * 100) : 
-    butterworthLowPass_BlockGeneric({
-      data: motionData.map(record => record.noGravity.z), 
-      cutoffFrequency, 
-      samplingFrequency, 
-      order: 4
-    }).map(val => (val * (sensorHeight_m / 9.81)) * 100);
+  apValues = calculationMode === "realTime" 
+    ? motionData.map(record => ((record.noGravityFiltered.z) * (sensorHeight_m / 9.81)) * 100) 
+    : butterworthLowPass_BlockGeneric({
+        data: motionData.map(record => record.noGravity.z), 
+        cutoffFrequency, 
+        samplingFrequency, 
+        order: 4
+      }).map(val => (val * (sensorHeight_m / 9.81)) * 100);
 
   if (mlValues.length === 0 || apValues.length === 0) {
     throw new Error("No hay datos para calcular la estadística del COP.");
@@ -641,22 +641,22 @@ export function calculateCOP_Stats({
   const { varianceAP, varianceML, globalVariance, meanML, meanAP, covariance } = calculateCOP_Variance({ copPoints });
 
   const { ml: rmsML, ap: rmsAP } = calculateCOP_RMS({
-    mlAccs: calculationMode === "realTime" ?
-      motionData.map(record => record.noGravityFiltered.y) : 
-      butterworthLowPass_BlockGeneric({
-        data: motionData.map(record => record.noGravity.y), 
-        cutoffFrequency, 
-        samplingFrequency,
-        order: 4
-      }), 
-    apAccs: calculationMode === "realTime" ?
-      motionData.map(record => record.noGravityFiltered.z) : 
-      butterworthLowPass_BlockGeneric({
-        data: motionData.map(record => record.noGravity.z), 
-        cutoffFrequency, 
-        samplingFrequency,
-        order: 4
-      }), 
+    mlAccs: calculationMode === "realTime" 
+      ? motionData.map(record => record.noGravityFiltered.y) 
+      : butterworthLowPass_BlockGeneric({
+          data: motionData.map(record => record.noGravity.y), 
+          cutoffFrequency, 
+          samplingFrequency,
+          order: 4
+        }), 
+    apAccs: calculationMode === "realTime" 
+      ? motionData.map(record => record.noGravityFiltered.z) 
+      : butterworthLowPass_BlockGeneric({
+          data: motionData.map(record => record.noGravity.z), 
+          cutoffFrequency, 
+          samplingFrequency,
+          order: 4
+        }), 
     sensorHeight: sensorHeight_m
   });
 
@@ -714,15 +714,15 @@ export function calculateCOP_Stats({
     meanAP,
     covariance,
     ellipse: {
-      semiMajor: semiMajor ?? 0,
-      semiMinor: semiMinor ?? 0,
-      orientation: orientation ?? 0,
-      centerX: meanML ?? 0,
-      centerY: meanAP ?? 0,
+      semiMajor,
+      semiMinor,
+      orientation,
+      centerX: meanML ?? null,
+      centerY: meanAP ?? null,
     },
     copArea: {
       value: copArea,
-      points: copAreaPoints ?? [],
+      points: copAreaPoints,
     },
     jerkML, 
     jerkAP,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { IFilterState, IFrequencyData, IMotionData, IMotionStats } from "@/interfaces/balance";
+import { IFilterState, IFrequencyData, IMotionData, ICOPData } from "@/interfaces/balance";
 import { butterworthLowPass_SampleGeneric, getFrequencyFeatures, calculateSTD, calculateCOP_Stats } from "@/services/balance";
 
 // 🔗 Constantes
@@ -61,7 +61,7 @@ export function useMotionHandler() {
     dominantFrequency_z: null,
   });
   const [log, setLog] = useState("");
-  const [motionStatsData, setMotionStatsData] = useState<IMotionStats>({
+  const [COPData, setCOPData] = useState<ICOPData>({
     zeroFrequency: {
       ML_Y: parseFloat(calibratedDataRef.current.domFreq_y?.toFixed(1) ?? "0"),
       AP_Z: parseFloat(calibratedDataRef.current.domFreq_z?.toFixed(1) ?? "0"),
@@ -293,7 +293,7 @@ export function useMotionHandler() {
     setSamplingFrequency(null);
     samplingFrequencyRef.current = null;
     setLog("");
-    setMotionStatsData({
+    setCOPData({
       zeroFrequency: {
         ML_Y: 0,
         AP_Z: 0,
@@ -394,7 +394,7 @@ export function useMotionHandler() {
           gravity: GRAVITY
         });
   
-      setMotionStatsData({
+      setCOPData({
         zeroFrequency: {
           ML_Y: calibratedDataRef.current.domFreq_y!,
           AP_Z: calibratedDataRef.current.domFreq_z!,
@@ -449,7 +449,7 @@ export function useMotionHandler() {
     isAcquiring, isCalibrated, isBaselineDefined, 
     startMotion, stopMotion,
     log, 
-    motionStatsData,
+    COPData,
     frequencyData,
   };
 }

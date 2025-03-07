@@ -35,24 +35,24 @@ export interface ICOPStats {
   rmsML: number;              // en cm
   rmsAP: number;              // en cm
   ellipse: {
-    semiMajor: number;        // Semieje mayor de la elipse de confianza (cm)
-    semiMinor: number;        // Semieje menor de la elipse de confianza (cm)
-    orientation: number;      // Orientación de la elipse en radianes
-    centerX: number,          // el meanML del COP (cm)
-    centerY: number,          // el meanAP del COP (cm)
+    semiMajor: number | null;        // Semieje mayor de la elipse de confianza (cm)
+    semiMinor: number | null;        // Semieje menor de la elipse de confianza (cm)
+    orientation: number | null;      // Orientación de la elipse en radianes
+    centerX: number | null;          // el meanML del COP (cm)
+    centerY: number | null;          // el meanAP del COP (cm)
   };
   copArea: {
     value: number | null,            // en cm²
     points: {
         x: number;
         y: number;
-      }[],
+      }[] | null,
   },
   jerkML: number | null,             // en cm/s³
   jerkAP: number | null,             // en cm/s³
 }
 
-export interface IMotionStats {
+export interface ICOPData {
   zeroFrequency: {
     ML_Y: number;
     AP_Z: number;
@@ -80,23 +80,23 @@ export interface IMotionStats {
   };
   // Variables opcionales
   jerk?: {
-    ML_Y?: number | null;
-    AP_Z?: number | null;
+    ML_Y: number | null;
+    AP_Z: number | null;
     Global?: number | null;
   };
   copArea?: {
-    boundaryPoints?: {
+    boundaryPoints: {
         x: number;
         y: number;
-      }[];
-    value?: number | null;
+      }[] | null;
+    value: number | null;
   };
   ellipse?: {
-    semiMajor?: number;
-    semiMinor?: number;
-    orientation?: number;
-    centerX?: number;
-    centerY?: number;
+    semiMajor: number | null;
+    semiMinor: number | null;
+    orientation: number | null;
+    centerX: number | null;
+    centerY: number | null;
   };
   copPoints?: ICOPPoint[];
 }
