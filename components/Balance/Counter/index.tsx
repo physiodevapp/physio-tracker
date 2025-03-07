@@ -43,7 +43,7 @@ const Index = ({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [seconds]);
+  }, [seconds, start]);
 
   // Para centrar ambos círculos, usamos el mayor de los dos grosores.
   const center = size / 2;
