@@ -66,7 +66,7 @@ const Index = ({
   const strokeDashoffset = circumference * (1 - progress / 100);
 
   return (
-    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+    <div className="relative flex items-center justify-center rotate-90" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className={`${!start ? 'animate-pulse' : ''}`}>
         {/* Círculo de fondo */}
         <circle
