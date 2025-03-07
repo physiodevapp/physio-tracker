@@ -32,7 +32,10 @@ export function useMotionHandler() {
   const [isCalibrated, setIsCalibrated] = useState(false);
   const [isBaselineDefined, setIsBaselineDefined] = useState(false);
   const isBaselineDefinedRef = useRef<boolean>(false);
-  const baselineRef = useRef({ x: 0, y: 0, z: 0 });
+  const baselineRef = useRef({
+    noGravity: { x: 0, y: 0, z: 0 },
+    noGravityFiltered: { y: 0, z: 0 }
+  });
   const calibrationAttemptsRef = useRef<number>(0);
   const calibrationCyclesCompletedRef = useRef<boolean>(false);
   const calibratedRef = useRef<boolean>(false);
@@ -166,16 +169,28 @@ export function useMotionHandler() {
   // ⚙️ **Encapsulación del baselineRef**
   function calibrateBaseline () {
     if (motionDataRef.current.length === 0) return;
+
     const n = motionDataRef.current.length;
     let sumX = 0, sumY = 0, sumZ = 0;
+    let sumFilteredY = 0, sumFilteredZ = 0;
     for (const record of motionDataRef.current) {
-      sumX += record.noGravity.x;
-      sumY += record.noGravity.y;
-      sumZ += record.noGravity.z;
+      sumX += 0;
+      sumY += record.noGravityFiltered.y;
+      sumZ += record.noGravityFiltered.z;
+
+      sumFilteredY += record.noGravityFiltered.y;
+      sumFilteredZ += record.noGravityFiltered.z;
     }
-    baselineRef.current = { x: sumX / n, y: sumY / n, z: sumZ / n };
+
+    baselineRef.current = { 
+      noGravity: { x: sumX / n, y: sumY / n, z: sumZ / n },
+      noGravityFiltered: { y: sumFilteredY / n, z: sumFilteredZ / n }
+    };
+
     setIsBaselineDefined(true);
     isBaselineDefinedRef.current = true;
+    
+    motionDataRef.current = [];
   }
 
   // ⚙️ **Evento DeviceMotion**
@@ -191,10 +206,15 @@ export function useMotionHandler() {
       const noGravity = event.acceleration;
 
       if (incGravity && noGravity) {
+        // Calcular sin gravedad
+        const noGravityX = noGravity.x ?? 0;
+        const noGravityY = noGravity.y ?? 0;
+        const noGravityZ = noGravity.z ?? 0;
+
         // Calcular gravedad
-        const gravityX = (incGravity.x ?? 0) - (noGravity.x ?? 0);
-        const gravityY = (incGravity.y ?? 0) - (noGravity.y ?? 0);
-        const gravityZ = (incGravity.z ?? 0) - (noGravity.z ?? 0);
+        const gravityX = (incGravity.x ?? 0) - noGravityX;
+        const gravityY = (incGravity.y ?? 0) - noGravityY;
+        const gravityZ = (incGravity.z ?? 0) - noGravityZ;
 
         // Obtener timestamp e intervalo
         const timestamp = now;
@@ -204,14 +224,14 @@ export function useMotionHandler() {
 
         // Filtrar datos sin gravedad
         const filteredY = butterworthLowPass_SampleGeneric({
-          x0: (noGravity.y ?? 0) - (isBaselineDefinedRef.current ? baselineRef.current.y : 0),
+          x0: noGravityY - baselineRef.current.noGravityFiltered.y ,
           states: [filterStateRef_Y.current, filterStateRef_Y_2.current],
           cutoffFrequency: CUTOFF_FREQUENCY,
           samplingFrequency: samplingFrequencyRef.current!
         }) ?? 0;
 
         const filteredZ = butterworthLowPass_SampleGeneric({
-          x0: (noGravity.z ?? 0) - (isBaselineDefinedRef.current ? baselineRef.current.z : 0),
+          x0: noGravityZ - baselineRef.current.noGravityFiltered.z,
           states: [filterStateRef_Z.current, filterStateRef_Z_2.current],
           cutoffFrequency: CUTOFF_FREQUENCY,
           samplingFrequency: samplingFrequencyRef.current!
@@ -223,9 +243,9 @@ export function useMotionHandler() {
           interval,
           gravity: { x: gravityX, y: gravityY, z: gravityZ },
           noGravity: {
-            x: (noGravity.x ?? 0) - (isBaselineDefinedRef.current ? baselineRef.current.x : 0),
-            y: (noGravity.y ?? 0) - (isBaselineDefinedRef.current ? baselineRef.current.y : 0),
-            z: (noGravity.z ?? 0) - (isBaselineDefinedRef.current ? baselineRef.current.z : 0),
+            x: noGravityX - baselineRef.current.noGravity.x,
+            y: noGravityY - baselineRef.current.noGravity.y,
+            z: noGravityZ - baselineRef.current.noGravity.z,
           },
           noGravityFiltered: { y: filteredY, z: filteredZ }
         });
@@ -261,7 +281,10 @@ export function useMotionHandler() {
     setIsCalibrated(false);
     setIsBaselineDefined(false);
     isBaselineDefinedRef.current = false;
-    baselineRef.current = { x: 0, y: 0, z: 0 };
+    baselineRef.current = {
+      noGravity: { x: 0, y: 0, z: 0 },
+      noGravityFiltered: { y: 0, z: 0 },
+    };
     
     // Resetear variables relacionadas con la medición
     motionDataRef.current = [];
