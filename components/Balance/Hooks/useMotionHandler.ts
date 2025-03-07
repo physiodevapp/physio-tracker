@@ -189,6 +189,8 @@ export function useMotionHandler() {
 
     setIsBaselineDefined(true);
     isBaselineDefinedRef.current = true;
+
+    motionDataRef.current = [];
   }
 
   // ⚙️ **Evento DeviceMotion**
@@ -252,7 +254,7 @@ export function useMotionHandler() {
 
         if (!isBaselineDefinedRef.current) calibrateBaseline();
 
-        analyzeDeviceMotionData({calculationMode: "realTime"});
+        // analyzeDeviceMotionData({calculationMode: "realTime"});
       }
     } catch (error) {
       console.error("Error en handleMotion:", error);
