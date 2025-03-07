@@ -131,8 +131,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 </tr>
                 <tr>
                   <td className="font-bold">RMS</td>
-                  <td>{COPData.RMS.ML_Y!} cm</td>
-                  <td>{COPData.RMS.AP_Z!} cm</td>
+                  <td>{COPData.RMS.ML_Y} cm</td>
+                  <td>{COPData.RMS.AP_Z} cm</td>
                   <td>-</td>
                 </tr>
                 <tr>
@@ -174,15 +174,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             <div className="flex-1 basis-full">
               <COPChart 
                 areaParams={{
-                  copAreaPoints: COPData.copArea!.boundaryPoints! ?? [{x: 0, y: 0}]
+                  copAreaPoints: COPData.copArea?.boundaryPoints ?? [{x: 0, y: 0}]
                 }}
                 ellipseParams={{
-                  copPoints: COPData.copPoints! ?? [{ml: 0, ap: 0}],
-                  semiMajor: COPData.ellipse!.semiMajor! ?? 0,
-                  semiMinor: COPData.ellipse!.semiMinor! ?? 0,
-                  orientation: COPData.ellipse!.orientation! ?? 0,
-                  centerX: COPData.ellipse!.centerX! ?? 0,
-                  centerY: COPData.ellipse!.centerY! ?? 0
+                  copPoints: COPData.copPoints ?? [{ml: 0, ap: 0}],
+                  semiMajor: COPData.ellipse?.semiMajor ?? 0,
+                  semiMinor: COPData.ellipse?.semiMinor ?? 0,
+                  orientation: COPData.ellipse?.orientation ?? 0,
+                  centerX: COPData.ellipse?.centerX ?? 0,
+                  centerY: COPData.ellipse?.centerY ?? 0
                 }}
                 options={{
                   canvasId: "cop"
