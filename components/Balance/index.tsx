@@ -30,6 +30,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const { 
     startMotion, stopMotion,
     isBaselineDefined,
+    isOrientationCorrect,
     log,
     COPData, 
     frequencyData,
@@ -81,7 +82,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             size={200}
             thickness={12}
             backgroundThickness={11}
-            color={!isBaselineDefined ? 'yellow' : 'limegreen'}
+            color={isOrientationCorrect
+              ? !isBaselineDefined ? 'yellow' : 'limegreen'
+              : 'red'
+            }
             backgroundColor='#444'
             text={log}
             />

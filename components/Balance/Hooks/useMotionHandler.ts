@@ -33,6 +33,8 @@ export function useMotionHandler() {
   const motionDataRef = useRef<IMotionData[]>([]);
   
   // 🛠️ Variables de la calibracion
+  const [isOrientationCorrect, setIsOrientationCorrect] = useState(false);
+  const isOrientationCorrectRef = useRef(isOrientationCorrect);
   const [isCalibrated, setIsCalibrated] = useState(false);
   const [isBaselineDefined, setIsBaselineDefined] = useState(false);
   const isBaselineDefinedRef = useRef<boolean>(false);
@@ -97,6 +99,9 @@ export function useMotionHandler() {
   
     // Modo Landscape: La gravedad debe estar en X y ser positiva
     const isLandscape = Math.abs(gravity_X) > GRAVITY_THRESHOLD && gravity_X > 0;
+
+    setIsOrientationCorrect(isLandscape);
+    isOrientationCorrectRef.current = isLandscape;
   
     return isLandscape;
   }
@@ -216,12 +221,8 @@ export function useMotionHandler() {
     try {
       if (!motionListenerActiveRef.current) return;
 
-      if (!isDeviceInCorrectPosition({gravity_X: ((event.accelerationIncludingGravity?.x) ?? 0 - (event.acceleration?.x ?? 0))})) {
+      if (!isDeviceInCorrectPosition({gravity_X: event.accelerationIncludingGravity?.x ?? 0})) {
         setLog("Position error");
-
-        stopMotion();
-
-        return;
       };
       
       const now = Date.now();
@@ -473,6 +474,7 @@ export function useMotionHandler() {
   return { 
     samplingFrequency, 
     isAcquiring, isCalibrated, isBaselineDefined, 
+    isOrientationCorrect,
     startMotion, stopMotion,
     log, 
     COPData,
