@@ -102,6 +102,7 @@ export function useMotionHandler() {
 
     setIsOrientationCorrect(isLandscape);
     isOrientationCorrectRef.current = isLandscape;
+    console.log('isLandscape ', isLandscape);
   
     return isLandscape;
   }
@@ -221,7 +222,7 @@ export function useMotionHandler() {
     try {
       if (!motionListenerActiveRef.current) return;
 
-      if (!isDeviceInCorrectPosition({gravity_X: event.accelerationIncludingGravity?.x ?? 0})) {
+      if (!isDeviceInCorrectPosition({gravity_X: event.accelerationIncludingGravity!.x!})) {
         setLog("Position error");
       };
       
@@ -313,6 +314,8 @@ export function useMotionHandler() {
       noGravity: { x: 0, y: 0, z: 0 },
       noGravityFiltered: { y: 0, z: 0 },
     };
+    setIsOrientationCorrect(false);
+    isOrientationCorrectRef.current = false;
     
     // Resetear variables relacionadas con la medición
     motionDataRef.current = [];
