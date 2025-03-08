@@ -89,7 +89,7 @@ const Index = ({
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
           transform={`rotate(-90 ${center} ${center})`}
-          style={{ transition: "stroke-dashoffset 1s linear" }}
+          style={{ transition: "stroke-dashoffset 0s linear" }}
           />
       </svg>
       {/* Tiempo restante en el centro */}

@@ -90,6 +90,9 @@ export function useMotionHandler({settings}: {settings: BalanceSettings}) {
     },    
   });
 
+  useEffect(() => {
+    console.log('hook settings ', settings);
+  }, [settings])
   // ⚙️ **Encapsulación de la verificación de posición**
   function isDeviceInCorrectPosition({gravity_X}: 
     {gravity_X: number, gravity_Y?: number, gravity_Z?: number}
