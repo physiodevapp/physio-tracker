@@ -33,7 +33,6 @@ export function useMotionHandler({settings}: {settings: BalanceSettings}) {
   
   // 🛠️ Variables de la calibracion
   const [isOrientationCorrect, setIsOrientationCorrect] = useState(false);
-  const isOrientationCorrectRef = useRef(isOrientationCorrect);
   const [isCalibrated, setIsCalibrated] = useState(false);
   const [isBaselineDefined, setIsBaselineDefined] = useState(false);
   const isBaselineDefinedRef = useRef<boolean>(false);
@@ -100,13 +99,8 @@ export function useMotionHandler({settings}: {settings: BalanceSettings}) {
     const isLandscape = Math.abs(gravity_X) > GRAVITY_THRESHOLD && gravity_X > 0;
 
     setIsOrientationCorrect(isLandscape);
-    isOrientationCorrectRef.current = isLandscape;
 
-    console.log('gravity_X (raw)', gravity_X, typeof gravity_X);
-    console.log('GRAVITY_THRESHOLD', GRAVITY_THRESHOLD);
-    console.log('Math.abs(gravity_X) > GRAVITY_THRESHOLD:', Math.abs(gravity_X) > GRAVITY_THRESHOLD);
-    console.log('gravity_X > 0:', gravity_X > 0);
-    console.log('===========');
+    setLog("Position error");
   
     return isLandscape;
   }
@@ -226,9 +220,7 @@ export function useMotionHandler({settings}: {settings: BalanceSettings}) {
     try {
       if (!motionListenerActiveRef.current) return;
 
-      if (!isDeviceInCorrectPosition({gravity_X: event.accelerationIncludingGravity!.x!})) {
-        setLog("Position error");
-      };
+      if (!isDeviceInCorrectPosition({gravity_X: (event.accelerationIncludingGravity!.x! - event.acceleration!.x!)})) return;
       
       const now = Date.now();
       
@@ -319,7 +311,6 @@ export function useMotionHandler({settings}: {settings: BalanceSettings}) {
       noGravityFiltered: { y: 0, z: 0 },
     };
     setIsOrientationCorrect(false);
-    isOrientationCorrectRef.current = false;
     
     // Resetear variables relacionadas con la medición
     motionDataRef.current = [];
@@ -373,7 +364,6 @@ export function useMotionHandler({settings}: {settings: BalanceSettings}) {
     } 
     else {
       console.log("🔵 Motion Listener ACTIVADO");
-      console.log('hook settings ', settings);
       reset();
       window.addEventListener("devicemotion", handleMotion, false);
     } 

@@ -80,7 +80,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           <CountdownRing 
             seconds={15}
             start={isBaselineDefined}
-            endTrigger={() => setIsRecording(false)}
+            pause={!isOrientationCorrect}
+            onEnd={() => setIsRecording(false)}
             size={200}
             thickness={12}
             backgroundThickness={11}

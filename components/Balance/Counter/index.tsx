@@ -6,7 +6,8 @@ import React, { useState, useEffect } from "react";
 interface IndexProps {
   seconds: number;
   start: boolean;
-  endTrigger: () => void;
+  onEnd?: () => void;
+  pause?: boolean;
   size?: number;                   // Tamaño en píxeles. Si no se especifica, se usa un valor por defecto.
   thickness?: number;             // Grosor del anillo. Valor por defecto: 8.
   backgroundThickness?: number;   // Grosor del anillo de fondo. Si no se especifica, se usa thickness.
@@ -18,7 +19,8 @@ interface IndexProps {
 const Index = ({ 
   seconds,
   start = true,
-  endTrigger,
+  onEnd,
+  pause,
   size = 100, 
   thickness = 8, 
   backgroundThickness, 
@@ -41,12 +43,14 @@ const Index = ({
     if (!start || seconds <= 0) return;
   
     const interval = setInterval(() => {
+      if (pause) return;
+      
       setTimeLeft((prev: number) => {
         const newTimeLeft = prev - 1;
   
         // 🔥 Disparar `endTrigger` cuando el porcentaje alcance un valor específico
-        if ((newTimeLeft / seconds) * 100 === 0) { // 🔹 Disparar al 0%
-          endTrigger();
+        if (onEnd && newTimeLeft === 0) { // 🔹 Disparar al 0%
+          onEnd();
         }
   
         return newTimeLeft > 0 ? newTimeLeft : 0;
@@ -54,7 +58,7 @@ const Index = ({
     }, 1000);
   
     return () => clearInterval(interval);
-  }, [start, seconds, endTrigger]);  
+  }, [start, seconds, pause, onEnd]);  
 
   // Para centrar ambos círculos, usamos el mayor de los dos grosores.
   const center = size / 2;
@@ -89,7 +93,7 @@ const Index = ({
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
           transform={`rotate(-90 ${center} ${center})`}
-          style={{ transition: "stroke-dashoffset 0s linear" }}
+          style={{ transition: "stroke-dashoffset 0.2s linear" }}
           />
       </svg>
       {/* Tiempo restante en el centro */}
