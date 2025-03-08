@@ -40,7 +40,7 @@ interface ForceSettings {
 }
 
 // Interfaz para BalanceSettings
-interface BalanceSettings {
+export interface BalanceSettings {
   calibrationDelay: number;
   calibrationPoints: number;
   calibrationStdThreshold: number;

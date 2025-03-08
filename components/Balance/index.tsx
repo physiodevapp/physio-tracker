@@ -16,6 +16,7 @@ import SpectrumChart from "./FrequencyGraph";
 import COPChart from "./COPGraph";
 import { motion } from "framer-motion";
 import CountdownRing from "./Counter";
+import { useSettings } from "@/providers/Settings";
 
 export interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
@@ -24,6 +25,7 @@ export interface IndexProps {
 
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [showSettings, setShowSettings] = useState(false);
+  const { settings } = useSettings();
 
   const [isRecording, setIsRecording] = useState<boolean | null>(null);
   
@@ -34,7 +36,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     log,
     COPData, 
     frequencyData,
-  } = useMotionHandler();
+  } = useMotionHandler({settings: settings.balance});
 
   const toggleSettings = (visibility?: boolean) => {
     setShowSettings(visibility === undefined ? !showSettings : visibility);
@@ -223,8 +225,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               onClick={() => setIsRecording(false)}
               />
             : <PlayIcon 
-                className="w-6 h-6 text-white"
-                onClick={() => !isRecording && setIsRecording(true)}
+                className={`w-6 h-6 ${
+                  !settings?.balance ? 'text-white/60' : 'text-white'
+                }`}
+                onClick={() => (!isRecording && settings?.balance) && setIsRecording(true)}
                 />
           }
         </>
