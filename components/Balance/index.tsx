@@ -48,8 +48,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     if (isRecording === null) return;
 
     if (isRecording) {
-      startMotion();
       handleMainLayer();
+      
+      startMotion();
     } 
     else {
       stopMotion();

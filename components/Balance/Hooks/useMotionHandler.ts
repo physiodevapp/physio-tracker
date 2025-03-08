@@ -89,6 +89,18 @@ export function useMotionHandler() {
     },    
   });
 
+  // ⚙️ **Encapsulación de la verificación de posición**
+  function isDeviceInCorrectPosition({gravity_X}: 
+    {gravity_X: number, gravity_Y?: number, gravity_Z?: number}
+  ): boolean {
+    const GRAVITY_THRESHOLD = GRAVITY * 0.8; // Mínimo valor esperado en el eje correcto
+  
+    // Modo Landscape: La gravedad debe estar en X y ser positiva
+    const isLandscape = Math.abs(gravity_X) > GRAVITY_THRESHOLD && gravity_X > 0;
+  
+    return isLandscape;
+  }
+  
   // ⚙️ **Encapsulación de la verificación de adquisición**
   function isAcquisitionReady(now: number): boolean {
     if (!measurementStartTimeRef.current) {
@@ -203,6 +215,15 @@ export function useMotionHandler() {
   function handleMotion(event: DeviceMotionEvent) {
     try {
       if (!motionListenerActiveRef.current) return;
+
+      if (!isDeviceInCorrectPosition({gravity_X: ((event.accelerationIncludingGravity?.x) ?? 0 - (event.acceleration?.x ?? 0))})) {
+        setLog("Position error");
+
+        stopMotion();
+
+        return;
+      };
+      
       const now = Date.now();
       
       // Verificar si el tiempo de adquisición está listo
@@ -340,6 +361,7 @@ export function useMotionHandler() {
   function startMotion() {
     if (!window.DeviceMotionEvent) {
       console.log('DeviceMotionEvent no es soportado en este navegador.');
+      setLog("Not supported");
     } 
     else {
       console.log("🔵 Motion Listener ACTIVADO");
