@@ -1,5 +1,4 @@
-// components/Index.tsx
-"use client";
+ "use client";
 
 import React from "react";
 import { ArrowPathIcon } from "@heroicons/react/24/solid";

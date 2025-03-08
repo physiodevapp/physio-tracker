@@ -3,17 +3,21 @@
 import { useState, useRef, useEffect } from "react";
 import { IFilterState, IFrequencyData, IMotionData, ICOPData } from "@/interfaces/balance";
 import { butterworthLowPass_SampleGeneric, getFrequencyFeatures, calculateSTD, calculateCOP_Stats } from "@/services/balance";
-
-// 🔗 Constantes
-const CALIBRATION_DELAY = 6_000; // 6 segundos en milesegundos
-const CALIBRATION_POINTS = 200;
-const CALIBRATION_STD_THRESHOLD = 1.00; // m/s²
-const CALIBRATION_DOM_FREQ_THRESHOLD = 2.0; // Hz
-const REQUIRED_CALIBRATION_ATTEMPTS = 2; // Se requieren 2 ciclos exitosos
-const GRAVITY = 9.81; // m/s²
-const CUTOFF_FREQUENCY = 5; // Frecuencia de corte recomendada
+import { useSettings } from "@/providers/Settings";
 
 export function useMotionHandler() {  
+  // 🔗 Constantes
+  const { settings } = useSettings();
+  const {
+    calibrationDelay: CALIBRATION_DELAY,
+    calibrationPoints: CALIBRATION_POINTS,
+    calibrationStdThreshold: CALIBRATION_STD_THRESHOLD,
+    calibrationDomFreqThreshold: CALIBRATION_DOM_FREQ_THRESHOLD,
+    requiredCalibrationAttempts: REQUIRED_CALIBRATION_ATTEMPTS,
+    gravity: GRAVITY,
+    cutoffFrequency: CUTOFF_FREQUENCY,
+  } = settings.balance;
+
   // 🛠️ Variables del filtro Butterworth
   const filterStateRef_Y = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });
   const filterStateRef_Y_2 = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });

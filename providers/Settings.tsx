@@ -41,7 +41,14 @@ interface ForceSettings {
 
 // Interfaz para BalanceSettings
 interface BalanceSettings {
-  
+  calibrationDelay: number;
+  calibrationPoints: number;
+  calibrationStdThreshold: number;
+  calibrationDomFreqThreshold: number;
+  requiredCalibrationAttempts: number;
+  gravity: number;
+  cutoffFrequency: number;
+  testDuration: number;
 }
 
 interface Settings {
@@ -82,8 +89,15 @@ interface SettingsContextProps {
   setHysteresis: (value: number) => void;
   setVelocityWeight: (value: number) => void;
   setVelocityVariationThreshold: (value: number) => void;
-  // Setter para balance
-
+  // Setters para balance
+  setCalibrationDelay: (value: number) => void;
+  setCalibrationPoints: (value: number) => void;
+  setCalibrationStdThreshold: (value: number) => void;
+  setCalibrationDomFreqThreshold: (value: number) => void;
+  setRequiredCalibrationAttempts: (value: number) => void;
+  setGravity: (value: number) => void;
+  setCutoffFrequency: (value: number) => void;
+  setTestDuration: (value: number) => void;
   // Función para resetear los settings
   resetForceSettings: () => void;
   resetColorSettings: () => void;
@@ -130,7 +144,14 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       velocityVariationThreshold: 0.2,  // Antes 0.2 en la detección de fatiga
     },
     balance: {
-      
+      calibrationDelay: 6_000,          // en milisegundos
+      calibrationPoints: 200,
+      calibrationStdThreshold: 1.0,
+      calibrationDomFreqThreshold: 2.0, // en Hz
+      requiredCalibrationAttempts: 2,
+      gravity: 9.81, 
+      cutoffFrequency: 5,               // en Hz
+      testDuration: 15,                 // en segundos
     },
   };
 
@@ -205,7 +226,16 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     setSettings(prev => ({ ...prev, force: defaultConfig.force }));
   };  
 
-  // Setter para balance: testDuration (en segundos)
+  // Setter para balance
+  // **Setters para balance**
+  const setCalibrationDelay = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, calibrationDelay: value } }));
+  const setCalibrationPoints = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, calibrationPoints: value } }));
+  const setCalibrationStdThreshold = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, calibrationStdThreshold: value } }));
+  const setCalibrationDomFreqThreshold = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, calibrationDomFreqThreshold: value } }));
+  const setRequiredCalibrationAttempts = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, requiredCalibrationAttempts: value } }));
+  const setGravity = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, gravity: value } }));
+  const setCutoffFrequency = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, cutoffFrequency: value } }));
+  const setTestDuration = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, testDuration: value } }));
   const resetBalanceSettings = () => {
     setSettings(prev => ({ ...prev, balance: defaultConfig.balance }));
   }; 
@@ -245,6 +275,14 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setVelocityWeight,
         setVelocityVariationThreshold,
         resetForceSettings,
+        setCalibrationDelay,
+        setCalibrationPoints,
+        setCalibrationStdThreshold,
+        setCalibrationDomFreqThreshold,
+        setRequiredCalibrationAttempts,
+        setGravity,
+        setCutoffFrequency,
+        setTestDuration,
         resetBalanceSettings
       }}
       >
