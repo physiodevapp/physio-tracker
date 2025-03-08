@@ -100,7 +100,9 @@ export function useMotionHandler({settings}: {settings: BalanceSettings}) {
 
     setIsOrientationCorrect(isLandscape);
 
-    setLog("Position error");
+    if (!isLandscape) {
+      setLog("Position error");
+    }
   
     return isLandscape;
   }
@@ -220,7 +222,7 @@ export function useMotionHandler({settings}: {settings: BalanceSettings}) {
     try {
       if (!motionListenerActiveRef.current) return;
 
-      if (!isDeviceInCorrectPosition({gravity_X: (event.accelerationIncludingGravity!.x! - event.acceleration!.x!)})) return;
+      if (!isDeviceInCorrectPosition({gravity_X: (event.accelerationIncludingGravity!.x! - event.acceleration! .x!)})) return;
       
       const now = Date.now();
       
