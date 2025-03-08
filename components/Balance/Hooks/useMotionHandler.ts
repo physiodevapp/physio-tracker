@@ -102,7 +102,9 @@ export function useMotionHandler() {
 
     setIsOrientationCorrect(isLandscape);
     isOrientationCorrectRef.current = isLandscape;
+    console.log('gravity_X, ', gravity_X);
     console.log('isLandscape ', isLandscape);
+    console.log('===========');
   
     return isLandscape;
   }
