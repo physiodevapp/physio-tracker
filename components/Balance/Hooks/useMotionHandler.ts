@@ -14,6 +14,7 @@ export function useMotionHandler({settings}: {settings: BalanceSettings}) {
     calibrationDomFreqThreshold: CALIBRATION_DOM_FREQ_THRESHOLD,
     requiredCalibrationAttempts: REQUIRED_CALIBRATION_ATTEMPTS,
     gravity: GRAVITY,
+    gravityFactor: GRAVITY_FACTOR,
     cutoffFrequency: CUTOFF_FREQUENCY,
   } = settings;
 
@@ -93,7 +94,7 @@ export function useMotionHandler({settings}: {settings: BalanceSettings}) {
   function isDeviceInCorrectPosition({gravity_X}: 
     {gravity_X: number, gravity_Y?: number, gravity_Z?: number}
   ): boolean {
-    const GRAVITY_THRESHOLD = GRAVITY * 0.8; // Mínimo valor esperado en el eje correcto
+    const GRAVITY_THRESHOLD = GRAVITY * GRAVITY_FACTOR; // Mínimo valor esperado en el eje correcto
   
     // Modo Landscape: La gravedad debe estar en X y ser positiva
     const isLandscape = Math.abs(gravity_X) > GRAVITY_THRESHOLD && gravity_X > 0;

@@ -47,6 +47,7 @@ export interface BalanceSettings {
   calibrationDomFreqThreshold: number;
   requiredCalibrationAttempts: number;
   gravity: number;
+  gravityFactor: number;
   cutoffFrequency: number;
   testDuration: number;
 }
@@ -96,6 +97,7 @@ interface SettingsContextProps {
   setCalibrationDomFreqThreshold: (value: number) => void;
   setRequiredCalibrationAttempts: (value: number) => void;
   setGravity: (value: number) => void;
+  setGravityFactor: (value: number) => void;
   setCutoffFrequency: (value: number) => void;
   setTestDuration: (value: number) => void;
   // Función para resetear los settings
@@ -150,6 +152,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       calibrationDomFreqThreshold: 2.0, // en Hz
       requiredCalibrationAttempts: 2,
       gravity: 9.81, 
+      gravityFactor: 0.8,
       cutoffFrequency: 5,               // en Hz
       testDuration: 15,                 // en segundos
     },
@@ -234,6 +237,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const setCalibrationDomFreqThreshold = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, calibrationDomFreqThreshold: value } }));
   const setRequiredCalibrationAttempts = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, requiredCalibrationAttempts: value } }));
   const setGravity = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, gravity: value } }));
+  const setGravityFactor = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, gravityFactor: value } }));
   const setCutoffFrequency = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, cutoffFrequency: value } }));
   const setTestDuration = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, testDuration: value } }));
   const resetBalanceSettings = () => {
@@ -281,6 +285,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setCalibrationDomFreqThreshold,
         setRequiredCalibrationAttempts,
         setGravity,
+        setGravityFactor,
         setCutoffFrequency,
         setTestDuration,
         resetBalanceSettings

@@ -5,6 +5,7 @@ import { TensorFlowProvider, useTensorFlow } from "@/providers/TensorFlow";
 import { PoseDetectorProvider } from "@/providers/PoseDetector";
 import { SettingsProvider } from "@/providers/Settings";
 import { ThemeProvider } from "next-themes";
+import SplashScreen from "@/components/PWA/SplashScreen";
 
 // Este componente se encarga de consumir el estado de TensorFlow y envolver a los demás providers
 const TensorFlowDetectorWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -21,6 +22,7 @@ const TensorFlowDetectorWrapper: React.FC<{ children: React.ReactNode }> = ({ ch
 const ClientProvidersWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <ThemeProvider attribute={"class"} defaultTheme="system" enableSystem>
+      <SplashScreen />
       <SettingsProvider>
         <TensorFlowProvider>
           <TensorFlowDetectorWrapper>

@@ -12,6 +12,7 @@ const Index = () => {
     setCalibrationDomFreqThreshold,
     setCalibrationStdThreshold,
     setCutoffFrequency,
+    setGravityFactor,
     resetBalanceSettings
   } = useSettings();
 
@@ -47,7 +48,7 @@ const Index = () => {
           </div>
           <div className="flex-1">
             <label className="block text-sm mb-1">
-              Freq<sub className='align-sub text-[0.6rem] uppercase'> cut-off</sub>: {settings.balance.cutoffFrequency} Hz
+              Freq<sub className='align-sub text-[0.6rem] uppercase'> cut-off</sub>: {settings.balance.cutoffFrequency.toFixed(1)} Hz
             </label>
             <input
                 type="range"
@@ -62,10 +63,10 @@ const Index = () => {
               />
           </div>
         </div>
-        <div className="flex justify-around gap-4">
+        <div className="flex justify-around gap-6">
           <div className="flex-1">
             <label className="block text-sm mb-1">
-              Freq<sub className='align-sub text-[0.6rem] uppercase'> dom</sub>: {settings.balance.calibrationDomFreqThreshold} Hz
+              Freq<sub className='align-sub text-[0.6rem] uppercase'> dom</sub>: {settings.balance.calibrationDomFreqThreshold.toFixed(1)} Hz
             </label>
             <input
                 type="range"
@@ -81,7 +82,7 @@ const Index = () => {
           </div>
           <div className="flex-1">
             <label className="block text-sm mb-1">
-              STD: {settings.balance.calibrationStdThreshold} m/s²
+              STD: {settings.balance.calibrationStdThreshold.toFixed(1)} m/s²
             </label>
             <input
                 type="range"
@@ -95,6 +96,8 @@ const Index = () => {
                 className="w-full"
               />
           </div>
+        </div>
+        <div className="flex justify-around gap-6">
           <div className="flex-1">
             <label className="block text-sm mb-1">
               Hold: {(settings.balance.calibrationDelay / 1000)} seg
@@ -107,6 +110,22 @@ const Index = () => {
                 value={settings.balance.calibrationDelay / 1000}
                 onChange={(e) =>
                   setCalibrationDelay(parseInt(e.target.value, 10) * 1000)
+                }
+                className="w-full"
+              />
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm mb-1">
+              Gravity<sub className='align-sub text-[0.6rem] uppercase'> factor</sub>: {settings.balance.gravityFactor.toFixed(2)}
+            </label>
+            <input
+                type="range"
+                min="0.1"
+                max="1"
+                step="0.05"
+                value={settings.balance.gravityFactor}
+                onChange={(e) =>
+                  setGravityFactor(parseFloat(e.target.value))
                 }
                 className="w-full"
               />

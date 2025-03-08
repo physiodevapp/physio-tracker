@@ -7,6 +7,7 @@ import {
   Cog6ToothIcon,
   PlayIcon,
   StopIcon,
+  TrashIcon,
   XMarkIcon,
 } from "@heroicons/react/24/solid";
 import React, { useEffect, useState } from "react";
@@ -17,6 +18,7 @@ import COPChart from "./COPGraph";
 import { motion } from "framer-motion";
 import CountdownRing from "./Counter";
 import { useSettings } from "@/providers/Settings";
+import Image from "next/image";
 
 export interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
@@ -28,6 +30,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const { settings } = useSettings();
 
   const [isRecording, setIsRecording] = useState<boolean | null>(null);
+
+  const [hasValidTestResults, setHasValidTestResults] = useState(false);
   
   const { 
     startMotion, stopMotion,
@@ -44,6 +48,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const handleMainLayer = () => {
     handleMainMenu(false);
+
     toggleSettings(false);
   };
 
@@ -52,13 +57,22 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
     if (isRecording) {
       handleMainLayer();
-      
+
       startMotion();
     } 
     else {
       stopMotion();
     }
   }, [isRecording]);
+
+  useEffect(() => {
+    if ((COPData.copPoints?.length ?? 0) > settings.balance.calibrationPoints) {
+      setHasValidTestResults(true)
+    } 
+    else {
+      setHasValidTestResults(false);
+    }
+  }, [COPData]);
 
   return (
     <>
@@ -102,7 +116,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         {(((COPData.copPoints?.length ?? 0) < 100) && !isRecording && isBaselineDefined) && (
           <p className="px-4 py-2">{log}</p>
         )}
-        {(!isRecording && isBaselineDefined) && (  
+        {(!isRecording && isBaselineDefined && hasValidTestResults) && (  
           <>
             <p className="absolute -translate-y-10 text-lg">Metrics analyzed</p>
             <section className="flex flex-row flex-wrap w-full px-1 gap-y-4">
@@ -199,6 +213,17 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             </section> 
           </>
         )}
+        {(!isRecording && !hasValidTestResults) && (
+          <Image 
+            src="/silhouette_transparent.png" 
+            alt="Loading..." 
+            width={100} 
+            height={100} 
+            priority 
+            quality={80}
+            className="w-[80vw] mt-6 p-4 rounded-full brightness-[1.2] dark:invert-[1] border-[0.4rem] border-dotted border-blue-400 dark:border-[#fa7a60]"
+          />
+        )}
       </div>
       {(showSettings && !isRecording) && (
         <BalanceSettings />
@@ -232,6 +257,12 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 onClick={() => (!isRecording && settings?.balance) && setIsRecording(true)}
                 />
           }
+          {(!isRecording && isBaselineDefined && (COPData.copPoints?.length ?? 0) > 100) && (
+            <TrashIcon
+              className="h-6 w-6 text-red-500 cursor-pointer"
+              onClick={() => setHasValidTestResults(false)}
+              />
+          )}
         </>
       </section>
       <section
