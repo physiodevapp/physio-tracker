@@ -25,7 +25,6 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
   const filterStateRef_Z_2 = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });
   
   // 🛠️ Variables del listener
-  const [isAcquiring, setIsAcquiring] = useState(false);
   const motionListenerActiveRef = useRef(false);
   const measurementStartTimeRef = useRef<number | null>(null);
   const [samplingFrequency, setSamplingFrequency] = useState<number | null>(null);
@@ -34,7 +33,6 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
   
   // 🛠️ Variables de la calibracion
   const [isOrientationCorrect, setIsOrientationCorrect] = useState(false);
-  const [isCalibrated, setIsCalibrated] = useState(false);
   const [isBaselineDefined, setIsBaselineDefined] = useState(false);
   const isBaselineDefinedRef = useRef<boolean>(false);
   const baselineRef = useRef({
@@ -104,12 +102,6 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
     if (!isLandscape) {
       setLog("Position error");
     }
-
-    // console.log('gravity ', GRAVITY);
-    // console.log('gravityFactor ', GRAVITY_FACTOR);
-    // console.log('gravity_X ', gravity_X.toFixed(2));
-    // console.log('isLandscape ', isLandscape );
-    // console.log('=============');
   
     return isLandscape;
   }
@@ -123,11 +115,9 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
     if (now - measurementStartTimeRef.current < CALIBRATION_DELAY) {
       // console.log(`Esperando ${((CALIBRATION_DELAY - (now - measurementStartTimeRef.current)) / 1000).toFixed(0)} segundos...`);
       setLog(`Hold still...`)
-      setIsAcquiring(false);
       return false;
     }
 
-    setIsAcquiring(true);
     return true;
   }
 
@@ -190,7 +180,6 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
       }
 
       calibrationCyclesCompletedRef.current = true;
-      setIsCalibrated(true);
       return true;
     }
   }
@@ -299,7 +288,6 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
   function reset() {
     // Reiniciar el listener del evento DeviceMotion
     motionListenerActiveRef.current = true;
-    setIsAcquiring(false);
     
     // Resetear los datos recientes utilizados en la calibración
     measurementStartTimeRef.current = null;
@@ -312,7 +300,6 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
       domFreq_y: null,
       domFreq_z: null,
     };
-    setIsCalibrated(false);
     setIsBaselineDefined(false);
     isBaselineDefinedRef.current = false;
     baselineRef.current = {
@@ -480,7 +467,7 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
 
   return { 
     samplingFrequency, 
-    isAcquiring, isCalibrated, isBaselineDefined, 
+    isBaselineDefined, 
     isOrientationCorrect,
     startMotion, stopMotion,
     log, 

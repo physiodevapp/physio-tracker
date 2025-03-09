@@ -119,10 +119,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         className={`relative w-full h-dvh flex flex-col items-center overflow-auto pt-[7rem]`}
         onClick={handleMainLayer}
         >
-        {(((COPData.copPoints?.length ?? 0) < 100) && !isRecording && isBaselineDefined) && (
+        {(!isRecording && !hasValidTestResults) && (
           <p className="px-4 py-2">{log}</p>
         )}
-        {(!isRecording && isBaselineDefined && hasValidTestResults) && (  
+        {(!isRecording && hasValidTestResults) && (  
           <>
             <p className="absolute -translate-y-10 text-lg">Metrics analyzed</p>
             <section className="flex flex-row flex-wrap w-full px-1 gap-y-4">
@@ -227,8 +227,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             height={100} 
             priority 
             quality={80}
-            className={`w-[80vw] mt-6 p-4 rounded-full brightness-[1.2] dark:invert-[1] border-[0.4rem] border-dotted border-blue-400 dark:border-[#fa7a60] transition-transform ${
-              orientation === "landscape" ? 'rotate-90' : 'rotate-0'
+            className={`absolute top-1/2 -translate-y-1/2 w-[80vw] p-4 rounded-full brightness-[1.2] dark:invert-[1] border-[0.4rem] border-dotted transition-transform ${
+              orientation === "landscape" ? 'rotate-90 border-[#21e324] dark:border-[#ca00c2]' : 'rotate-0 border-blue-400 dark:border-[#fa7a60]'
             }`}
           />
         )}
