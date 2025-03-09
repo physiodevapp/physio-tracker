@@ -227,7 +227,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             height={100} 
             priority 
             quality={80}
-            className={`w-[80vw] mt-6 p-4 rounded-full brightness-[1.2] dark:invert-[1] border-[0.4rem] border-dotted border-blue-400 dark:border-[#fa7a60] transition-[rotate] duration-500 ease-in-out ${
+            className={`w-[80vw] mt-6 p-4 rounded-full brightness-[1.2] dark:invert-[1] border-[0.4rem] border-dotted border-blue-400 dark:border-[#fa7a60] transition-transform ${
               orientation === "landscape" ? 'rotate-90' : 'rotate-0'
             }`}
           />
