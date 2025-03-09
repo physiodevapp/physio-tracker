@@ -44,7 +44,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const { orientation } = useDeviceOrientation({
     settings: settings.balance,
-    isActive: isRecording ?? false
+    isActive: !isRecording
   });
 
   const toggleSettings = (visibility?: boolean) => {
