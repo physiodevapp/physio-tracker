@@ -2,8 +2,8 @@
 import { BalanceSettings } from "@/providers/Settings";
 import { useState, useEffect } from "react";
 
-export default function useOrientationHandler({ isActive, settings }: {isActive: boolean; settings: BalanceSettings}) {
-  const [orientation, setOrientation] = useState("portrait");
+export default function useOrientationHandler({ isActive, settings }: {isActive: boolean; settings: BalanceSettings}): {orientation: "portrait" | "landscape"} {
+  const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
 
   const {
     gravity: GRAVITY,
