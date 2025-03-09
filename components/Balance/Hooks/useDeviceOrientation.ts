@@ -29,7 +29,7 @@ export function useDeviceOrientation({settings, isActive}: {settings: BalanceSet
       setOrientation(
         // Modo Landscape: La gravedad debe estar en X y ser positiva
         Math.abs(event.accelerationIncludingGravity.x! - event.acceleration.x!) > GRAVITY_THRESHOLD && 
-        (event.accelerationIncludingGravity.x! - event.acceleration.x!)  > 0
+        (event.accelerationIncludingGravity.x! - event.acceleration.x!) > 0
         ? IDeviceOrientation.Landscape
         : IDeviceOrientation.Portrait
       );
