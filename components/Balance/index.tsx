@@ -12,7 +12,7 @@ import {
 } from "@heroicons/react/24/solid";
 import React, { useEffect, useState } from "react";
 import BalanceSettings from "@/modals/BalanceSettings";
-import { useMotionHandler } from "./Hooks/useMotionHandler";
+import { useMotionHandler, useDeviceOrientation } from "./Hooks";
 import SpectrumChart from "./FrequencyGraph";
 import COPChart from "./COPGraph";
 import { motion } from "framer-motion";
@@ -41,6 +41,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     COPData, 
     frequencyData,
   } = useMotionHandler({settings: settings.balance});
+
+  const orientation = useDeviceOrientation();
 
   const toggleSettings = (visibility?: boolean) => {
     setShowSettings(visibility === undefined ? !showSettings : visibility);
@@ -221,7 +223,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             height={100} 
             priority 
             quality={80}
-            className="w-[80vw] mt-6 p-4 rounded-full brightness-[1.2] dark:invert-[1] border-[0.4rem] border-dotted border-blue-400 dark:border-[#fa7a60]"
+            className={`w-[80vw] mt-6 p-4 rounded-full brightness-[1.2] dark:invert-[1] border-[0.4rem] border-dotted border-blue-400 dark:border-[#fa7a60] transition-[rotate] ${
+              orientation === "landscape" ? "rotate-90" : "rotate-0"
+            }`}
           />
         )}
       </div>
