@@ -5,7 +5,7 @@ import { IFilterState, IFrequencyData, IMotionData, ICOPData } from "@/interface
 import { butterworthLowPass_SampleGeneric, getFrequencyFeatures, calculateSTD, calculateCOP_Stats } from "@/services/balance";
 import { BalanceSettings } from "@/providers/Settings";
 
-export function useMotionHandler({settings}: {settings: BalanceSettings}) {  
+export default function useMotionHandler({settings}: {settings: BalanceSettings}) {  
   // 🔗 Constantes
   const {
     calibrationDelay: CALIBRATION_DELAY,
