@@ -13,6 +13,7 @@ import {
 import React, { useEffect, useState } from "react";
 import BalanceSettings from "@/modals/BalanceSettings";
 import useMotionHandler from "./Hooks/useMotionHandler";
+import useOrientationHandler from "./Hooks/useOrientationHandler";
 import SpectrumChart from "./FrequencyGraph";
 import COPChart from "./COPGraph";
 import { motion } from "framer-motion";
@@ -42,10 +43,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     frequencyData,
   } = useMotionHandler({settings: settings.balance});
 
-  // const { orientation } = useDeviceOrientation({
-  //   settings: settings.balance,
-  //   isActive: !isRecording
-  // });
+  const { orientation } = useOrientationHandler({
+    settings: settings.balance,
+    isActive: !isRecording
+  });
 
   const toggleSettings = (visibility?: boolean) => {
     setShowSettings(visibility === undefined ? !showSettings : visibility);
@@ -226,7 +227,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             height={100} 
             priority 
             quality={80}
-            className={`w-[80vw] mt-6 p-4 rounded-full brightness-[1.2] dark:invert-[1] border-[0.4rem] border-dotted border-blue-400 dark:border-[#fa7a60] transition-[rotate] duration-500 ease-in-out rotate-0`}
+            className={`w-[80vw] mt-6 p-4 rounded-full brightness-[1.2] dark:invert-[1] border-[0.4rem] border-dotted border-blue-400 dark:border-[#fa7a60] transition-[rotate] duration-500 ease-in-out ${
+              orientation ? 'rotate-90' : 'rotate-0'
+            }`}
           />
         )}
       </div>
@@ -262,7 +265,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 onClick={() => (!isRecording && settings?.balance) && setIsRecording(true)}
                 />
           }
-          {(!isRecording && isBaselineDefined && (COPData.copPoints?.length ?? 0) > 100) && (
+          {(!isRecording && isBaselineDefined && hasValidTestResults) && (
             <TrashIcon
               className="h-6 w-6 text-red-500 cursor-pointer"
               onClick={() => setHasValidTestResults(false)}

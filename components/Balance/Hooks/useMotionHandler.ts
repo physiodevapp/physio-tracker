@@ -105,11 +105,11 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
       setLog("Position error");
     }
 
-    console.log('gravity ', GRAVITY);
-    console.log('gravityFactor ', GRAVITY_FACTOR);
-    console.log('gravity_X ', gravity_X.toFixed(2));
-    console.log('isLandscape ', isLandscape );
-    console.log('=============');
+    // console.log('gravity ', GRAVITY);
+    // console.log('gravityFactor ', GRAVITY_FACTOR);
+    // console.log('gravity_X ', gravity_X.toFixed(2));
+    // console.log('isLandscape ', isLandscape );
+    // console.log('=============');
   
     return isLandscape;
   }
