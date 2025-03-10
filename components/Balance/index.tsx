@@ -266,20 +266,21 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 onClick={() => handleMainMenu()}
                 />
           }
-          {isRecording ?
-            <StopIcon 
-              className={`w-6 h-6 text-green-500 ${
-                isRecording ? 'animate-pulse' : ''
-              }`}
-              onClick={() => setIsRecording(false)}
-              />
-            : <PlayIcon 
+          {(!hasValidTestResults || isDefaultState) && (
+            isRecording ? (
+              <StopIcon 
+                className="w-6 h-6 text-green-500 animate-pulse"
+                onClick={() => setIsRecording(false)}
+                />
+            ) : ( 
+              <PlayIcon 
                 className={`w-6 h-6 ${
                   !settings?.balance ? 'text-white/60' : 'text-white'
                 }`}
-                onClick={() => (!isRecording && settings?.balance) && setIsRecording(true)}
+                onClick={() => settings?.balance && setIsRecording(true)}
                 />
-          }
+            )
+          )}
           {(!isRecording && hasValidTestResults && !isDefaultState) && (
             <TrashIcon
               className="h-6 w-6 text-red-500 cursor-pointer"

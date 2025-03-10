@@ -463,10 +463,12 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
                 onClick={() => handleMainMenu()}
                 />
           }
-          <SwatchIcon 
-            className="w-6 h-6 text-white"
-            onClick={captureAndAnalyze}
-            /> 
+          {!captured && (
+            <SwatchIcon 
+              className="w-6 h-6 text-white"
+              onClick={captureAndAnalyze}
+              /> 
+          )}
           {captured && (
             <>
               <TrashIcon 

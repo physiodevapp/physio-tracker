@@ -10,7 +10,7 @@ import {
   Tooltip,
   Legend,
   ChartOptions,
-} from 'chart.js';
+} from 'chart.js'; 
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { lttbDownsample } from '@/services/chart';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
@@ -418,14 +418,14 @@ const Index: React.FC<IndexProps> = ({
     <div className={`mt-12`}
       >
       <section className='relative w-full text-lg'>
-        <div className={`absolute w-full flex flex-row justify-center items-baseline gap-4 text-center font-base text-4xl left-1/2 -translate-x-1/2 transition-[top] duration-300 ease-in-out -top-10${
+        <div className={`absolute w-full flex flex-row justify-center items-baseline gap-4 text-center font-base text-4xl left-1/2 -translate-x-1/2 transition-[top] duration-300 ease-in-out -top-10 px-8 ${
             fatigueDetected ? 'text-red-500 animate-pulse' : ''
           } ${
             isEstimatingMass ? 'opacity-40' : ''
           }`}
         >
           <span className={`flex flex-row-reverse justify-start items-center gap-2 ${
-            (workLoad !== null && sensorData.length) ? 'flex-[1.1]' : ''
+            (workLoad !== null && sensorData.length) ? 'flex-[1.4]' : ''
           }`}
           >
             {cycleCount ?? 0} {cycleCount === 1 ? 'rep' : 'reps'}
@@ -434,7 +434,7 @@ const Index: React.FC<IndexProps> = ({
             )}
           </span>
           {(workLoad !== null && sensorData.length) && (
-            <span className='flex-1 text-3xl text-left'>
+            <span className='flex-1 text-2xl text-left'>
               {ponderatedCycleVelocity?.toFixed(1)} m/s
             </span>
           )}
@@ -447,7 +447,7 @@ const Index: React.FC<IndexProps> = ({
           <p className='text-left font-semibold'>{((cycleDuration ?? 0) / 1000).toFixed(1)} s</p>
         </div>
       </section>
-      <Line data={chartData} options={chartOptions} />
+      <Line data={chartData} options={chartOptions} className='bg-white rounded-lg px-1 py-4 mt-2'/>
     </div>
   );
 };

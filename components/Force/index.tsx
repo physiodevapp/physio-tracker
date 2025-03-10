@@ -338,7 +338,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         Force Tracker
       </motion.h1>
       <div
-        className={`relative h-dvh p-5 transition-all duration-300 ease-in-out ${
+        className={`relative h-dvh pb-5 px-2 transition-all duration-300 ease-in-out ${
           isMainMenuOpen ? "pt-16" : "pt-16"
         }`}
         onClick={handleMainLayer}
