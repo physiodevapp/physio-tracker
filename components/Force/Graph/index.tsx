@@ -283,16 +283,25 @@ const Index: React.FC<IndexProps> = ({
   // ------ Fatiga ------
   // Función de detección de fatiga basada en las métricas agregadas
   const detectFatigue = (): boolean => {
-    if (!aggregatedCycleMetrics || lastCycleVelocity === null || cycleVelocityEstimate === null) return false;
+    if (!aggregatedCycleMetrics) return false;
 
     const amplitudeFatigue = aggregatedCycleMetrics.avgAmplitude < minAvgAmplitude;
     const durationFatigue = aggregatedCycleMetrics.avgDuration > maxAvgDuration;
     const forceFatigue = recentAverageForceValue < (maxPoint * forceDropThreshold);
-    const velocityVariation = Math.abs(lastCycleVelocity - cycleVelocityEstimate);
-    const velocityFatigue = velocityVariation > (cycleVelocityEstimate * velocityVariationThreshold); // Fatiga si la variación supera el 20%
 
-    // Por ejemplo, si se cumplen al menos dos condiciones, se detecta fatiga
-    const conditionsMet = [amplitudeFatigue, durationFatigue, forceFatigue, velocityFatigue].filter(Boolean).length;
+    const velocityFatigue = 
+      lastCycleVelocity !== null &&
+      cycleVelocityEstimate !== null &&
+      Math.abs(lastCycleVelocity - cycleVelocityEstimate) > (cycleVelocityEstimate * velocityVariationThreshold);
+
+    // Solo incluir velocityFatigue si se pudo evaluar correctamente
+    const fatigueConditions = [amplitudeFatigue, durationFatigue, forceFatigue];
+
+    if (velocityFatigue !== false) { // Se incluye si es true, ignorando si es false o no evaluable (null)
+      fatigueConditions.push(velocityFatigue);
+    }
+
+    const conditionsMet = fatigueConditions.filter(Boolean).length;
     return conditionsMet >= 2;
   }
 
