@@ -280,7 +280,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 onClick={() => (!isRecording && settings?.balance) && setIsRecording(true)}
                 />
           }
-          {(!isRecording && hasValidTestResults) && (
+          {(!isRecording && hasValidTestResults && !isDefaultState) && (
             <TrashIcon
               className="h-6 w-6 text-red-500 cursor-pointer"
               onClick={() => setIsDefaultState(true)}

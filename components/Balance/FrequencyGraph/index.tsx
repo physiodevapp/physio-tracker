@@ -101,14 +101,14 @@ const Index: React.FC<IndexProps> = ({
             type: "linear",
             min: 0,
             max: maxFreq,
-            title: { display: true, text: "Frecuencia (Hz)" },
+            title: { display: true, text: "Frequency (Hz)" },
             ticks: {
               stepSize: 1,
               callback: value => Number(value).toFixed(0),
             },
           },
           y: {
-            title: { display: true, text: "Amplitud (m/s²)" },
+            title: { display: true, text: "Amplitude (m/s²)" },
             ticks: {
               callback: value => Number(value).toFixed(1),
             },
