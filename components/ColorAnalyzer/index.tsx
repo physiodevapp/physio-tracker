@@ -35,10 +35,10 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
   });
-
+  
   const [showSettings, setShowSettings] = useState(false);
   const [showData, setShowData] = useState(false);
-
+  
   const { settings } = useSettings();
   
   const webcamRef = useRef<Webcam>(null);
@@ -423,19 +423,19 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           audio={false}
           ref={webcamRef}
           screenshotFormat="image/jpeg"
-          className={`relative object-cover h-full w-full`}
+          className={`relative object-cover h-dvh border-0 border-blue-500`}
           videoConstraints={videoConstraints}
           mirrored={videoConstraints.facingMode === "user"}
         />
         {/* Canvas overlay para contornos (superpuesto al video) */}
         <canvas
           ref={overlayCanvasRef}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full pointer-events-none"
+          className={`absolute top-0 w-full h-dvh border-0 border-green-500 pointer-events-none`}
           />
         {/* Canvas de análisis visible para descarga */}
         <canvas 
           ref={captureCanvasRef} 
-          className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full border-red-500 border-2" 
+          className="absolute hidden top-0 w-full h-dvh border-2 border-red-500" 
           />
         {(loading || (!loading && error)) && (
           <div className="absolute top-0 z-50 w-full h-dvh flex flex-col items-center justify-center text-white bg-black/40">
