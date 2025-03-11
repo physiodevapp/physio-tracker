@@ -70,7 +70,7 @@ const Index: React.FC<IndexProps> = ({
     ponderatedCycleVelocity,
     fatigueDetected,
     recentAverageValue: recentAverageForceValue,
-    maxPoint,
+    peak: maxPoint,
   } = useCyclesDetector({
     mappedData,
     downsampledData,

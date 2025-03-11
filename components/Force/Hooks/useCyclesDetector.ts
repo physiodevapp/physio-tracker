@@ -27,7 +27,7 @@ export default function useCyclesDetector({
     movingAverageWindow,
     minAvgAmplitude,
     maxAvgDuration,
-    forceDropThreshold,
+    forceDropThreshold: amplitudeDropThreshold,
     cyclesToAverage,
     velocityWeight,
     velocityVariationThreshold,
@@ -52,7 +52,7 @@ export default function useCyclesDetector({
   const currentCycleExtremesRef = useRef<{ min: number; max: number } | null>(null);
 
   // Cálculo del valor máximo de fuerza
-  const maxPoint = useMemo(() => {
+  const peak = useMemo(() => {
     if (mappedData.length === 0) return 0;
     return Math.max(...mappedData.map(point => point.y));
   }, [mappedData]);
@@ -163,11 +163,11 @@ export default function useCyclesDetector({
   const getLastCycleVelocity  = useMemo(() => {
     if (!workLoad || !cycleAmplitude || !cycleDuration) return null; 
     // Fuerza media aproximada
-    const forceMed = cycleAmplitude / 2;  
+    const amplitudeMed = cycleAmplitude / 2;  
     // Tiempo del ciclo en segundos
     const cycleTimeSec = cycleDuration / 1000;  
     // Cálculo de la velocidad media
-    const velocity = (forceMed / workLoad) * (cycleTimeSec / 2);
+    const velocity = (amplitudeMed / workLoad) * (cycleTimeSec / 2);
 
     return velocity;
   }, [workLoad, cycleAmplitude, cycleDuration]);
@@ -183,10 +183,10 @@ export default function useCyclesDetector({
     if (!workLoad || !aggregatedCycleMetrics) return null;
   
     const { avgAmplitude, avgDuration } = aggregatedCycleMetrics;
-    const forceMed = avgAmplitude / 2;
+    const amplitudeMed = avgAmplitude / 2;
     const cycleTimeSec = avgDuration / 1000; // convertir a segundos
   
-    return (forceMed / workLoad) * (cycleTimeSec / 2);
+    return (amplitudeMed / workLoad) * (cycleTimeSec / 2);
   }, [workLoad, aggregatedCycleMetrics]);
 
   useEffect(() => {
@@ -213,9 +213,11 @@ export default function useCyclesDetector({
   const detectFatigue = (): boolean => {
     if (!aggregatedCycleMetrics) return false;
 
-    const amplitudeFatigue = aggregatedCycleMetrics.avgAmplitude < minAvgAmplitude;
-    const durationFatigue = aggregatedCycleMetrics.avgDuration > maxAvgDuration;
-    const forceFatigue = recentAverageValue < (maxPoint * forceDropThreshold);
+    // Fatiga basada en métricas promediadas sobre los ciclos recientes
+    const cycleAmplitudeFatigue  = aggregatedCycleMetrics.avgAmplitude < minAvgAmplitude;
+    const cycleDurationFatigue  = aggregatedCycleMetrics.avgDuration > maxAvgDuration;
+    // Fatiga basada en el promedio de valores en la ventana de tiempo definida
+    const timeWindowAmplitudeFatigue = recentAverageValue < (peak * amplitudeDropThreshold);
 
     const velocityFatigue = 
       lastCycleVelocity !== null &&
@@ -223,7 +225,7 @@ export default function useCyclesDetector({
       Math.abs(lastCycleVelocity - cycleVelocityEstimate) > (cycleVelocityEstimate * velocityVariationThreshold);
 
     // Solo incluir velocityFatigue si se pudo evaluar correctamente
-    const fatigueConditions = [amplitudeFatigue, durationFatigue, forceFatigue];
+    const fatigueConditions = [cycleAmplitudeFatigue, cycleDurationFatigue, timeWindowAmplitudeFatigue];
 
     if (velocityFatigue !== false) { // Se incluye si es true, ignorando si es false o no evaluable (null)
       fatigueConditions.push(velocityFatigue);
@@ -234,7 +236,7 @@ export default function useCyclesDetector({
   }
 
   // Calcular la detección de fatiga (puedes mostrarla o usarla en la UI)
-  const fatigueDetected = useMemo(() => detectFatigue(), [aggregatedCycleMetrics, recentAverageValue, maxPoint, lastCycleVelocity, cycleVelocityEstimate]);
+  const fatigueDetected = useMemo(() => detectFatigue(), [aggregatedCycleMetrics, recentAverageValue, peak, lastCycleVelocity, cycleVelocityEstimate]);
 
   useEffect(() => {
     if (mappedData.length === 0) {
@@ -253,6 +255,6 @@ export default function useCyclesDetector({
     ponderatedCycleVelocity,
     fatigueDetected,
     recentAverageValue,
-    maxPoint,
+    peak,
   }
 }
