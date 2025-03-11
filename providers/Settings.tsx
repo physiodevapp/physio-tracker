@@ -28,15 +28,15 @@ interface ColorSettings {
 }
 
 // Agregamos un nuevo grupo force con variables opcionales
-interface ForceSettings {
-  movingAverageWindow?: number;
-  minAvgAmplitude?: number;
-  maxAvgDuration?: number;
-  forceDropThreshold?: number;
-  cyclesToAverage?: number;
-  hysteresis?: number;
-  velocityWeight?: number;
-  velocityVariationThreshold?: number;
+export interface ForceSettings {
+  movingAverageWindow: number;
+  minAvgAmplitude: number;
+  maxAvgDuration: number;
+  forceDropThreshold: number;
+  cyclesToAverage: number;
+  hysteresis: number;
+  velocityWeight: number;
+  velocityVariationThreshold: number;
 }
 
 // Interfaz para BalanceSettings

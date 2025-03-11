@@ -437,6 +437,7 @@ const Index = ({
     };
   }, [verticalLineValue, onVerticalLineChange, chartRef]); 
 
+
   return (
     <div 
       data-element="non-swipeable"
