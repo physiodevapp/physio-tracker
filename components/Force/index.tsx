@@ -318,12 +318,31 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const handleUpdateWorkLoad = async () => {
     setUpdatedWorkLoad(updatedWorkLoad ? null : workLoad);
-    if (updatedWorkLoad !== null) await stopMassEstimation()
-  }
+  };
+
+  useEffect(() => {
+    const executeStopMassEstimation = async () => {
+      if (updatedWorkLoad !== null) {
+        await stopMassEstimation();
+      }
+    };
+
+    executeStopMassEstimation();
+
+}, [updatedWorkLoad]);  
 
   useEffect(() => {
     showMassCalibrationRef.current = showMassCalibration;
   }, [showMassCalibration]);
+
+  const handleStartTest= async () => {
+    if (showMassCalibration) return;
+
+    await startMeasurement();
+  }
+  const handleStopTest = async () => {
+    await stopMeasurement();
+  }
 
   // ----------------- Renderizado de la UI -----------------
   return (
@@ -357,9 +376,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         {/* Tara y métricas */}
         <div className="flex justify-center items-center flex-wrap gap-4">
           {device && isConnected && (
-            <div className={`flex-1 flex justify-center items-center mt-2`}
+            <div className={`flex-1 flex justify-center items-center mt-1`}
               >
-              <p className={`text-2xl ${
+              <p className={`text-xl ${
                   showMassCalibration ? 'opacity-40' : ''
                 }`}
                 >
@@ -392,6 +411,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               isEstimatingMass={showMassCalibration}
               workLoad={updatedWorkLoad}
               settings={settings.force}
+              isRecording={isRecording}
               />
           </div>
         )}
@@ -436,7 +456,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                     className={`w-6 h-6 text-white ${
                       taringStatus !== 1 || showMassCalibration ? 'opacity-40' : ''
                     }`}
-                    onClick={() => !showMassCalibration && startMeasurement()}
+                    onClick={handleStartTest}
                     />
                   {Boolean(sensorData.length && !isRecording) && (
                     <DocumentArrowDownIcon 
@@ -450,7 +470,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               {(isRecording && !showMassCalibration) && (
                 <StopIcon
                   className={`w-6 h-6 ${isRecording ? 'animate-pulse text-green-500' : 'text-white'}`}
-                  onClick={stopMeasurement}
+                  onClick={handleStopTest}
                   />
               )}
             </>

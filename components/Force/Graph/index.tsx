@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -13,9 +13,9 @@ import {
 } from 'chart.js'; 
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { lttbDownsample } from '@/services/chart';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { ForceSettings } from '@/providers/Settings';
 import useCyclesDetector from '../Hooks/useCyclesDetector';
+import { ChevronDownIcon } from '@heroicons/react/24/solid';
 
 // Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, annotationPlugin);
@@ -33,14 +33,16 @@ interface IndexProps {
   isEstimatingMass: boolean;
   workLoad: number | null;
   settings: ForceSettings;
+  isRecording: boolean;
 }
 
 const Index: React.FC<IndexProps> = ({
   sensorData,
   displayAnnotations = true,
   isEstimatingMass = false,
-  workLoad = null,
-  settings
+  settings,
+  isRecording,
+  workLoad,
 }) => {
   const {
     movingAverageWindow,
@@ -61,16 +63,15 @@ const Index: React.FC<IndexProps> = ({
   // Aplicamos la función de downsampling usando useMemo para optimizar
   const downsampledData = useMemo(() => {
     return lttbDownsample(mappedData, decimationThreshold);
-  }, [mappedData, decimationThreshold]);
+  }, [JSON.stringify(mappedData), decimationThreshold]);
 
   const {
     cycleCount,
     cycleDuration,
     cycleAmplitude,
-    ponderatedCycleVelocity,
-    fatigueDetected,
-    recentAverageValue: recentAverageForceValue,
-    peak: maxPoint,
+    fatigueStatus,
+    recentWindowData: {recentAverageValue: recentAverageForceValue},
+    peak: maxPoint, // kg
   } = useCyclesDetector({
     mappedData,
     downsampledData,
@@ -78,12 +79,69 @@ const Index: React.FC<IndexProps> = ({
     workLoad,
   });
 
-  // Ventana de tiempo de 10 segundos
+  const [cycleData, setCycleData] = useState<{ 
+    workLoad: number | null; 
+    cycleCount: number | null; 
+    cycleDuration: number | null; 
+    cycleAmplitude: number | null}[]>([]);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => {
+    if (cycleCount === 0) {
+      setCycleData([]);
+
+      setIsExpanded(false);
+    };
+
+    setCycleData(prevData => {
+        const newCycle = { 
+            workLoad: workLoad, 
+            cycleCount, 
+            cycleDuration, 
+            cycleAmplitude 
+        };
+
+        const updatedData = [...prevData, newCycle];
+        return updatedData;
+    });
+
+}, [cycleCount]);
+
+  // ---- Comporbar si hay mas datos que mostrar (scroll) ----
+  const [showScrollHint, setShowScrollHint] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const checkScroll = () => {
+      if (scrollContainerRef.current) {
+        const { scrollHeight, clientHeight, scrollTop } = scrollContainerRef.current;
+        setShowScrollHint(scrollHeight > clientHeight && (scrollTop + 1) < (scrollHeight - clientHeight));
+      }
+    };
+
+    // Comprobar al montar
+    checkScroll();
+
+    // Event listener para ocultar el aviso cuando el usuario hace scroll
+    const divElement = scrollContainerRef.current;
+    if (divElement) {
+      divElement.addEventListener("scroll", checkScroll);
+    }
+
+    return () => {
+      if (divElement) {
+        divElement.removeEventListener("scroll", checkScroll);
+      }
+    };
+  }, [cycleData, isExpanded]);
+
+  // ---- Ventana de tiempo de 10 segundos ----
   const timeWindow = 10_000; // 10 segundos en ms
   const lastTime = downsampledData.length > 0 ? downsampledData[downsampledData.length - 1].x : 0;
   const minTime = downsampledData.length > 0 ? lastTime - timeWindow : undefined;
   const maxTime = downsampledData.length > 0 ? lastTime : undefined;
 
+  // --- Cofiguración del gráfico ----
   // Configuración de datos para la gráfica
   const chartData = {
     labels: downsampledData.map(point => point.x),
@@ -95,7 +153,7 @@ const Index: React.FC<IndexProps> = ({
         borderWidth: 2,
         borderColor: 'rgb(75, 192, 192)',
         tension: 0.1,
-        pointRadius: 0 ,
+        pointRadius: isRecording ? 0 : 2 ,
         pointHoverRadius: 0,
         pointHitRadius: 0,
       },
@@ -113,6 +171,32 @@ const Index: React.FC<IndexProps> = ({
       },
       legend: {
         display: false,
+      },
+      tooltip: {
+        callbacks: {
+          title: function (context) {
+            if (!context.length) return ""; // Evitar errores si no hay datos
+
+            const firstPoint = context[0]; // Tomamos el primer punto del tooltip
+            const timeValue = parseFloat(firstPoint.label as string); // Convertir `label` a número
+
+            if (isNaN(timeValue)) return "Unknown time"; // Manejo de errores
+
+            return `Time: ${(timeValue / 1000).toFixed(2)} s`;
+          },
+          label: function (context) {
+            const value = context.raw as number; // Valor de la serie
+            const datasetLabel = context.dataset.label || "";
+            
+            // Formatear la fuerza con dos decimales y añadir "kg"
+            if (datasetLabel.includes("Force")) {
+              return ` ${value.toFixed(2)} kg`;
+            }
+            
+            // Valor por defecto si no es ni tiempo ni fuerza
+            return `${datasetLabel}: ${value}`;
+          }
+        }
       },
       // Configuración de anotaciones
       annotation: {
@@ -211,28 +295,24 @@ const Index: React.FC<IndexProps> = ({
     <div className={`mt-12`}
       >
       <section className='relative w-full text-lg'>
-        <div className={`absolute w-full flex flex-row justify-center items-baseline gap-4 text-center font-base text-4xl left-1/2 -translate-x-1/2 transition-[top] duration-300 ease-in-out -top-10 px-8 ${
-            fatigueDetected ? 'text-red-500 animate-pulse' : ''
+        <div className={`absolute w-full flex flex-col justify-center items-center text-center font-base text-2xl left-1/2 -translate-x-1/2 transition-[top] duration-300 ease-in-out px-8 ${
+            fatigueStatus.isFatigued 
+              ? 'text-red-500 animate-pulse -top-12' 
+              : '-top-10'
           } ${
             isEstimatingMass ? 'opacity-40' : ''
           }`}
         >
-          <span className={`flex flex-row-reverse justify-start items-center gap-2 ${
-            (workLoad !== null && mappedData.length) ? 'flex-[1.4]' : ''
-          }`}
+          <p className={`flex flex-row justify-center items-center gap-1 font-bold`}
           >
-            {cycleCount ?? 0} {cycleCount === 1 ? 'rep' : 'reps'}
-            {fatigueDetected && (
-              <ExclamationTriangleIcon className='w-6 h-6'/>
-            )}
-          </span>
-          {(workLoad !== null && mappedData.length) && (
-            <span className='flex-1 text-2xl text-left'>
-              {ponderatedCycleVelocity?.toFixed(1)} m/s
-            </span>
-          )}
+            {cycleCount ?? 0} {cycleCount === 1 ? 'rep.' : 'reps.'}
+          </p>
+          {fatigueStatus.isFatigued ? (
+            <p className='text-sm'>{fatigueStatus.reasons}</p> 
+            ) : null
+          }
         </div>
-        <div className={`w-full flex justify-center gap-4 ${
+        <div className={`w-full flex justify-center gap-2 pt-2 ${
             isEstimatingMass ? 'opacity-40' : ''
           }`}
           >
@@ -240,7 +320,87 @@ const Index: React.FC<IndexProps> = ({
           <p className='text-left font-semibold'>{((cycleDuration ?? 0) / 1000).toFixed(1)} s</p>
         </div>
       </section>
-      <Line data={chartData} options={chartOptions} className='bg-white rounded-lg px-1 py-4 mt-2'/>
+      <div className={`relative w-full transition-all duration-300 ease-in-out pb-4`}>
+        <section className='bg-white rounded-lg px-1 py-4 mt-2'>
+          <Line data={chartData} options={chartOptions} className='bg-white'/>
+        </section>
+        <section className="mt-2 px-1 py-2 border-2 border-black dark:border-white rounded-lg">
+          <div className="grid grid-cols-4 font-semibold bg-white dark:bg-black border-b py-1 mb-2">
+            <div className="pl-2">Load (kg)</div>
+            <div className="pl-2">{!isExpanded ? "Last" : ""} Rep</div>
+            <div className="pl-2">Time (s)</div>
+            <div className="pl-2">Amp (kg)</div>
+          </div>
+          <div ref={scrollContainerRef} className="max-h-[calc(100dvh-540px)] overflow-y-auto">
+            <table className="w-full border-collapse text-left table-fixed transition-transform">
+              <thead className="hidden md:table-header-group">
+                <tr className="align-baseline">
+                  <th className="pl-2 w-1/4">Load (kg)</th>
+                  <th className="pl-2 w-1/4">Rep</th>
+                  <th className="pl-2 w-1/4">Time (s)</th>
+                  <th className="pl-2 w-1/4">Amp (kg)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Si no está expandido, solo muestra la última fila */}
+                {!isExpanded && cycleData.length > 0 && (
+                  <tr>
+                    <td className="pl-2">{
+                      cycleData.length > 0 && cycleData[cycleData.length - 1].workLoad !== null 
+                        ? cycleData[cycleData.length - 1].workLoad!.toFixed(1) 
+                        : "-"
+                    }</td>
+                    <td className="pl-2">{
+                      cycleData.length > 0 && cycleData[cycleData.length - 1].cycleCount !== null 
+                        ? cycleData[cycleData.length - 1].cycleCount!.toFixed(0) 
+                        : "-"
+                    }</td>
+                    <td className="pl-2">{
+                      cycleData.length > 0 && cycleData[cycleData.length - 1].cycleDuration !== null 
+                        ? (cycleData[cycleData.length - 1].cycleDuration! / 1000).toFixed(2) 
+                        : "-"
+                      
+                    }</td>
+                    <td className="pl-2">{
+                      cycleData.length > 0 && cycleData[cycleData.length - 1].cycleAmplitude !== null 
+                        ? cycleData[cycleData.length - 1].cycleAmplitude!.toFixed(2) 
+                        : "-"
+                    }</td>
+                  </tr>
+                )}
+
+                {/* Si está expandido, muestra todas las filas */}
+                {isExpanded && cycleData.map((data, index) => (
+                  <tr key={index}>
+                    <td className="pl-2">{data.workLoad !== null ? data.workLoad.toFixed(1) : "-"}</td>
+                    <td className="pl-2">{data.cycleCount !== null ? data.cycleCount.toFixed(0) : "-"}</td>
+                    <td className="pl-2">{data.cycleDuration !== null ? (data.cycleDuration / 1000).toFixed(2) : "-"}</td>
+                    <td className="pl-2">{data.cycleAmplitude !== null ? data.cycleAmplitude.toFixed(2) : "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className='flex flex-row justify-between items-center mt-2'>
+            <button 
+              onClick={() => setIsExpanded(!isExpanded)} 
+              className="flex items-center dark:text-gray-500"
+              >
+              <>
+                <ChevronDownIcon className={`w-5 h-5 mr-2 transition-transform ${
+                  isExpanded ? 'rotate-180' : ''
+                }`} />
+                {isExpanded ? 'Collapse' : 'Expand'}
+              </>
+            </button>
+            {showScrollHint && (
+              <div className="text-sm italic dark:text-gray-500 animate-pulse">
+                Scroll down for more...
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   );
 };

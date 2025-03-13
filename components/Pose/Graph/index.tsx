@@ -161,7 +161,6 @@ const Index = ({
     return result;
   }, [chartData, joints, valueTypes, settings.pose.poseGraphSample, settings.pose.poseGraphSampleThreshold]);
 
-
   // Calculamos el rango del eje X usando el tiempo normalizado
   let normalizedMaxX;
   let normalizedMinX;

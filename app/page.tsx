@@ -13,7 +13,7 @@ const ColorAnalyzer = dynamic(() => import('../components/ColorAnalyzer').then(m
 const Balance = dynamic(() => import('../components/Balance').then(mod => mod.default), { ssr: false });
 
 export default function Home() {
-  const [page, setPage] = useState<MainMenuOption>('bodychart');
+  const [page, setPage] = useState<MainMenuOption>('force');
 
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
 
