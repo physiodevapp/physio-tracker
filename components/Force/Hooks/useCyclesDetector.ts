@@ -195,28 +195,29 @@ export default function useCyclesDetector({
     // const cycleDurationFatigue  = aggregatedCycleMetrics.avgDuration > maxAvgDuration;
     let durationChangeRate = 0;
     if (cycleDurations.current.length >= 2) {
-      const lastDurations = cycleDurations.current.slice(-cyclesToAverage); // Tomamos los últimos "cyclesToAverage" ciclos
+      const lastDurations = cycleDurations.current
+        .slice(-cyclesToAverage)
       for (let i = 1; i < lastDurations.length; i++) {
         durationChangeRate += (lastDurations[i] - lastDurations[i - 1]) / lastDurations[i - 1]; 
       }
       durationChangeRate /= (lastDurations.length - 1); // Promedio del cambio
     }
 
+    //---- Comparar con la velocidad inicial (promedio de los primeros "cyclesToAverage" ciclos) ----
     // Calcular la "velocidad" (kg/s) promedio de los últimos ciclos
     const recentVelocities = cycleMetrics
       .slice(-cyclesToAverage) // Últimos "cyclesToAverage" ciclos
-      .map(cycle => (cycle.amplitude / cycle.duration) / (isWorkLoadConstant ? workLoad! : 1))
+      .map(cycle => (cycle.amplitude / (cycle.duration)) / (isWorkLoadConstant ? workLoad! : 1))
       .filter(velocity => !isNaN(velocity) && isFinite(velocity));
 
     const avgVelocity = recentVelocities.length > 0 
       ? recentVelocities.reduce((sum, v) => sum + v, 0) / recentVelocities.length 
       : 0;  
-    // Comparar con la velocidad inicial (promedio de los primeros "cyclesToAverage" ciclos)
     // Calcular la velocidad inicial una sola vez
-    if (initialAvgVelocity.current === null && cycleMetrics.length >= cyclesToAverage) {
+    if (initialAvgVelocity.current === null && cycleMetrics.length > cyclesToAverage) {
       const initialVelocities = cycleMetrics
-        .slice(0, cyclesToAverage)
-        .map(cycle => (cycle.amplitude / cycle.duration) / (isWorkLoadConstant ? workLoad! : 1))
+        .slice(1, cyclesToAverage)
+        .map(cycle => (cycle.amplitude / (cycle.duration)) / (isWorkLoadConstant ? workLoad! : 1))
         .filter(velocity => !isNaN(velocity) && isFinite(velocity));
       
       initialAvgVelocity.current = initialVelocities.length > 0 
@@ -234,7 +235,7 @@ export default function useCyclesDetector({
     // Fatiga basada en métricas promediadas sobre los ciclos recientes
     const cycleAmplitudeFatigue  = (aggregatedCycleMetrics.avgAmplitude / (isWorkLoadConstant ? workLoad! : 1)) < minAvgAmplitude;
     const cycleDurationFatigue = durationChangeRate > durationChangeThreshold;
-    const velocityFatigue = initialAvgVelocity !== null && avgVelocity < ((initialAvgVelocity.current ?? 0) * velocityDropThreshold);
+    const velocityFatigue = initialAvgVelocity.current !== null && avgVelocity < ((initialAvgVelocity.current ?? 0) * velocityDropThreshold);
     const variabilityFatigue = amplitudeVariance > variabilityThreshold;
     // Fatiga basada en el promedio de valores en la ventana de tiempo definida
     const timeWindowAmplitudeFatigue = (recentWindowData.recentPeak / (isWorkLoadConstant ? workLoad! : 1)) < (peak * amplitudeDropThreshold);

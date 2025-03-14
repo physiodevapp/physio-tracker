@@ -1,16 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Line } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  ChartOptions,
-} from 'chart.js'; 
+import {Chart as ChartJS, ChartConfiguration, registerables} from 'chart.js'; 
+import CrosshairPlugin from 'chartjs-plugin-crosshair';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { lttbDownsample } from '@/services/chart';
 import { ForceSettings } from '@/providers/Settings';
@@ -18,7 +8,7 @@ import useCyclesDetector from '../Hooks/useCyclesDetector';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 
 // Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, annotationPlugin);
+ChartJS.register(...registerables, annotationPlugin, CrosshairPlugin);
 
 // Define el tipo para cada punto de datos
 export interface DataPoint {
@@ -48,9 +38,7 @@ const Index: React.FC<IndexProps> = ({
     movingAverageWindow,
     hysteresis,
   } = settings
-
-  const decimationThreshold = 200;
-
+  
   // Mapeamos los datos para adaptarlos a la función lttbDownsample
   //  Convertimos "time" a "x" y de microsegundos a milisegundos
   const mappedData = useMemo(() => {
@@ -59,8 +47,9 @@ const Index: React.FC<IndexProps> = ({
       y: point.force,       // kg
     }));    
   }, [sensorData]);
-
+  
   // Aplicamos la función de downsampling usando useMemo para optimizar
+  const decimationThreshold = 200;
   const downsampledData = useMemo(() => {
     return lttbDownsample(mappedData, decimationThreshold);
   }, [JSON.stringify(mappedData), decimationThreshold]);
@@ -142,154 +131,214 @@ const Index: React.FC<IndexProps> = ({
   const maxTime = downsampledData.length > 0 ? lastTime : undefined;
 
   // --- Cofiguración del gráfico ----
-  // Configuración de datos para la gráfica
-  const chartData = {
-    labels: downsampledData.map(point => point.x),
-    datasets: [
-      {
-        label: 'Force (kg)',
-        data: downsampledData.map(point => point.y),
-        fill: false,
-        borderWidth: 2,
-        borderColor: 'rgb(75, 192, 192)',
-        tension: 0.1,
-        pointRadius: isRecording ? 0 : 2 ,
-        pointHoverRadius: 0,
-        pointHitRadius: 0,
-      },
-    ],
-  };
+  const chartRef = useRef<ChartJS | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
 
-  // Opciones del gráfico, incluyendo las anotaciones horizontales
-  const chartOptions: ChartOptions<'line'> = {
-    responsive: true,
-    animation: false,
-    plugins: {
-      title: {
-        display: false,
-        text: 'Real-Time Force vs Time',
-      },
-      legend: {
-        display: false,
-      },
-      tooltip: {
-        callbacks: {
-          title: function (context) {
-            if (!context.length) return ""; // Evitar errores si no hay datos
-
-            const firstPoint = context[0]; // Tomamos el primer punto del tooltip
-            const timeValue = parseFloat(firstPoint.label as string); // Convertir `label` a número
-
-            if (isNaN(timeValue)) return "Unknown time"; // Manejo de errores
-
-            return `Time: ${(timeValue / 1000).toFixed(2)} s`;
+  const chartConfig = useMemo<ChartConfiguration>(
+    () => ({
+      type: "line",
+      data: {
+        labels: downsampledData.map(point => point.x),
+        datasets: [
+          {
+            label: 'Force (kg)',
+            data: downsampledData.map(point => point.y),
+            fill: false,
+            borderWidth: 2,
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1,
+            pointRadius: isRecording ? 0 : 0,
+            pointHoverRadius: 4,
+            pointHoverBorderWidth: 1,
+            pointHoverBorderColor: 'red',
+            pointHitRadius: 0,
           },
-          label: function (context) {
-            const value = context.raw as number; // Valor de la serie
-            const datasetLabel = context.dataset.label || "";
-            
-            // Formatear la fuerza con dos decimales y añadir "kg"
-            if (datasetLabel.includes("Force")) {
-              return ` ${value.toFixed(2)} kg`;
+        ],
+      }, 
+      options: {
+        responsive: true,
+        animation: false,
+        interaction: {
+          mode: "nearest",
+          axis: "x",
+          intersect: false,
+        },
+        plugins: {
+          title: {
+            display: false,
+            text: 'Force vs Time',
+          },
+          legend: {
+            display: false,
+          },
+          crosshair: {
+            line: {
+              color: '#F66',  // Color de la línea del crosshair
+              width: 1        // Ancho de la línea del crosshair
+            },
+            sync: {
+              // Habilita la sincronización con otros gráficos
+              enabled: true,
+              // Grupo de gráficos para sincronizar
+              group: 1,
+              // Suprime tooltips al mostrar un tracer sincronizado
+              suppressTooltips: false,
+            },
+            zoom: {
+              enabled: false,  
+            },
+          },
+          tooltip: {
+            enabled: false,
+            external: function (context) {
+              if (!tooltipRef.current) return; 
+
+              const tooltipModel = context.tooltip;
+              if (tooltipModel.opacity === 0) {
+                tooltipRef.current.style.opacity = "0";
+                return;
+              }
+
+              // ✅ Obtener el contenido del tooltip
+              const label = tooltipModel.body?.[0]?.lines?.[0] || "";
+              tooltipRef.current.innerHTML = `Current: <strong>${label}</strong>`;
+
+              tooltipRef.current.style.opacity = "1";
+            },
+            intersect: false,
+            callbacks: {
+              title: function (context) {
+                if (!context.length) return ""; // Evitar errores si no hay datos
+
+                const firstPoint = context[0]; // Tomamos el primer punto del tooltip
+                const timeValue = parseFloat(firstPoint.label as string); // Convertir `label` a número
+
+                if (isNaN(timeValue)) return "Unknown time"; // Manejo de errores
+
+                return `Time: ${(timeValue / 1000).toFixed(2)} s`;
+              },
+              label: function (context) {
+                const value = context.raw as number; // Valor de la serie
+                const datasetLabel = context.dataset.label || "";
+                
+                // Formatear la fuerza con dos decimales y añadir "kg"
+                if (datasetLabel.includes("Force")) {
+                  return ` ${value.toFixed(2)} kg`;
+                }
+                
+                // Valor por defecto si no es ni tiempo ni fuerza
+                return `${datasetLabel}: ${value}`;
+              }
             }
-            
-            // Valor por defecto si no es ni tiempo ni fuerza
-            return `${datasetLabel}: ${value}`;
-          }
-        }
-      },
-      // Configuración de anotaciones
-      annotation: {
-        annotations: {
-          movingAverageWindowBox: {
-            type: 'box',
-            display: Boolean(displayAnnotations && mappedData.length),
-            xMin: lastTime - movingAverageWindow, // lastTime es el tiempo del último dato
-            xMax: lastTime,
-            yScaleID: 'y',
-            yMin: (ctx) => ctx.chart.scales['y'].min,
-            yMax: (ctx) => ctx.chart.scales['y'].max,
-            backgroundColor: 'rgba(68, 68, 239, 0.10)',
-            borderWidth: 0,
+          },          
+          // Configuración de anotaciones
+          annotation: {
+            annotations: {
+              movingAverageWindowBox: {
+                type: 'box',
+                display: Boolean(displayAnnotations && mappedData.length),
+                xMin: lastTime - movingAverageWindow, // lastTime es el tiempo del último dato
+                xMax: lastTime,
+                yScaleID: 'y',
+                yMin: (ctx) => ctx.chart.scales['y'].min,
+                yMax: (ctx) => ctx.chart.scales['y'].max,
+                backgroundColor: 'rgba(68, 68, 239, 0.10)',
+                borderWidth: 0,
+              },
+              hysteresisBox: {
+                type: 'box',
+                display: Boolean(displayAnnotations && mappedData.length),
+                xScaleID: 'x',
+                yScaleID: 'y',
+                // Cubre toda la escala en el eje x
+                xMin: (ctx) => ctx.chart.scales['x'].min,
+                xMax: (ctx) => ctx.chart.scales['x'].max,
+                yMin: recentAverageForceValue - hysteresis,
+                yMax: recentAverageForceValue + hysteresis,
+                backgroundColor: 'rgba(75, 192, 75, 0.4)',
+                borderWidth: 0,
+              },
+              averageLine: {
+                type: 'line',
+                display: Boolean(displayAnnotations && mappedData.length),
+                yMin: recentAverageForceValue,
+                yMax: recentAverageForceValue,
+                borderColor: 'rgba(68, 68, 239, 1.0)',
+                borderWidth: 2,
+                label: {
+                  content: `Avg: ${recentAverageForceValue.toFixed(2)} kg`,
+                  display: true,
+                  position: 'start',
+                },
+              },
+              topLine: {
+                type: 'line',
+                display: Boolean(displayAnnotations && mappedData.length),
+                yMin: maxPoint ?? 0,
+                yMax: maxPoint ?? 0,
+                borderColor: 'rgba(239, 68, 239, 0.60',
+                borderWidth: 2,
+                borderDash: [6, 4],
+                label: {
+                  content: `Max: ${(maxPoint ?? 0).toFixed(2)} kg`,
+                  display: true,
+                  position: 'start',
+                },
+              }
+            }
           },
-          hysteresisBox: {
-            type: 'box',
-            display: Boolean(displayAnnotations && mappedData.length),
-            xScaleID: 'x',
-            yScaleID: 'y',
-            // Cubre toda la escala en el eje x
-            xMin: (ctx) => ctx.chart.scales['x'].min,
-            xMax: (ctx) => ctx.chart.scales['x'].max,
-            yMin: recentAverageForceValue - hysteresis,
-            yMax: recentAverageForceValue + hysteresis,
-            backgroundColor: 'rgba(75, 192, 75, 0.4)',
-            borderWidth: 0,
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom',
+            title: {
+              display: false,
+              text: 'Time (ms)',
+            },
+            ticks: {
+              stepSize: 1000,
+              callback: (value) => {
+                const numValue = Number(value);
+                if (numValue < 0) return '';
+                return (numValue / 1000).toFixed(0) + 's';
+              },
+            },
+            min: minTime,
+            max: maxTime,
           },
-          averageLine: {
-            type: 'line',
-            display: Boolean(displayAnnotations && mappedData.length),
-            yMin: recentAverageForceValue,
-            yMax: recentAverageForceValue,
-            borderColor: 'rgba(68, 68, 239, 1.0)',
-            borderWidth: 2,
-            label: {
-              content: `Avg: ${recentAverageForceValue.toFixed(2)} kg`,
-              display: true,
-              position: 'start',
+          y: {
+            title: {
+              display: false,
+              text: 'Force (kg)',
+            },
+            ticks: {
+              // stepSize: 0.1,
+              callback: (value) => {
+                const numValue = Number(value);
+                if (numValue < 0) return '';
+                return numValue.toFixed(1);
+              },
             },
           },
-          topLine: {
-            type: 'line',
-            display: Boolean(displayAnnotations && mappedData.length),
-            yMin: maxPoint ?? 0,
-            yMax: maxPoint ?? 0,
-            borderColor: 'rgba(239, 68, 239, 0.60',
-            borderWidth: 2,
-            borderDash: [6, 4],
-            label: {
-              content: `Max: ${(maxPoint ?? 0).toFixed(2)} kg`,
-              display: true,
-              position: 'start',
-            },
-          }
-        }
-      },
-    },
-    scales: {
-      x: {
-        type: 'linear',
-        position: 'bottom',
-        title: {
-          display: false,
-          text: 'Time (ms)',
-        },
-        ticks: {
-          stepSize: 1000,
-          callback: (value) => {
-            const numValue = Number(value);
-            if (numValue < 0) return '';
-            return (numValue / 1000).toFixed(0) + 's';
-          },
-        },
-        min: minTime,
-        max: maxTime,
-      },
-      y: {
-        title: {
-          display: false,
-          text: 'Force (kg)',
-        },
-        ticks: {
-          // stepSize: 0.1,
-          callback: (value) => {
-            const numValue = Number(value);
-            if (numValue < 0) return '';
-            return numValue.toFixed(1);
-          },
         },
       },
-    },
-  };
+    }), [downsampledData]);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const ctx = canvasRef.current.getContext("2d");
+    if (!ctx) return;
+
+    chartRef.current = new ChartJS(ctx, chartConfig);
+
+    return () => {
+      chartRef.current?.destroy();
+      chartRef.current = null;
+    };
+  }, [chartConfig]);
+  
 
   return (
     <div className={`mt-12`}
@@ -320,9 +369,18 @@ const Index: React.FC<IndexProps> = ({
           <p className='text-left font-semibold'>{((cycleDuration ?? 0) / 1000).toFixed(1)} s</p>
         </div>
       </section>
-      <div className={`relative w-full transition-all duration-300 ease-in-out pb-4`}>
-        <section className='bg-white rounded-lg px-1 py-4 mt-2'>
-          <Line data={chartData} options={chartOptions} className='bg-white'/>
+      <div data-element="non-swipeable" className={`relative w-full transition-all duration-300 ease-in-out pb-4`}>
+        <section className='relative bg-white rounded-lg px-1 py-4 mt-2'>
+          <canvas 
+          ref={canvasRef} 
+          className='bg-white'
+          />
+          <div
+            ref={tooltipRef}
+            id="custom-tooltip"
+            className="absolute bg-white/0 text-gray-500 px-2 py-0.5 rounded opacity-100 text-[0.8rem] pointer-events-none transition-opacity duration-200"
+            style={{ top: "5px", right: "8px" }}
+            />
         </section>
         <section className="mt-2 px-1 py-2 border-2 border-black dark:border-white rounded-lg">
           <div className="grid grid-cols-4 font-semibold bg-white dark:bg-black border-b py-1 mb-2">
