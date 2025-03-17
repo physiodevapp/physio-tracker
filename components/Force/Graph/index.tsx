@@ -178,8 +178,8 @@ const Index: React.FC<IndexProps> = ({
           },
           crosshair: {
             line: {
-              color: '#F66',  // Color de la línea del crosshair
-              width: 1        // Ancho de la línea del crosshair
+              color: (isRecording || sensorData.length === 0) ? 'transparent' : '#F66', 
+              width: 1
             },
             sync: {
               // Habilita la sincronización con otros gráficos
@@ -379,11 +379,14 @@ const Index: React.FC<IndexProps> = ({
           ref={canvasRef} 
           className='bg-white'
           />
-          <p className="flex flex-row gap-4 absolute top-1 left-2 text-gray-500 text-[0.8rem]">
-           <span>Max: <strong>{maxPoint.toFixed(2)} kg</strong></span> 
-           <span>Avg: <strong>{recentAverageForceValue.toFixed(2)} kg</strong></span>
-          </p>
-          { isRecording ? (
+          {sensorData.length > 0 ? (
+            <p className="flex flex-row gap-4 absolute top-1 left-2 text-gray-500 text-[0.8rem]">
+              <span>Max: <strong>{maxPoint.toFixed(2)} kg</strong></span> 
+              <span>Avg: <strong>{recentAverageForceValue.toFixed(2)} kg</strong></span>
+            </p>
+            ) : null
+          }
+          {isRecording ? (
               <div className="absolute top-0 left-0 w-full h-full bg-red-500/0"/>
             ) : sensorData.length > 0 ? (
               <div
