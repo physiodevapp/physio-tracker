@@ -9,12 +9,12 @@ const Index: React.FC = () => {
     settings,
     setMovingAverageWindow,
     setMinAvgAmplitude,
-    setMaxAvgDuration,
-    setForceDropThreshold,
+    setPeakDropThreshold,
     setCyclesToAverage,
     setHysteresis,
-    setVelocityWeight,
-    setVelocityVariationThreshold,
+    setDurationChangeThreshold,
+    setVelocityDropThreshold,
+    setVariabilityThreshold,
     resetForceSettings,
   } = useSettings();
 
@@ -47,7 +47,7 @@ const Index: React.FC = () => {
           </div>
           <div className="flex-1">
             <label className="block text-sm">
-              Hysteresis<span className="align-sub text-[0.6rem]"></span>: {settings.force.hysteresis}
+              Hysteresis<span className="align-sub text-[0.6rem]"></span>: {settings.force.hysteresis} kg
             </label>
             <input
               type="range"
@@ -78,15 +78,15 @@ const Index: React.FC = () => {
           </div>
           <div className="flex-1">
             <label className="block text-sm">
-              Duration <span className="align-sub uppercase text-[0.6rem]"> Avg Max</span>: {((settings.force.maxAvgDuration ?? 0) / 1000).toFixed(1)} s
+              Duration <span className="align-sub uppercase text-[0.6rem]"> Var</span>: {settings.force.durationChangeThreshold} s
             </label>
             <input
               type="range"
-              min="500"
-              max="2000"
-              step="100"
-              value={settings.force.maxAvgDuration}
-              onChange={(e) => setMaxAvgDuration(parseInt(e.target.value))}
+              min="0.01"
+              max="0.2"
+              step="0.01"
+              value={settings.force.durationChangeThreshold}
+              onChange={(e) => setDurationChangeThreshold(parseFloat(e.target.value))}
               className="w-full"
               />
           </div>
@@ -95,18 +95,35 @@ const Index: React.FC = () => {
           <div className="flex-1">
             <label className="block text-sm">
               <span className="overline">F</span>
-              <span className="align-sub uppercase text-[0.6rem]"> Drop</span>: {(settings.force.forceDropThreshold ?? 0) * 100}%
+              <span className="align-sub uppercase text-[0.6rem]"> Drop</span>: {(settings.force.peakDropThreshold ?? 0) * 100}%
             </label>
             <input
               type="range"
               min="0.1"
-              max="1"
+              max="1.0"
               step="0.1"
-              value={settings.force.forceDropThreshold}
-              onChange={(e) => setForceDropThreshold(parseFloat(e.target.value))}
+              value={settings.force.peakDropThreshold}
+              onChange={(e) => setPeakDropThreshold(parseFloat(e.target.value))}
               className="w-full"
               />
           </div>
+          <div className="flex-1">
+            <label htmlFor="velocityWeight" className="text-sm">
+              <span className="overline">V</span><span className="align-sub uppercase text-[0.6rem]"> drop</span>: {settings.force.velocityDropThreshold?.toFixed(2)} %
+            </label>
+            <input
+              id="velocityWeight"
+              type="range"
+              min="0.5"
+              max="1.0"
+              step="0.05"
+              value={settings.force.velocityDropThreshold}
+              onChange={(e) => setVelocityDropThreshold(parseFloat(e.target.value))}
+              className="w-full"
+              />
+          </div>
+        </div>
+        <div className="flex gap-2">
           <div className="flex-1">
             <label className="block text-sm">
               Cycles<span className="align-sub uppercase text-[0.6rem]"> Avg</span>:{" "}
@@ -121,35 +138,18 @@ const Index: React.FC = () => {
               className="w-full"
               />
           </div>
-        </div>
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <label htmlFor="velocityWeight" className="text-sm font-semibold">
-              <span className="overline">V</span><span className="align-sub uppercase text-[0.6rem]"> cycle weight</span>: {settings.force.velocityWeight?.toFixed(2)}
-            </label>
-            <input
-              id="velocityWeight"
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={settings.force.velocityWeight}
-              onChange={(e) => setVelocityWeight(parseFloat(e.target.value))}
-              className="w-full"
-              />
-          </div>
           <div className="flex-1">
             <label htmlFor="velocityVariationThreshold" className="text-sm">
-              Δ<span className="overline">V</span><span className="align-sub uppercase text-[0.6rem]"> cycle</span>: {((settings.force.velocityVariationThreshold ?? 0) * 100).toFixed(0)}%
+             Cycle<span className="align-sub uppercase text-[0.6rem]"> var</span>: {settings.force.variabilityThreshold.toFixed(2)} %
             </label>
             <input
               id="velocityVariationThreshold"
               type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={settings.force.velocityVariationThreshold}
-              onChange={(e) => setVelocityVariationThreshold(parseFloat(e.target.value))}
+              min="0.01" 
+              max="0.10" 
+              step="0.01" 
+              value={settings.force.variabilityThreshold}
+              onChange={(e) => setVariabilityThreshold(parseFloat(e.target.value))}
               className="w-full"
               />
           </div>

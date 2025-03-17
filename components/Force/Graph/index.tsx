@@ -104,7 +104,11 @@ const Index: React.FC<IndexProps> = ({
     const checkScroll = () => {
       if (scrollContainerRef.current) {
         const { scrollHeight, clientHeight, scrollTop } = scrollContainerRef.current;
-        setShowScrollHint(scrollHeight > clientHeight && (scrollTop + 1) < (scrollHeight - clientHeight));
+        setShowScrollHint(
+          scrollHeight > clientHeight && 
+          (scrollTop + 1) < (scrollHeight - clientHeight) &&
+          scrollHeight - clientHeight > 10
+        );
       }
     };
 
@@ -148,7 +152,7 @@ const Index: React.FC<IndexProps> = ({
             borderWidth: 2,
             borderColor: 'rgb(75, 192, 192)',
             tension: 0.1,
-            pointRadius: isRecording ? 0 : 0,
+            pointRadius: 0,
             pointHoverRadius: 4,
             pointHoverBorderWidth: 1,
             pointHoverBorderColor: 'red',
@@ -268,7 +272,7 @@ const Index: React.FC<IndexProps> = ({
                 borderWidth: 2,
                 label: {
                   content: `Avg: ${recentAverageForceValue.toFixed(2)} kg`,
-                  display: true,
+                  display: false,
                   position: 'start',
                 },
               },
@@ -282,7 +286,7 @@ const Index: React.FC<IndexProps> = ({
                 borderDash: [6, 4],
                 label: {
                   content: `Max: ${(maxPoint ?? 0).toFixed(2)} kg`,
-                  display: true,
+                  display: false,
                   position: 'start',
                 },
               }
@@ -370,17 +374,25 @@ const Index: React.FC<IndexProps> = ({
         </div>
       </section>
       <div data-element="non-swipeable" className={`relative w-full transition-all duration-300 ease-in-out pb-4`}>
-        <section className='relative bg-white rounded-lg px-1 py-4 mt-2'>
+        <section className='relative bg-white rounded-lg px-1 pt-6 pb-2 mt-2'>
           <canvas 
           ref={canvasRef} 
           className='bg-white'
           />
-          <div
-            ref={tooltipRef}
-            id="custom-tooltip"
-            className="absolute bg-white/0 text-gray-500 px-2 py-0.5 rounded opacity-100 text-[0.8rem] pointer-events-none transition-opacity duration-200"
-            style={{ top: "5px", right: "8px" }}
-            />
+          <p className="flex flex-row gap-4 absolute top-1 left-2 text-gray-500 text-[0.8rem]">
+           <span>Max: <strong>{maxPoint.toFixed(2)} kg</strong></span> 
+           <span>Avg: <strong>{recentAverageForceValue.toFixed(2)} kg</strong></span>
+          </p>
+          {isRecording ? (
+              <div className="absolute top-0 left-0 w-full h-full bg-red-500/0"/>
+            ) : (
+              <div
+                ref={tooltipRef}
+                id="custom-tooltip"
+                className="absolute top-[0.1rem] right-2 bg-white/0 text-gray-500 px-2 py-0.5 rounded opacity-100 text-[0.8rem] pointer-events-none transition-opacity duration-200"
+                />
+            )
+          }
         </section>
         <section className="mt-2 px-1 py-2 border-2 border-black dark:border-white rounded-lg">
           <div className="grid grid-cols-4 font-semibold bg-white dark:bg-black border-b py-1 mb-2">
@@ -409,7 +421,7 @@ const Index: React.FC<IndexProps> = ({
                         : "-"
                     }</td>
                     <td className="pl-2">{
-                      cycleData.length > 0 && cycleData[cycleData.length - 1].cycleCount !== null 
+                      cycleData.length > 0 && cycleData[cycleData.length - 1].cycleCount !== null && cycleData[cycleData.length - 1].cycleCount! > 0 
                         ? cycleData[cycleData.length - 1].cycleCount!.toFixed(0) 
                         : "-"
                     }</td>
@@ -440,17 +452,21 @@ const Index: React.FC<IndexProps> = ({
             </table>
           </div>
           <div className='flex flex-row justify-between items-center mt-2'>
-            <button 
+            {((cycleData?.[cycleData.length - 1]?.cycleCount ?? null) !== null && 
+            (cycleData?.[cycleData.length - 1]?.cycleCount ?? 0) > 0) ? (
+              <button 
               onClick={() => setIsExpanded(!isExpanded)} 
               className="flex items-center dark:text-gray-500"
               >
-              <>
-                <ChevronDownIcon className={`w-5 h-5 mr-2 transition-transform ${
-                  isExpanded ? 'rotate-180' : ''
-                }`} />
-                {isExpanded ? 'Collapse' : 'Expand'}
-              </>
-            </button>
+                <>
+                  <ChevronDownIcon className={`w-5 h-5 mr-2 transition-transform ${
+                    isExpanded ? 'rotate-180' : ''
+                  }`} />
+                  {isExpanded ? 'Collapse' : 'Expand'}
+                </>
+              </button>
+            ) : null
+            }
             {showScrollHint && (
               <div className="text-sm italic dark:text-gray-500 animate-pulse">
                 Scroll down for more...

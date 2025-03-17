@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, ChevronDoubleDownIcon, Cog6ToothIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, Cog6ToothIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import { useState, useRef, useEffect } from "react";
 import ForceChart, { DataPoint } from "./Graph";
 import { BookmarkIcon, DocumentArrowDownIcon } from "@heroicons/react/24/outline";
@@ -452,12 +452,19 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               </div>
               {(!isRecording || showMassCalibration) && (
                 <>
-                  <PlayIcon
-                    className={`w-6 h-6 text-white ${
-                      taringStatus !== 1 || showMassCalibration ? 'opacity-40' : ''
-                    }`}
-                    onClick={handleStartTest}
-                    />
+                  {sensorData.length === 0 ? (
+                    <PlayIcon
+                      className={`w-6 h-6 text-white ${
+                        taringStatus !== 1 || showMassCalibration ? 'opacity-40' : ''
+                      }`}
+                      onClick={handleStartTest}
+                      /> ) : (
+                      <TrashIcon
+                        className="h-6 w-6 text-red-500 cursor-pointer"
+                        onClick={() => setSensorData([])}
+                        />
+                      )
+                  }
                   {Boolean(sensorData.length && !isRecording) && (
                     <DocumentArrowDownIcon 
                       className={`w-6 h-6 text-white ${
@@ -479,7 +486,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       </section>
       <section 
         data-element="non-swipeable"
-        className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
+        className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between items-center gap-6 bg-black/40 rounded-full"
         >
         {(isConnected || (isDeviceAvailable && !device)) && (
           <LinkIcon 
@@ -493,14 +500,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               className="w-6 h-6 text-white"
               onClick={shutdown}
               />
-            <ChevronDoubleDownIcon 
-              className={`w-6 h-6 text-white ${
+            <p 
+              className={`w-6 h-6 text-white text-center leading-[normal] ${
                 taringStatus !== 1 ? 'opacity-40' : ''
               } ${
-                updatedWorkLoad !== null ? 'border-2 rounded-full p-[0.1rem] animate-pulse' : ''
+                updatedWorkLoad !== null ? 'text-md border-2 rounded-full p-[0.1rem] animate-pulse' : 'text-2xl'
               }`}
               onClick={() => !isRecording && toggleMassCalibration()}
-              />
+              >N</p>
             <Cog6ToothIcon 
               className="w-6 h-6 text-white"
               onClick={() => !isRecording && toggleSettings()}
@@ -537,8 +544,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 onClick={handleUpdateWorkLoad} 
                 />
               : <BookmarkIcon 
-                  className="w-14 h-14 text-white font-semibold rounded p-1"  
-                  onClick={handleUpdateWorkLoad}          
+                  className={`w-14 h-14 text-white font-semibold rounded p-1 ${
+                    ((workLoad ?? 0) > 0.1) ? '' : 'opacity-40'
+                  }`}  
+                  onClick={() => ((workLoad ?? 0.1) > 0) && handleUpdateWorkLoad()}          
                   /> 
             }             
           </div>

@@ -26,7 +26,7 @@ export default function useCyclesDetector({
     hysteresis,
     movingAverageWindow,
     minAvgAmplitude,
-    forceDropThreshold: amplitudeDropThreshold,
+    peakDropThreshold: amplitudeDropThreshold,
     cyclesToAverage,
   } = settings
 // ---------- Estados y refs para la lógica de ciclos ----------

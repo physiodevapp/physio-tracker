@@ -31,12 +31,12 @@ interface ColorSettings {
 export interface ForceSettings {
   movingAverageWindow: number;
   minAvgAmplitude: number;
-  maxAvgDuration: number;
-  forceDropThreshold: number;
+  peakDropThreshold: number;
   cyclesToAverage: number;
   hysteresis: number;
-  velocityWeight: number;
-  velocityVariationThreshold: number;
+  durationChangeThreshold: number;
+  velocityDropThreshold: number;
+  variabilityThreshold: number;
 }
 
 // Interfaz para BalanceSettings
@@ -84,12 +84,12 @@ interface SettingsContextProps {
   // Setters para force (todos opcionales)
   setMovingAverageWindow: (value: number) => void;
   setMinAvgAmplitude: (value: number) => void;
-  setMaxAvgDuration: (value: number) => void;
-  setForceDropThreshold: (value: number) => void;
+  setPeakDropThreshold: (value: number) => void;
   setCyclesToAverage: (value: number) => void;
   setHysteresis: (value: number) => void;
-  setVelocityWeight: (value: number) => void;
-  setVelocityVariationThreshold: (value: number) => void;
+  setDurationChangeThreshold: (value: number) => void;
+  setVelocityDropThreshold: (value: number) => void;
+  setVariabilityThreshold: (value: number) => void;
   // Setters para balance
   setCalibrationDelay: (value: number) => void;
   setCalibrationPoints: (value: number) => void;
@@ -138,12 +138,12 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     force: {
       movingAverageWindow: 3_000,       // 3 segundos por defecto (en ms)
       minAvgAmplitude: 0.5,             // Ejemplo: 0.5 kg
-      maxAvgDuration: 2_000,            // Ejemplo: 2000 ms
-      forceDropThreshold: 0.7,          // 70%
+      peakDropThreshold: 0.7,           // 70%
       cyclesToAverage: 3,               // Promediar los últimos 3 ciclos
       hysteresis: 0.1,                  // Factor de histéresis por defecto
-      velocityWeight: 0.7,              // alpha = 0.7
-      velocityVariationThreshold: 0.2,  // Antes 0.2 en la detección de fatiga
+      durationChangeThreshold: 0.05,
+      velocityDropThreshold: 0.75,
+      variabilityThreshold: 0.04,
     },
     balance: {
       calibrationDelay: 6_000,          // en milisegundos
@@ -213,18 +213,18 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     setSettings(prev => ({ ...prev, force: { ...prev.force, movingAverageWindow: value } }));
   const setMinAvgAmplitude = (value: number) =>
     setSettings(prev => ({ ...prev, force: { ...prev.force, minAvgAmplitude: value } }));
-  const setMaxAvgDuration = (value: number) =>
-    setSettings(prev => ({ ...prev, force: { ...prev.force, maxAvgDuration: value } }));
-  const setForceDropThreshold = (value: number) =>
-    setSettings(prev => ({ ...prev, force: { ...prev.force, forceDropThreshold: value } }));
+  const setPeakDropThreshold = (value: number) =>
+    setSettings(prev => ({ ...prev, force: { ...prev.force, peakDropThreshold: value } }));
   const setCyclesToAverage = (value: number) =>
     setSettings(prev => ({ ...prev, force: { ...prev.force, cyclesToAverage: value } }));
   const setHysteresis = (value: number) =>
     setSettings(prev => ({ ...prev, force: { ...prev.force, hysteresis: value } }));
-  const setVelocityWeight = (value: number) =>
-    setSettings(prev => ({ ...prev, force: { ...prev.force, velocityWeight: value } }));  
-  const setVelocityVariationThreshold = (value: number) =>
-    setSettings(prev => ({ ...prev, force: { ...prev.force, velocityVariationThreshold: value } }));
+  const setDurationChangeThreshold = (value: number) =>
+    setSettings(prev => ({ ...prev, force: { ...prev.force, durationChangeThreshold: value } }));
+  const setVelocityDropThreshold = (value: number) =>
+    setSettings(prev => ({ ...prev, force: { ...prev.force, velocityDropThreshold: value } }));
+  const setVariabilityThreshold = (value: number) =>
+    setSettings(prev => ({ ...prev, force: { ...prev.force, variabilityThreshold: value } }));
   const resetForceSettings = () => {
     setSettings(prev => ({ ...prev, force: defaultConfig.force }));
   };  
@@ -272,12 +272,12 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         resetColorSettings,
         setMovingAverageWindow,
         setMinAvgAmplitude,
-        setMaxAvgDuration,
-        setForceDropThreshold,
+        setPeakDropThreshold,
         setCyclesToAverage,
         setHysteresis,
-        setVelocityWeight,
-        setVelocityVariationThreshold,
+        setDurationChangeThreshold,
+        setVelocityDropThreshold,
+        setVariabilityThreshold,
         resetForceSettings,
         setCalibrationDelay,
         setCalibrationPoints,
