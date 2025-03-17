@@ -383,15 +383,15 @@ const Index: React.FC<IndexProps> = ({
            <span>Max: <strong>{maxPoint.toFixed(2)} kg</strong></span> 
            <span>Avg: <strong>{recentAverageForceValue.toFixed(2)} kg</strong></span>
           </p>
-          {isRecording ? (
+          { isRecording ? (
               <div className="absolute top-0 left-0 w-full h-full bg-red-500/0"/>
-            ) : (
+            ) : sensorData.length > 0 ? (
               <div
                 ref={tooltipRef}
                 id="custom-tooltip"
                 className="absolute top-[0.1rem] right-2 bg-white/0 text-gray-500 px-2 py-0.5 rounded opacity-100 text-[0.8rem] pointer-events-none transition-opacity duration-200"
                 />
-            )
+            ) : null
           }
         </section>
         <section className="mt-2 px-1 py-2 border-2 border-black dark:border-white rounded-lg">
@@ -440,14 +440,17 @@ const Index: React.FC<IndexProps> = ({
                 )}
 
                 {/* Si está expandido, muestra todas las filas */}
-                {isExpanded && cycleData.map((data, index) => (
-                  <tr key={index}>
-                    <td className="pl-2">{data.workLoad !== null ? data.workLoad.toFixed(1) : "-"}</td>
-                    <td className="pl-2">{data.cycleCount !== null ? data.cycleCount.toFixed(0) : "-"}</td>
-                    <td className="pl-2">{data.cycleDuration !== null ? (data.cycleDuration / 1000).toFixed(2) : "-"}</td>
-                    <td className="pl-2">{data.cycleAmplitude !== null ? data.cycleAmplitude.toFixed(2) : "-"}</td>
-                  </tr>
-                ))}
+                {isExpanded && cycleData
+                  .filter((data) => data.cycleCount !== 0)
+                  .map((data, index) => (
+                    <tr key={index}>
+                      <td className="pl-2">{data.workLoad !== null ? data.workLoad.toFixed(1) : "-"}</td>
+                      <td className="pl-2">{data.cycleCount !== null ? data.cycleCount.toFixed(0) : "-"}</td>
+                      <td className="pl-2">{data.cycleDuration !== null ? (data.cycleDuration / 1000).toFixed(2) : "-"}</td>
+                      <td className="pl-2">{data.cycleAmplitude !== null ? data.cycleAmplitude.toFixed(2) : "-"}</td>
+                    </tr>
+                  ))
+                }
               </tbody>
             </table>
           </div>
