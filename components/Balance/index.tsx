@@ -28,7 +28,7 @@ export interface IndexProps {
 
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [showSettings, setShowSettings] = useState(false);
-  const { settings } = useSettings();
+  const { settings, setSensorHeight } = useSettings();
 
   const [isRecording, setIsRecording] = useState<boolean | null>(null);
 
@@ -230,27 +230,69 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 )}
               </>
             )}
-            {(isDefaultState || !hasValidTestResults) && (
-              <Image 
-                src="/silhouette_transparent.png" 
-                alt="Loading..." 
-                width={100} 
-                height={100} 
-                priority 
-                quality={80}
-                className={`absolute top-1/2 -translate-y-1/2 w-[80vw] p-4 rounded-full brightness-[1.2] dark:invert-[1] border-[0.4rem] transition-transform ${
-                  orientation === "landscape" 
-                    ? 'rotate-90 border-[#21e324] dark:border-[#D7138F]' 
-                    : 'rotate-0 border-[#bebebe] dark:border-[#9b9b9b]'
-                }`}
-              />
-            )}
+            {(isDefaultState || !hasValidTestResults) ? (
+                <>
+                  <Image 
+                    src="/silhouette_transparent.png" 
+                    alt="Loading..." 
+                    width={100} 
+                    height={100} 
+                    priority 
+                    quality={80}
+                    className={`absolute top-1/2 -translate-y-1/2 w-[80vw] p-4 rounded-full brightness-[1.2] dark:invert-[1] border-[0.4rem] transition-transform ${
+                      orientation === "landscape" 
+                        ? 'rotate-90 border-[#21e324] dark:border-[#D7138F]' 
+                        : 'rotate-0 border-[#bebebe] dark:border-[#9b9b9b]'
+                    }`}
+                    />
+                  {orientation === "landscape" ? (
+                      <>
+                        <div className="absolute top-1/2 -translate-y-1/2 left-0 w-[6rem] py-1 rotate-90 bg-blue-500 text-white text-lg text-center rounded-xl border-[6px] border-white dark:border-black">
+                          {settings.balance.sensorHeight} cm
+                        </div>
+                        <div
+                          data-element="non-swipeable" 
+                          className='absolute top-1/2 translate-y-[12rem] w-[100dvw] px-12'
+                          >
+                          <input
+                            id='update-height'
+                            type='range'
+                            value={settings.balance.sensorHeight}
+                            min="40"
+                            max="220"
+                            step="5"
+                            onChange={(e) => setSensorHeight(parseInt(e.target.value))}
+                            className="w-full appearance-none bg-gray-300 h-2 rounded-md focus:outline-none 
+                              [&::-webkit-slider-thumb]:appearance-none 
+                              [&::-webkit-slider-thumb]:w-6 
+                              [&::-webkit-slider-thumb]:h-10 
+                              [&::-webkit-slider-thumb]:bg-blue-500 
+                              [&::-webkit-slider-thumb]:rounded-md 
+                              [&::-webkit-slider-thumb]:cursor-pointer 
+                              [&::-moz-range-thumb]:w-6 
+                              [&::-moz-range-thumb]:h-10 
+                              [&::-moz-range-thumb]:bg-blue-500 
+                              [&::-moz-range-thumb]:rounded-md
+                              [&::-moz-range-thumb]:cursor-pointer"
+                            />
+                        </div>
+                        <button 
+                          className="absolute top-1/2 -translate-y-1/2 px-6 rotate-90 rounded-lg p-2 bg-green-500 font-bold uppercase text-2xl animate-pulse"
+                          onClick={() => settings?.balance && setIsRecording(true)}
+                        >Test</button>
+                      </>
+                    ) : null
+                  }
+                </> 
+              ) : null
+            }
           </div>
         </>
       )}
-      {(showSettings && !isRecording) && (
-        <BalanceSettings />
-      )}
+      {(showSettings && !isRecording) ? (
+          <BalanceSettings />
+        ) : null
+      }
       <section 
         data-element="non-swipeable"
         className="absolute top-1 left-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
@@ -281,12 +323,13 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 />
             )
           )}
-          {(!isRecording && hasValidTestResults && !isDefaultState) && (
-            <TrashIcon
-              className="h-6 w-6 text-red-500 cursor-pointer"
-              onClick={() => setIsDefaultState(true)}
-              />
-          )}
+          {(!isRecording && hasValidTestResults && !isDefaultState) ? (
+              <TrashIcon
+                className="h-6 w-6 text-red-500 cursor-pointer"
+                onClick={() => setIsDefaultState(true)}
+                />
+            ) : null
+          }
         </>
       </section>
       <section

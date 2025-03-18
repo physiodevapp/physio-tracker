@@ -97,14 +97,14 @@ const Index = ({
               transform: "translate(-50%, -50%)",
             }}
             onClick={(e) => e.stopPropagation()} // Evita el cierre del modal al hacer clic en un checkbox
-          >
+            >
             <input
               type="checkbox"
               checked={checkboxStates[index]}
               disabled={!checkboxStates[index] && selectedCount >= maxSelected}
               onChange={(e) => handleCheckboxChange(index, e.target.checked)}
               className="absolute opacity-0 w-0 h-0"
-            />
+              />
             <div
               className={`w-6 h-6 border rounded-[0.4rem] flex items-center justify-center 
                 ${
@@ -117,7 +117,7 @@ const Index = ({
                   ? "opacity-100"
                   : "opacity-40"
                 }`}
-              >
+                >
               {checkboxStates[index] && (
                 <StopIcon className="w-6 h-6 text-blue-500"/>
               )}
