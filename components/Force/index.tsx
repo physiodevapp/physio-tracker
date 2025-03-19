@@ -1,14 +1,15 @@
 "use client";
 
 import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, Cog6ToothIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
-import { useState, useRef, useEffect } from "react";
-import ForceChart, { DataPoint } from "./Graph";
+import { useState, useRef, useEffect, useContext } from "react";
+import ForceChart from "./Graph";
 import { BookmarkIcon, DocumentArrowDownIcon } from "@heroicons/react/24/outline";
 import { Bars3Icon, BookmarkIcon as BookmarkIconSolid } from "@heroicons/react/24/solid";
 import { useSettings } from "@/providers/Settings";
 import ForceSettings from "@/modals/ForceGraphSettings";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { BluetoothContext } from "@/providers/Bluetooth";
 
 // ----------------- Comandos y Códigos -----------------
 const CMD_TARE_SCALE = 100;
@@ -43,24 +44,31 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const sampleCount = useRef<number>(0);
   const maxSensorDataRef = useRef<number>(815); // Valor inicial aproximado
 
-  const [sensorData, setSensorData] = useState<DataPoint[]>([]);
+  // const [sensorData, setSensorData] = useState<DataPoint[]>([]);
   
   // ------------ Referencia para almacenar las líneas del CSV ---------------
   const sensorRawDataLogRef = useRef<string[]>([]);
 
   // --------------- Estados de conexión y datos básicos -----------------
-  const [device, setDevice] = useState<BluetoothDevice | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [controlCharacteristic, setControlCharacteristic] = useState<BluetoothRemoteGATTCharacteristic | null>(null);
-  const [taringStatus, setTaringStatus] = useState<0 | 1 | null>(null);
+  const {
+    device,
+    controlCharacteristic,
+    dataCharacteristic,
+    isConnected,
+    isDeviceAvailable,
+    taringStatus,
+    sensorData,
+    setDevice,
+    setControlCharacteristic,
+    setIsConnected,
+    setIsDeviceAvailable,
+    setTaringStatus,
+    setSensorData,
+    connectToSensor,
+  } = useContext(BluetoothContext);
+
   const [isRecording, setIsRecording] = useState(false);
   const [isBatteryDead, setIsBatteryDead] = useState(false);
-  const [isDeviceAvailable, setIsDeviceAvailable] = useState(true);
-
-  // -------------- UUIDs según la documentación de Progressor ------------
-  const PROGRESSOR_SERVICE_UUID = "7e4e1701-1ea6-40c9-9dcc-13d34ffead57";
-  const DATA_CHAR_UUID = "7e4e1702-1ea6-40c9-9dcc-13d34ffead57";
-  const CTRL_POINT_CHAR_UUID = "7e4e1703-1ea6-40c9-9dcc-13d34ffead57";
 
   // ----------------- Refs para Filtrado y Derivada -----------------
   const previousFilteredForceRef = useRef<number | null>(null);
@@ -153,35 +161,18 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   };
 
   // ----------------- Funciones de Conexión y Control -----------------
-
-  const connectToSensor = async () => {
-    try {
-      const options = {
-        filters: [{ namePrefix: "Progressor" }],
-        optionalServices: [PROGRESSOR_SERVICE_UUID],
-      };
-      console.log("Requesting Bluetooth device...");
-      const device = await navigator.bluetooth.requestDevice(options);
-      setDevice(device);
-      console.log("Connecting to GATT server...");
-      const server = await device.gatt!.connect();
-      const service = await server.getPrimaryService(PROGRESSOR_SERVICE_UUID);
-      const dataCharacteristic = await service.getCharacteristic(DATA_CHAR_UUID);
-      await dataCharacteristic.startNotifications();
+  useEffect(() => {
+    // Solo añade el listener si la característica está disponible
+    if (dataCharacteristic) {
       dataCharacteristic.addEventListener("characteristicvaluechanged", handleCharacteristicValueChanged);
-      const controlChar = await service.getCharacteristic(CTRL_POINT_CHAR_UUID);
-      setControlCharacteristic(controlChar);
-      console.log("Connected and listening for notifications...");
-      setIsConnected(true);
-      setIsDeviceAvailable(false);
-      setTaringStatus(null);
-    } catch (error) {
-      console.log("Error connecting to sensor:", error);
-      setIsConnected(false);
-      setDevice(null);
-      setIsDeviceAvailable(true);
+      // Asegúrate de remover el listener en la limpieza
+      return () => {
+        dataCharacteristic.removeEventListener("characteristicvaluechanged", handleCharacteristicValueChanged);
+
+        setSensorData([]);
+      };
     }
-  };
+  }, [dataCharacteristic]);
 
   const tareSensor = async () => {
     if (!controlCharacteristic) {
@@ -210,6 +201,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     try {      
       previousFilteredForceRef.current = null;     
       setSensorData([]); 
+      measurementStartRef.current = null;
       sensorRawDataLogRef.current = ["timestamp,force"];
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
       setIsRecording(true);
@@ -266,15 +258,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setIsDeviceAvailable(false);
     setTimeout(() => {
       setIsDeviceAvailable(true);
-    }, 12000);
+    }, 12_000);
     console.log('Device shut down');
     if (!controlCharacteristic) {
       console.log("Control characteristic not available");
       return;
     }
     try {
-      await controlCharacteristic.writeValue(new Uint8Array([CMD_ENTER_SLEEP]));    
-
+      await controlCharacteristic.writeValue(new Uint8Array([CMD_ENTER_SLEEP]));   
     } catch (error) {
       console.log("Error shutting down the device:", error);
     }
