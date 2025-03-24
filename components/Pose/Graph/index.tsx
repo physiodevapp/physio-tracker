@@ -3,32 +3,22 @@ import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   ActiveElement,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
   ChartDataset,
   ChartEvent,
+  registerables,
 } from "chart.js";
 import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
 import { getColorsForJoint } from "@/services/joint";
 import { useSettings } from "@/providers/Settings";
 import { lttbDownsample } from "@/services/chart";
 import annotationPlugin from 'chartjs-plugin-annotation';
+import CrosshairPlugin from 'chartjs-plugin-crosshair';
 
 // Registro de componentes de Chart.js
 ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  annotationPlugin
+  ...registerables,
+  annotationPlugin,
+  CrosshairPlugin
 );
 
 interface VerticalLineAnnotation {
@@ -444,7 +434,7 @@ const Index = ({
       >
       <Line
         ref={chartRef}
-        className="pb-2 bg-white"
+        className="pb-2 px-2 bg-white"
         data={{
           // Al usar puntos con x e y, no se requiere definir "labels"
           datasets: datasets,

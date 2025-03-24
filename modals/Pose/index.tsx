@@ -75,7 +75,7 @@ const Index = ({
       style={{ backdropFilter: "blur(30px)" }}
       onClick={handleModal}
       >
-      <p className="absolute top-4 text-white text-lg bg-black/40 px-4 py-2 rounded-md">
+      <p className="absolute top-2 text-white text-xl bg-black/40 rounded-full py-2 px-4 font-bold">
         Track joints
       </p>
       <div

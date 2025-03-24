@@ -1,24 +1,25 @@
 import { useSettings } from '@/providers/Settings';
-import React, { useState } from 'react'
+import { ArrowPathIcon } from '@heroicons/react/24/solid';
+import React from 'react'
 
 interface IndexProps {
   isModalOpen: boolean;
-  handleModal: () => void;
 }
 
 const Index = ({
   isModalOpen,
-  handleModal,
 }: IndexProps) => {
-  const { settings, setAngularHistorySize, setPoseVelocityHistorySize } = useSettings();
-
-  const [angleSmoothing, setAngleSmoothing] = useState(settings.pose.angularHistorySize);
-  const [angleVelocitySmoothing, setVelocitySmoothing] = useState(settings.pose.velocityHistorySize);
+  const { 
+    settings, 
+    setAngularHistorySize, 
+    setPoseVelocityHistorySize,
+    resetPoseSettings,
+  } = useSettings();
 
   const handleAngleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
 
-    setAngleSmoothing(value);
+    setAngularHistorySize(value);
 
     setAngularHistorySize(value);
   };
@@ -26,7 +27,7 @@ const Index = ({
   const handleAngularVelocityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
 
-    setVelocitySmoothing(value);
+    setPoseVelocityHistorySize(value);
 
     setPoseVelocityHistorySize(value);
   };
@@ -35,10 +36,16 @@ const Index = ({
 
   return (
     <div 
-      className='fixed z-10 bottom-0 left-0 w-full px-4 pt-[1rem] pb-[2rem] flex items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg'
+      className='fixed z-10 bottom-0 left-0 w-full px-4 pt-[1rem] pb-[2rem] flex flex-col items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg'
       data-element="non-swipeable"
-      onClick={handleModal}
       >
+        <div
+        className="w-full h-9 flex justify-end text-white/60 italic font-light cursor-pointer"
+        onClick={resetPoseSettings}
+        >
+        Set default values{" "}
+        <ArrowPathIcon className="ml-2 w-6 h-6" />
+      </div>
         <form className='w-full flex flex-col justify-center'>
           <div className='flex w-full gap-2'>
             <div className='flex-1 flex flex-col justify-between gap-2'>
@@ -46,12 +53,12 @@ const Index = ({
                 htmlFor='time-window'
                 className='text-white'
                 >
-                Angle<span className='align-sub uppercase text-[0.6rem]'> Smth</span>: {angleSmoothing}
+                Angle<span className='align-sub uppercase text-[0.6rem]'> Smth</span>: {settings.pose.angularHistorySize}
               </label>
               <input
                 id='time-window'
                 type='range'
-                value={angleSmoothing}
+                value={settings.pose.angularHistorySize}
                 min="5"
                 max="20"
                 onChange={handleAngleChange}
@@ -62,12 +69,12 @@ const Index = ({
                 htmlFor='update-interval'
                 className='text-white'
                 >
-                Velocity<span className='align-sub uppercase text-[0.6rem]'> Smth</span>: {angleVelocitySmoothing}
+                Velocity<span className='align-sub uppercase text-[0.6rem]'> Smth</span>: {settings.pose.velocityHistorySize}
               </label>
               <input
                 id='update-interval'
                 type='range'
-                value={angleVelocitySmoothing}
+                value={settings.pose.velocityHistorySize}
                 min="5"
                 max="20"
                 onChange={handleAngularVelocityChange}

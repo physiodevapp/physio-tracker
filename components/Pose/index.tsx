@@ -1,16 +1,16 @@
 "use client";
 
 import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Webcam from "react-webcam"; // Importación del convertidor de modelos
+import Webcam from "react-webcam";
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { JointDataMap, JointConfigMap, CanvasKeypointName, PoseSettings, Kinematics, JointColors } from "@/interfaces/pose";
 import { drawKeypointConnections, drawKeypoints } from "@/services/draw";
 import { updateJoint } from "@/services/joint";
 import PoseGraph from "./Graph";
 import { VideoConstraints } from "@/interfaces/camera";
-import { usePoseDetector } from "@/providers/PoseDetector";
-import { ChevronDoubleDownIcon, CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, VideoCameraIcon, TrashIcon, CubeTransparentIcon, CloudArrowDownIcon, Bars3Icon, XMarkIcon } from "@heroicons/react/24/solid";
-import { BackwardIcon, ForwardIcon } from "@heroicons/react/24/outline";
+import { DetectorType, usePoseDetector } from "@/providers/PoseDetector";
+import { CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, VideoCameraIcon, TrashIcon, CubeTransparentIcon, CloudArrowDownIcon, Bars3Icon, XMarkIcon, ArrowUpTrayIcon, ArrowPathIcon } from "@heroicons/react/24/solid";
+import { BackwardIcon, ForwardIcon, PauseIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Pose";
 import PoseGraphSettingsModal from "@/modals/PoseGraphSettings";
@@ -55,11 +55,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const visibleJointsRef = useRef(settings.pose.selectedJoints);
   const visibleKinematicsRef = useRef(visibleKinematics);
   
+  const [isFrozen, setIsFrozen] = useState(false);
+  const animationRef = useRef<number | null>(null);
+
+  const referenceScaleRef = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webcamRef = useRef<Webcam>(null);
   const videoConstraintsRef = useRef(videoConstraints);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   // Definimos el contenedor para almacenar los datos por articulación.
   const recordedPositionsRef = useRef<{
     [joint in CanvasKeypointName]?: {
@@ -121,16 +126,23 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     { label: "Left Knee", value: CanvasKeypointName.LEFT_KNEE },
   ], []);
 
-  const handleClickOnCanvas = () => {
-    if (videoProcessed && videoUrl) {
-      togglePlayback();
+  const handleClickOnCanvas = () => {    
+    if (isPoseSettingsModalOpen || isPoseGraphSettingsModalOpen || isMainMenuOpen) {
+      setIsPoseSettingsModalOpen(false);
+  
+      setIsPoseGraphSettingsModalOpen(false);
+  
+      handleMainMenu(false);
+    } 
+    else {
+      if (!videoUrl) {
+        setIsFrozen(prev => !prev);
+      }
+
+      if (videoProcessed && videoUrl) {
+        togglePlayback({});
+      }
     }
-
-    setIsPoseSettingsModalOpen(false);
-
-    setIsPoseGraphSettingsModalOpen(false);
-
-    handleMainMenu(false);
   }
 
   const handleJointSelection = useCallback((selectedJoints: string[]) => {
@@ -153,15 +165,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setIsPoseModalOpen((prev) => !prev);
   }
 
-  const handleSettingsModal = () => {
+  const handleSettingsModal = ({hide}: {hide?: boolean}) => {
     if (displayGraphs) {
-      setIsPoseGraphSettingsModalOpen((prev) => !prev);
+      setIsPoseGraphSettingsModalOpen((prev) => hide ? false : !prev);
     } else {
-      setIsPoseSettingsModalOpen((prev) => !prev);
+      setIsPoseSettingsModalOpen((prev) => hide ? false : !prev);
     }
   }
 
   const handleStartRecording = async () => {
+    console.log('handleStartRecording');
     setVideoUrl(null);
 
     setDisplayGraphs(false);
@@ -234,7 +247,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
         handleStopRecording();
       }
-    }, 10000);
+    }, 10_000);
   };
 
   const handleDataAvailable = (event: BlobEvent) => {
@@ -251,10 +264,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setRecording(false);
   };
   
-  const handlePreview = () => {
-    if (capturedChunks.length) {
+  const handlePreview = ({uploadedUrl}: {uploadedUrl?: string}) => {
+    if (capturedChunks.length || uploadedUrl) {
       const blob = new Blob(capturedChunks, { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
+      const url = uploadedUrl ?? URL.createObjectURL(blob);
 
       setVideoUrl(url);
 
@@ -265,22 +278,35 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const handleProcessVideo = () => {
     if (visibleJointsRef.current.length > 0 && videoRef.current) {  
       setProcessVideo((prev) => prev * (-1));
+      
     } else {
       setIsPoseModalOpen(true);
     }
   }
 
-  const togglePlayback = (restart: boolean = false) => {
-    if (videoRef.current) {
-      if (restart) {
-        videoRef.current.currentTime = 0;
-      }
+  const togglePlayback = ({action, restart = false}: {action?: "play" | "pause"; restart?: boolean}) => {
+    const video = videoRef.current;
+    if (!video) return;
 
-      if (videoRef.current.paused) {
-        videoRef.current.play();
-      } else {
-        videoRef.current.pause();
-      }
+    if (restart) {
+      recordedPositionsRef.current = {};
+      
+      video.currentTime = 0;
+    }
+
+    const shouldPlay = action === "play" || (action === undefined && video.paused);
+    const shouldPause = action === "pause" || (action === undefined && !video.paused);
+
+    if (shouldPlay) {
+      setTimeout(() => {
+        video.play();
+      }, (restart && isFrozen) ? 100 : 0);
+      setIsFrozen(false);
+    } else if (shouldPause) {
+      video.pause();
+      setTimeout(() => {
+        setIsFrozen(true);
+      }, 100);
     }
   };
 
@@ -288,41 +314,69 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     if (!videoProcessed) {
       setVideoProcessed(true);
     }
+
+    setIsFrozen(true);
   };
 
   const handleChartValueX = (time: number) => {
     if (videoRef.current) {
       videoRef.current.currentTime = time;
+
+      setTimeout(() => {
+        analyzeSingleFrame();
+      }, 100);
     }
   };
 
   const rewindStep = () => {
-    if (videoRef.current && estimatedFps) {
-      const stepTime = 1 / estimatedFps;
+    if (videoRef.current!.currentTime <= 0) return;
+
+    togglePlayback({action: "pause"});
+
+    const fps = (estimatedFps ?? 0) < 30 ? 30 : estimatedFps;
+    if (videoRef.current && fps) {
+      const stepTime = 1 / fps;
 
       videoRef.current.currentTime = Math.max(videoRef.current.currentTime - stepTime, 0);
+
+      setTimeout(() => {
+        analyzeSingleFrame();
+      }, 100);
     }
   };
 
   const forwardStep = () => {
-    if (videoRef.current && estimatedFps) {
-      const stepTime = 1 / estimatedFps;
+    if (videoRef.current!.currentTime >= videoRef.current!.duration) return;
 
+    togglePlayback({action: "pause"});
+
+    const fps = (estimatedFps ?? 0) < 30 ? 30 : estimatedFps;
+    if (videoRef.current && fps) {
+      const stepTime = 1 / fps;
+      
       videoRef.current.currentTime = Math.min(videoRef.current.currentTime + stepTime, videoRef.current.duration);
+
+      setTimeout(() => {
+        analyzeSingleFrame();
+      }, 100);
     }
   };
 
   const handleRemoveRecord = () => {
     setVideoUrl(null);
+
+    setEstimatedFps(null);
+
+    setIsFrozen(false);
   };
 
-  const updateMultipleJoints = (
+  const updateMultipleJoints = ({ctx, keypoints, jointNames, jointDataRef, jointConfigMap}: {
     ctx: CanvasRenderingContext2D,
     keypoints: poseDetection.Keypoint[],
     jointNames: CanvasKeypointName[],
     jointDataRef: RefObject<JointDataMap>,
     jointConfigMap: JointConfigMap
-  ) => {
+  }) => {
     if (!visibleJointsRef.current.length) return; 
     jointNames.forEach((jointName) => {
       const jointConfig = jointConfigMap[jointName] ?? { invert: false };
@@ -374,19 +428,17 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   useEffect(() => {
     if (!recording && capturedChunks.length > 0) {
       // Se asegura de que la grabación haya terminado y que existan datos
-      handlePreview();
+      handlePreview({});
     }
   }, [capturedChunks, recording]);
 
-  useEffect(() => {    
+  useEffect(() => { 
     if (videoRef.current) {
       setDisplayGraphs(false);
 
       setVideoProcessed(false);
 
-      recordedPositionsRef.current = {};
-
-      togglePlayback(true);
+      togglePlayback({restart: true});
     }
   }, [processVideo]);
 
@@ -426,10 +478,155 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
   }, [displayGraphs]);
 
-  useEffect(() => {
-    if (!detector || (videoUrl ? !videoRef.current : !webcamRef.current)) return;
+  const getCanvasScaleFactor = ({canvas, video}: {
+    canvas: HTMLCanvasElement | null,
+    video: HTMLVideoElement | null
+  }): number => {
+    if (!canvas || !video) return 1;
+  
+    const canvasDisplayWidth = canvas.clientWidth;
+    const canvasDisplayHeight = canvas.clientHeight;
+  
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+  
+    if (!videoWidth || !videoHeight) return 1;
+  
+    const scaleX = canvasDisplayWidth / videoWidth;
+    const scaleY = canvasDisplayHeight / videoHeight;
+  
+    return (scaleX + scaleY) / 2;
+  };
 
+  const drawOnSingleFrame = async ({
+    videoElement,
+    canvasRef,
+    detector,
+    poseSettings,
+    videoConstraints,
+    referenceScaleRef,
+    jointDataRef,
+    visibleJointsRef,
+    keypointPairs,
+    jointConfigMap
+  }: {
+    videoElement: HTMLVideoElement;
+    canvasRef: RefObject<HTMLCanvasElement | null>;
+    detector: DetectorType;
+    poseSettings: { scoreThreshold: number };
+    videoConstraints: { facingMode: string };
+    referenceScaleRef: RefObject<number | null>;
+    jointDataRef: RefObject<JointDataMap>;
+    visibleJointsRef: RefObject<CanvasKeypointName[]>;
+    keypointPairs: [CanvasKeypointName, CanvasKeypointName][];
+    jointConfigMap: JointConfigMap;
+  }) => {
+    const poses = await detector!.estimatePoses(videoElement, {
+      maxPoses: 1,
+      flipHorizontal: false,
+    });
+  
+    canvasRef.current!.width = videoElement.videoWidth;
+    canvasRef.current!.height = videoElement.videoHeight;
+  
+    const scaleFactor = getCanvasScaleFactor({ 
+      canvas: canvasRef.current, 
+      video: videoElement 
+    });
+  
+    if (referenceScaleRef.current === null) {
+      referenceScaleRef.current = scaleFactor;
+    }
+    const referenceScale = referenceScaleRef.current ?? 1;
+  
+    if (poses.length > 0) {
+      const ctx = canvasRef.current!.getContext("2d");
+  
+      if (ctx) {
+        ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
+  
+        const keypoints = poses[0].keypoints.filter(
+          (kp) => kp.score && kp.score > poseSettings.scoreThreshold
+        );
+  
+        drawKeypoints({
+          ctx,
+          keypoints,
+          mirror: videoConstraints.facingMode === "user",
+          pointRadius: 4 * (referenceScale / scaleFactor),
+        });
+  
+        drawKeypointConnections({
+          ctx,
+          keypoints,
+          keypointPairs,
+          mirror: videoConstraints.facingMode === "user",
+          lineWidth: 2 * (referenceScale / scaleFactor),
+        });
+  
+        updateMultipleJoints({
+          ctx,
+          keypoints,
+          jointNames: visibleJointsRef.current,
+          jointDataRef,
+          jointConfigMap,
+        });
+      }
+    }
+  };
+  
+  const analyzeSingleFrame = async () => {
+    if (!detector || !canvasRef.current || (videoUrl ? !videoRef.current : !webcamRef.current)) return;
+
+    try {
+      // Captura el fotograma actual de la webcam
+      let videoElement;
+      if (videoUrl && videoRef.current) {
+        videoElement = videoRef.current;
+      } else if (!videoUrl && webcamRef.current) {
+        videoElement = webcamRef.current.video;
+      }
+      
+      if (videoElement &&
+          videoElement.videoWidth > 0 &&
+          videoElement.videoHeight > 0
+      ) {
+
+        drawOnSingleFrame({
+          videoElement,
+          canvasRef,
+          detector,
+          poseSettings,
+          videoConstraints,
+          referenceScaleRef,
+          jointDataRef,
+          visibleJointsRef,
+          keypointPairs,
+          jointConfigMap
+        });
+      }
+    } catch (error) {
+      console.error("Error analyzing frame:", error);
+    }
+  }
+
+  useEffect(() => {    
+    if (!detector || (videoUrl ? !videoRef.current : !webcamRef.current)) return;
+    
     const analyzeFrame = async () => {
+      if (isFrozen) {
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+          animationRef.current = null;
+        }
+
+        if (webcamRef.current && webcamRef.current.video) {
+          webcamRef.current.video.pause(); 
+        }
+
+        return;
+      }
+
       if (!detector || !canvasRef.current || (videoUrl ? !videoRef.current : !webcamRef.current)) return;
       
       try {
@@ -454,6 +651,18 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           canvasRef.current.width = videoElement.videoWidth;
           canvasRef.current.height = videoElement.videoHeight;
 
+          // ---------------------------------------------------
+          const scaleFactor = getCanvasScaleFactor({
+            canvas: canvasRef.current, 
+            video: videoElement
+          });
+
+          if (referenceScaleRef.current === null) {
+            referenceScaleRef.current = scaleFactor;
+          }
+          const referenceScale = referenceScaleRef.current ?? 1;
+          // ---------------------------------------------------
+
           if (poses.length > 0) {
             const ctx = canvasRef.current.getContext("2d");
 
@@ -466,13 +675,19 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               );
 
               // Dibujar keypoints en el canvas
-              drawKeypoints({ctx, keypoints, mirror: videoConstraintsRef.current.facingMode === "user"});
+              drawKeypoints({ctx, keypoints, 
+                mirror: videoConstraintsRef.current.facingMode === "user", 
+                pointRadius: 4 * (referenceScale / scaleFactor),
+              });
 
               // Dibujar conexiones entre puntos clave
-              drawKeypointConnections({ctx, keypoints, keypointPairs, mirror: videoConstraintsRef.current.facingMode === "user"});
+              drawKeypointConnections({ctx, keypoints, keypointPairs, 
+                mirror: videoConstraintsRef.current.facingMode === "user", 
+                lineWidth: 2 * (referenceScale / scaleFactor), 
+              });
 
               // Calcular ángulo entre tres keypoints
-              updateMultipleJoints(ctx, keypoints, visibleJointsRef.current, jointDataRef, jointConfigMap);
+              updateMultipleJoints({ctx, keypoints, jointNames: visibleJointsRef.current, jointDataRef, jointConfigMap});
             }
           }
         }
@@ -480,16 +695,55 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       } catch (error) {
         console.error("Error analyzing frame:", error);
       }
-      requestAnimationFrame(analyzeFrame);
+
+      if (!isFrozen) {
+        animationRef.current = requestAnimationFrame(analyzeFrame);
+
+        if (webcamRef.current && webcamRef.current.video && webcamRef.current.video.paused) {
+          webcamRef.current.video.play(); 
+        }
+      }
     };
 
     analyzeFrame();
 
-  }, [detector, videoUrl]);
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+    };
+
+  }, [detector, videoUrl, isFrozen]);
 
   useEffect(() => {
     showMyWebcam();
   }, []);
+
+  const handleUploadVideo = () => {
+    if (recording) return;
+
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+
+      handlePreview({uploadedUrl: url});
+      
+      setDisplayGraphs(false);
+
+      handleSettingsModal({hide: true});
+
+      setIsFrozen(false);
+    }
+  };
+
+  const handleOnTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
+    setVideoCurrentTime(e.currentTarget.currentTime);
+  }
 
   return (
     <>
@@ -509,8 +763,20 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-black/40 
           rounded-full py-2 px-4 font-bold mt-2 whitespace-nowrap">
           Kinematics
+          <PauseIcon className={`absolute top-1/2 -translate-y-1/2 right-4 h-6 w-6 animate-pulse ${
+            !isFrozen ? "hidden" : ""
+          }`}/>
         </motion.h1>
-        {!videoUrl && (
+
+        {videoUrl ? (
+          <video 
+            ref={videoRef}
+            src={videoUrl}               
+            className={`relative object-cover h-full w-full ${videoConstraints.facingMode === "user" ? 'scale-x-[-1]' : 'scale-x-[1]'}`}
+            onTimeUpdate={handleOnTimeUpdate}
+            onEnded={handleEnded}
+            />
+        ) : (
           <Webcam
             ref={webcamRef}
             className={`relative object-cover h-full w-full`}
@@ -519,19 +785,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             mirrored={videoConstraints.facingMode === "user"}
             />
         )}
-        {videoUrl && (
-          <video 
-            ref={videoRef}
-            src={videoUrl}               
-            className={`relative object-cover h-full w-full ${videoConstraints.facingMode === "user" ? 'scale-x-[-1]' : 'scale-x-[1]'}`}
-            onTimeUpdate={(e: React.SyntheticEvent<HTMLVideoElement, Event>) => setVideoCurrentTime(e.currentTarget.currentTime)}
-            onEnded={handleEnded}
-            />
-        )}
         <canvas 
           ref={canvasRef} 
           className={`absolute object-cover h-full w-full`} 
           onClick={handleClickOnCanvas}/>
+
         {(!videoUrl || (videoProcessed || videoRef.current?.paused)) && (
           <>
             <section 
@@ -548,17 +806,40 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                     />
               }
               {!videoUrl && (
+                <>
                   <div 
-                    className="relative cursor-pointer"
-                    onClick={recording ? handleStopRecording : handleStartRecording}
-                  >
+                    className={`relative cursor-pointer ${
+                      isFrozen ? "opacity-40" : ""
+                    }`}
+                    onClick={() => !isFrozen
+                      ? recording 
+                          ? handleStopRecording() 
+                          : handleStartRecording() 
+                      : null}
+                    >
                     <VideoCameraIcon 
                       className={`h-6 w-6 cursor-pointer ${recording ? 'text-green-500 animate-pulse ' : 'text-white'}`}
-                    />
-                    <p className="absolute top-[60%] bg-black/40 rounded-[0.2rem] px-[0.2rem] py-0 text-white text-xs text-center">
+                      />
+                    <p className="absolute top-[60%] -right-1 bg-black/80 rounded-[0.2rem] px-[0.2rem] py-0 text-white text-xs text-center">
                       {(recording ? estimatedFps : undefined) ?? "FPS"}
                     </p>
                   </div>
+                  <>
+                    <ArrowUpTrayIcon 
+                      className={`h-6 w-6 cursor-pointer ${
+                        recording ? 'opacity-40' : ''
+                      }`}
+                      onClick={handleUploadVideo}
+                      />
+                    <input
+                      type="file"
+                      accept="video/*"
+                      ref={fileInputRef}
+                      className="hidden"
+                      onChange={handleFileChange}
+                      />
+                  </>
+                </>
               )}
               {videoUrl && (
                 <TrashIcon 
@@ -568,8 +849,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               )}
               {videoUrl && (
                 <CubeTransparentIcon 
-                  className="h-6 w-6 text-white cursor-pointer"
-                  onClick={handleProcessVideo}
+                  className={`h-6 w-6 text-white cursor-pointer ${
+                    (!isFrozen && videoProcessed) ? "opacity-40" : ""
+                  }`}
+                  onClick={() => (isFrozen || !videoProcessed) && handleProcessVideo()}
                   />
               )}
               {((videoUrl && videoProcessed) || !videoUrl) && (
@@ -586,12 +869,17 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               data-element="non-swipeable"
               className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
             >
-              <CameraIcon 
-                className={`h-6 w-6 text-white cursor-pointer ${
+              <div 
+                className={`relative cursor-pointer ${
                   recording ? 'opacity-40' : ''
                 }`}
                 onClick={() => !recording && toggleCamera()}
-                />
+                >
+                <CameraIcon 
+                  className={`h-6 w-6 text-white cursor-pointer`}
+                  />
+                <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 bg-black/80 rounded-full p-[0.1rem]"/>
+              </div>
               <UserIcon 
                 className={`h-6 w-6 text-white cursor-pointer  ${
                   recording ? 'opacity-40' : ''
@@ -599,20 +887,20 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 onClick={() => !recording && handlePoseModal()}
                 />
               {maxKinematicsAllowed > 1 && (
-                <ChevronDoubleDownIcon 
-                  className={`h-6 w-6 text-white cursor-pointer ${
-                    visibleKinematics.length > 1 ? 'border-2 rounded-full p-[0.1rem] animate-pulse' : ''
+                <p 
+                  className={`h-6 w-6 text-white text-center  cursor-pointer lowercase ${
+                    visibleKinematics.length > 1 ? 'leading-[110%] border-2 rounded-full p-[0.1rem] animate-pulse' : 'text-[2rem] leading-6'
                   } ${
                     recording ? 'opacity-40' : ''
                   }`}
                   onClick={() => !recording && handleKinematicsSelection(Kinematics.ANGULAR_VELOCITY)}
-                  />
+                  >v̅</p>
               )}
               <Cog6ToothIcon 
                 className={`h-6 w-6 text-white cursor-pointer ${
                   recording ? 'opacity-40' : ''
                 }`}
-                onClick={() => !recording && handleSettingsModal()}
+                onClick={() => !recording && handleSettingsModal({})}
                 />
             </section>
           </>
@@ -639,18 +927,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           </section>
         )}
 
-        {/* <PoseModal 
-          isModalOpen={isPoseModalOpen} 
-          handleModal={handlePoseModal} 
-          jointOptions={jointOptions}
-          maxSelected={maxJointsAllowed }
-          initialSelectedJoints={settings.pose.selectedJoints} 
-          onSelectionChange={handleJointSelection} 
-          /> */}
-
         <PoseSettingsModal 
           isModalOpen={isPoseSettingsModalOpen}
-          handleModal={handleSettingsModal}
           />
       </div> 
 
@@ -688,7 +966,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
           <PoseGraphSettingsModal 
             isModalOpen={isPoseGraphSettingsModalOpen}
-            handleModal={handleSettingsModal}
             videoProcessed={videoProcessed}
             />
         </>

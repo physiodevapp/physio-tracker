@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 
 // Definimos el tipo del detector
-type DetectorType = poseDetection.PoseDetector | null;
+export type DetectorType = poseDetection.PoseDetector | null;
 
 // Creamos el contexto con un valor inicial nulo
 const PoseDetectorContext = createContext<DetectorType>(null);

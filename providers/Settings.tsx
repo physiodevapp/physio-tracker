@@ -103,6 +103,8 @@ interface SettingsContextProps {
   setTestDuration: (value: number) => void;
   setSensorHeight: (value: number) => void;
   // Función para resetear los settings
+  resetPoseSettings: () => void;
+  resetPoseGraphSettings: () => void;
   resetForceSettings: () => void;
   resetColorSettings: () => void;
   resetBalanceSettings: () => void;
@@ -195,6 +197,21 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const setPoseGraphSampleThreshold = (sampleThreshold: number) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseGraphSampleThreshold: sampleThreshold } }));
   };
+  const resetPoseSettings = () => {
+    setSettings(prev => ({ ...prev, pose: {...prev.pose,
+      velocityHistorySize: defaultConfig.pose.velocityHistorySize,
+      angularHistorySize: defaultConfig.pose.angularHistorySize,} }));
+  };
+  const resetPoseGraphSettings = () => {
+    setSettings(prev => ({
+      ...prev, pose: {...prev.pose,
+        poseTimeWindow: defaultConfig.pose.poseTimeWindow,
+        poseUpdateInterval: defaultConfig.pose.poseUpdateInterval,
+        poseGraphSample: defaultConfig.pose.poseGraphSample,
+        poseGraphSampleThreshold: defaultConfig.pose.poseGraphSampleThreshold,
+      }
+    }));
+  };
 
   // Setters para color
   const setRedHueLower1 = (value: number) => setSettings(prev => ({ ...prev, color: { ...prev.color, redHueLower1: value } }));
@@ -262,6 +279,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setPoseUpdateInterval,
         setPoseGraphSample,
         setPoseGraphSampleThreshold,
+        resetPoseSettings,
+        resetPoseGraphSettings,
         setRedHueLower1,
         setRedHueUpper1,
         setRedHueLower2,
