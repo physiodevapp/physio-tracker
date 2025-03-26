@@ -16,6 +16,7 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
     gravity: GRAVITY,
     gravityFactor: GRAVITY_FACTOR,
     cutoffFrequency: CUTOFF_FREQUENCY,
+    sensorHeight,
   } = settings;
 
   // 🛠️ Variables del filtro Butterworth
@@ -412,7 +413,8 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
           motionData: motionDataRef.current,
           cutoffFrequency: CUTOFF_FREQUENCY,
           samplingFrequency: samplingFrequency!,
-          gravity: GRAVITY
+          gravity: GRAVITY,
+          sensorHeight_cm: sensorHeight,
         });
   
       setCOPData({

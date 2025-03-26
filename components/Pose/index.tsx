@@ -25,6 +25,11 @@ interface IndexProps {
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const { settings, setSelectedJoints } = useSettings();
 
+  const [infoMessage, setInfoMessage] = useState({
+    show: false,
+    message:""
+  })
+
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
   });
@@ -33,7 +38,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [capturedChunks, setCapturedChunks] = useState<Blob[]>([]);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [estimatedFps, setEstimatedFps] = useState<number | null>(null);
-  const [processVideo, setProcessVideo] = useState(0);
+  const [processVideo, setProcessVideo] = useState(1);
   const [videoProcessed, setVideoProcessed] = useState(false);
   const videoProcessedRef = useRef(videoProcessed);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
@@ -243,11 +248,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setRecording(true);
 
     // Establece un límite de grabación de 10 segundos
-    setTimeout(() => {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-        handleStopRecording();
-      }
-    }, 10_000);
+    // const videoDurationThreshold = 10_000;
+    // const rate = videoRef.current?.playbackRate ?? 1;
+    // const adjustedDelay = videoDurationThreshold / rate;
+    // setTimeout(() => {
+    //   if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+    //     handleStopRecording();
+    //   }
+    // }, adjustedDelay);
   };
 
   const handleDataAvailable = (event: BlobEvent) => {
@@ -262,23 +270,26 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
     
     setRecording(false);
+
+    // if ((videoRef.current?.currentTime ?? 0) >= 10_000) {
+    // }
+    // videoRef.current?.pause();
+    // handleEnded();
   };
   
   const handlePreview = ({uploadedUrl}: {uploadedUrl?: string}) => {
+    console.log('handlePreview ', Boolean(videoRef.current))
     if (capturedChunks.length || uploadedUrl) {
       const blob = new Blob(capturedChunks, { type: 'video/webm' });
       const url = uploadedUrl ?? URL.createObjectURL(blob);
 
       setVideoUrl(url);
-
-      setIsPoseModalOpen(true);
     }
   };
 
   const handleProcessVideo = () => {
     if (visibleJointsRef.current.length > 0 && videoRef.current) {  
       setProcessVideo((prev) => prev * (-1));
-      
     } else {
       setIsPoseModalOpen(true);
     }
@@ -289,6 +300,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     if (!video) return;
 
     if (restart) {
+      video.playbackRate = 0.2;
+
       recordedPositionsRef.current = {};
       
       video.currentTime = 0;
@@ -316,6 +329,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
 
     setIsFrozen(true);
+
+    if (videoRef.current && videoRef.current.playbackRate !== 1) {
+      videoRef.current.playbackRate = 1;
+    }
   };
 
   const handleChartValueX = (time: number) => {
@@ -324,7 +341,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
       setTimeout(() => {
         analyzeSingleFrame();
-      }, 100);
+      }, 200);
     }
   };
 
@@ -378,6 +395,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     jointConfigMap: JointConfigMap
   }) => {
     if (!visibleJointsRef.current.length) return; 
+
     jointNames.forEach((jointName) => {
       const jointConfig = jointConfigMap[jointName] ?? { invert: false };
 
@@ -403,7 +421,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           recordedPositionsRef.current[jointName] = [];
         }
         recordedPositionsRef.current[jointName]!.push({
-          timestamp: updatedData.lastTimestamp,
+          timestamp: videoRef.current!.currentTime * 1000, // updatedData.lastTimestamp,
           angle: updatedData.angle,
           angularVelocity: updatedData.angularVelocity,
           color: updatedData.color
@@ -741,9 +759,25 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
   };
 
+  const handleLoadedMetadata = () => {    
+    if (videoRef.current) {
+      const duration = videoRef.current.duration;
+      if (duration <= 10) {
+        setIsPoseModalOpen(true);
+      } else {
+        handleRemoveRecord();
+
+        setInfoMessage({
+          show: true,
+          message: "Max. 10 seconds"
+        })
+      }
+    }
+  };
+
   const handleOnTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
     setVideoCurrentTime(e.currentTarget.currentTime);
-  }
+  };
 
   return (
     <>
@@ -774,6 +808,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             src={videoUrl}               
             className={`relative object-cover h-full w-full ${videoConstraints.facingMode === "user" ? 'scale-x-[-1]' : 'scale-x-[1]'}`}
             onTimeUpdate={handleOnTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
             onEnded={handleEnded}
             />
         ) : (
@@ -868,7 +903,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             <section 
               data-element="non-swipeable"
               className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
-            >
+              >
               <div 
                 className={`relative cursor-pointer ${
                   recording ? 'opacity-40' : ''
@@ -970,6 +1005,25 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             />
         </>
       )}
+
+      {infoMessage.show ? (
+          <div 
+            data-element="non-swipeable"
+            className="absolute top-0 h-dvh w-full z-40 flex items-center justify-center"
+            onClick={() => setInfoMessage({show: false, message: ""})}
+            >
+            <div className="dark:bg-gray-800 rounded-lg px-10 py-6 flex flex-col gap-2">
+              <p className="text-lg">{infoMessage.message}</p>
+              <button 
+                className="bg-[#5dadec] hover:bg-gray-600 text-white font-bold rounded-lg p-2"
+                onClick={() => setInfoMessage({show: false, message: ""})}
+                >
+                  Got it!
+                </button>
+            </div>
+          </div>
+        ) : null
+      }
     </>
   );
 };

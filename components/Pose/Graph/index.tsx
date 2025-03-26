@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Line } from "react-chartjs-2";
+// import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
-  ActiveElement,
+  // ActiveElement,
   ChartDataset,
-  ChartEvent,
+  // ChartEvent,
+  ChartConfiguration,
   registerables,
 } from "chart.js";
 import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
@@ -18,17 +19,17 @@ import CrosshairPlugin from 'chartjs-plugin-crosshair';
 ChartJS.register(
   ...registerables,
   annotationPlugin,
-  CrosshairPlugin
+  CrosshairPlugin,
 );
 
-interface VerticalLineAnnotation {
-  xMin: number;
-  xMax: number;
-  label: {
-    content: string;
-  };
-  // Puedes agregar más propiedades según necesites, como borderColor, borderWidth, etc.
-}
+// interface VerticalLineAnnotation {
+//   xMin: number;
+//   xMax: number;
+//   label: {
+//     content: string;
+//   };
+//   // Puedes agregar más propiedades según necesites, como borderColor, borderWidth, etc.
+// }
 
 // Definimos la interfaz para cada punto de datos
 interface DataPoint {
@@ -67,12 +68,17 @@ const Index = ({
   valueTypes = [Kinematics.ANGLE],
   getDataForJoint,
   recordedPositions = undefined,
-  onPointClick, 
+  // onPointClick, 
   onVerticalLineChange,
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
-  verticalLineValue = 0,
+  // verticalLineValue = 0,
 }: IndexProps) => {
   const { settings } = useSettings();
+
+  // --- Cofiguración del gráfico ----
+  const chartRef = useRef<ChartJS | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // const chartRef = useRef<ChartJS<"line", DataPoint[], unknown>>(null);
 
   const realTime = recordedPositions === undefined;
 
@@ -94,7 +100,6 @@ const Index = ({
   // Ref para almacenar el tiempo inicial global (se fija la primera vez que se recibe un dato)
   const startTimeRef = useRef<number | null>(null);
 
-  const chartRef = useRef<ChartJS<"line", DataPoint[], unknown>>(null);
 
   const transformJointName = (joint: string): string => {
     const words = joint.split("_");
@@ -140,8 +145,13 @@ const Index = ({
           data: dataPoints,
           borderColor: baseColor,
           backgroundColor: baseBackgroundColor,
-          borderWidth: vType === Kinematics.ANGLE ? 2 : 1,
+          borderWidth: vType === Kinematics.ANGLE ? 2 : 1,          
           tension: 0.6,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointHoverBorderWidth: 1,
+          pointHoverBorderColor: 'red',
+          pointHitRadius: 0,
           parsing: false,
           ...(vType === Kinematics.ANGULAR_VELOCITY && { borderDash: [2, 2] }),
         });
@@ -168,23 +178,23 @@ const Index = ({
     normalizedMinX = normalizedMaxX - settings.pose.poseTimeWindow;
   }
 
-  const handleChartClick = (
-    activeElements: ActiveElement[],
-    chart: ChartJS<"line", DataPoint[], unknown>
-  ) => {
-    // Verificamos si se hizo click sobre algún punto
-    if (activeElements && activeElements.length > 0) {
-      // Suponemos que tomamos el primer elemento activo
-      const firstElement = activeElements[0];
-      const index = firstElement.index;
-      // Asumimos que queremos el dato del primer dataset; ajusta según tus necesidades
-      const dataPoint = chart.data.datasets[0].data[index] as DataPoint;
-      if (dataPoint && typeof dataPoint.x === "number") {
-        // Llamamos al callback pasando el valor de x (tiempo en segundos)
-        onPointClick(dataPoint.x);
-      }
-    }
-  };
+  // const handleChartClick = (
+  //   activeElements: ActiveElement[],
+  //   chart: ChartJS<"line", DataPoint[], unknown>
+  // ) => {
+  //   // Verificamos si se hizo click sobre algún punto
+  //   if (activeElements && activeElements.length > 0) {
+  //     // Suponemos que tomamos el primer elemento activo
+  //     const firstElement = activeElements[0];
+  //     const index = firstElement.index;
+  //     // Asumimos que queremos el dato del primer dataset; ajusta según tus necesidades
+  //     const dataPoint = chart.data.datasets[0].data[index] as DataPoint;
+  //     if (dataPoint && typeof dataPoint.x === "number") {
+  //       // Llamamos al callback pasando el valor de x (tiempo en segundos)
+  //       onPointClick(dataPoint.x);
+  //     }
+  //   }
+  // };
 
   useEffect(() => {
     // Si está en modo pausa, no iniciamos el ciclo de actualización.
@@ -320,274 +330,497 @@ const Index = ({
     }
   }, [realTime]);
 
-  useEffect(() => {
-    const canvas = chartRef.current?.canvas;
-    if (!canvas) return;
+  // ----------------------
+  // useEffect(() => {
+  //   const canvas = chartRef.current?.canvas;
+  //   if (!canvas) return;
   
-    let isDragging = false;
-    let newXValue = verticalLineValue;
+  //   let isDragging = false;
+  //   let newXValue = verticalLineValue;
   
-    // Función para convertir coordenadas de mouse a valor en el eje x usando la escala del gráfico
-    const getXValueFromEvent = (event: MouseEvent | TouchEvent): number | null => {
-      const rect = canvas.getBoundingClientRect();
-      // Para eventos de touch, usamos touches[0].clientX
-      const clientX = 'clientX' in event ? event.clientX : event.touches[0].clientX;
-      const mouseX = clientX - rect.left;
-      const xScale = chartRef.current?.scales['x'];
-      if (!xScale) return null;
-      return xScale.getValueForPixel(mouseX) ?? null;
-    };
+  //   // Función para convertir coordenadas de mouse a valor en el eje x usando la escala del gráfico
+  //   const getXValueFromEvent = (event: MouseEvent | TouchEvent): number | null => {
+  //     const rect = canvas.getBoundingClientRect();
+  //     // Para eventos de touch, usamos touches[0].clientX
+  //     const clientX = 'clientX' in event ? event.clientX : event.touches[0].clientX;
+  //     const mouseX = clientX - rect.left;
+  //     const xScale = chartRef.current?.scales['x'];
+  //     if (!xScale) return null;
+  //     return xScale.getValueForPixel(mouseX) ?? null;
+  //   };
   
-    const handleMouseDown = (event: MouseEvent) => {
-      const valueAtMouse = getXValueFromEvent(event);
-      if (valueAtMouse === null) return;
-      if (Math.abs(valueAtMouse - verticalLineValue) < 5) {
-        isDragging = true;
-      }
-    };
+  //   const handleMouseDown = (event: MouseEvent) => {
+  //     const valueAtMouse = getXValueFromEvent(event);
+  //     if (valueAtMouse === null) return;
+  //     if (Math.abs(valueAtMouse - verticalLineValue) < 5) {
+  //       isDragging = true;
+  //     }
+  //   };
   
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!isDragging) return;
-      const valueAtMouse = getXValueFromEvent(event);
-      if (valueAtMouse === null) return;
-      newXValue = valueAtMouse;
-      // Accedemos a la anotación usando nuestro tipo definido
-      const annotationOptions = chartRef.current?.options.plugins?.annotation?.annotations as
-        | Record<string, VerticalLineAnnotation>
-        | undefined;
-      if (annotationOptions && annotationOptions.verticalLine) {
-        const annotation = annotationOptions.verticalLine;
-        annotation.xMin = newXValue;
-        annotation.xMax = newXValue;
-        annotation.label.content = `${newXValue.toFixed(2)} s`;
-        chartRef.current?.update('none');
-      }
-    };
+  //   const handleMouseMove = (event: MouseEvent) => {
+  //     if (!isDragging) return;
+  //     const valueAtMouse = getXValueFromEvent(event);
+  //     if (valueAtMouse === null) return;
+  //     newXValue = valueAtMouse;
+  //     // Accedemos a la anotación usando nuestro tipo definido
+  //     const annotationOptions = chartRef.current?.options.plugins?.annotation?.annotations as
+  //       | Record<string, VerticalLineAnnotation>
+  //       | undefined;
+  //     if (annotationOptions && annotationOptions.verticalLine) {
+  //       const annotation = annotationOptions.verticalLine;
+  //       annotation.xMin = newXValue;
+  //       annotation.xMax = newXValue;
+  //       annotation.label.content = `${newXValue.toFixed(2)} s`;
+  //       chartRef.current?.update('none');
+  //     }
+  //   };
   
-    const handleMouseUp = () => {
-      if (isDragging) {
-        isDragging = false;
-        onVerticalLineChange(newXValue);
-      }
-    };
+  //   const handleMouseUp = () => {
+  //     if (isDragging) {
+  //       isDragging = false;
+  //       onVerticalLineChange(newXValue);
+  //     }
+  //   };
   
-    const handleTouchStart = (event: TouchEvent) => {
-      const valueAtTouch = getXValueFromEvent(event);
-      if (valueAtTouch === null) return;
-      if (Math.abs(valueAtTouch - verticalLineValue) < 5) {
-        isDragging = true;
-      }
-    };
+  //   const handleTouchStart = (event: TouchEvent) => {
+  //     const valueAtTouch = getXValueFromEvent(event);
+  //     if (valueAtTouch === null) return;
+  //     if (Math.abs(valueAtTouch - verticalLineValue) < 5) {
+  //       isDragging = true;
+  //     }
+  //   };
   
-    const handleTouchMove = (event: TouchEvent) => {
-      if (!isDragging) return;
-      const valueAtTouch = getXValueFromEvent(event);
-      if (valueAtTouch === null) return;
-      newXValue = valueAtTouch;
-      const annotationOptions = chartRef.current?.options.plugins?.annotation?.annotations as
-        | Record<string, VerticalLineAnnotation>
-        | undefined;
-      if (annotationOptions && annotationOptions.verticalLine) {
-        const annotation = annotationOptions.verticalLine;
-        annotation.xMin = newXValue;
-        annotation.xMax = newXValue;
-        annotation.label.content = `${newXValue.toFixed(2)} s`;
-        chartRef.current?.update('none');
-      }
-    };
+  //   const handleTouchMove = (event: TouchEvent) => {
+  //     if (!isDragging) return;
+  //     const valueAtTouch = getXValueFromEvent(event);
+  //     if (valueAtTouch === null) return;
+  //     newXValue = valueAtTouch;
+  //     const annotationOptions = chartRef.current?.options.plugins?.annotation?.annotations as
+  //       | Record<string, VerticalLineAnnotation>
+  //       | undefined;
+  //     if (annotationOptions && annotationOptions.verticalLine) {
+  //       const annotation = annotationOptions.verticalLine;
+  //       annotation.xMin = newXValue;
+  //       annotation.xMax = newXValue;
+  //       annotation.label.content = `${newXValue.toFixed(2)} s`;
+  //       chartRef.current?.update('none');
+  //     }
+  //   };
   
-    const handleTouchEnd = () => {
-      if (isDragging) {
-        isDragging = false;
-        onVerticalLineChange(newXValue);
-      }
-    };
+  //   const handleTouchEnd = () => {
+  //     if (isDragging) {
+  //       isDragging = false;
+  //       onVerticalLineChange(newXValue);
+  //     }
+  //   };
   
-    canvas.addEventListener('mousedown', handleMouseDown);
-    canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('mouseleave', handleMouseUp);
+  //   canvas.addEventListener('mousedown', handleMouseDown);
+  //   canvas.addEventListener('mousemove', handleMouseMove);
+  //   canvas.addEventListener('mouseup', handleMouseUp);
+  //   canvas.addEventListener('mouseleave', handleMouseUp);
   
-    canvas.addEventListener('touchstart', handleTouchStart);
-    canvas.addEventListener('touchmove', handleTouchMove);
-    canvas.addEventListener('touchend', handleTouchEnd);
-    canvas.addEventListener('touchcancel', handleTouchEnd);
+  //   canvas.addEventListener('touchstart', handleTouchStart);
+  //   canvas.addEventListener('touchmove', handleTouchMove);
+  //   canvas.addEventListener('touchend', handleTouchEnd);
+  //   canvas.addEventListener('touchcancel', handleTouchEnd);
   
-    return () => {
-      canvas.removeEventListener('mousedown', handleMouseDown);
-      canvas.removeEventListener('mousemove', handleMouseMove);
-      canvas.removeEventListener('mouseup', handleMouseUp);
-      canvas.removeEventListener('mouseleave', handleMouseUp);
+  //   return () => {
+  //     canvas.removeEventListener('mousedown', handleMouseDown);
+  //     canvas.removeEventListener('mousemove', handleMouseMove);
+  //     canvas.removeEventListener('mouseup', handleMouseUp);
+  //     canvas.removeEventListener('mouseleave', handleMouseUp);
   
-      canvas.removeEventListener('touchstart', handleTouchStart);
-      canvas.removeEventListener('touchmove', handleTouchMove);
-      canvas.removeEventListener('touchend', handleTouchEnd);
-      canvas.removeEventListener('touchcancel', handleTouchEnd);
-    };
-  }, [verticalLineValue, onVerticalLineChange, chartRef]); 
+  //     canvas.removeEventListener('touchstart', handleTouchStart);
+  //     canvas.removeEventListener('touchmove', handleTouchMove);
+  //     canvas.removeEventListener('touchend', handleTouchEnd);
+  //     canvas.removeEventListener('touchcancel', handleTouchEnd);
+  //   };
+  // }, [verticalLineValue, onVerticalLineChange, chartRef]); 
+  // ----------------------
 
+  const chartConfig = useMemo<ChartConfiguration>(
+    () => ({
+      type: "line",
+      data: {
+        datasets: datasets,
+      },
+      options: {
+        responsive: true,
+        animation: false,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: "nearest",
+          axis: "x",
+          intersect: false,
+        },
+        // onClick: (
+        //   event:ChartEvent,
+        //   activeElements: ActiveElement[], 
+        //   chart: ChartJS<"line", DataPoint[], unknown> 
+        // ) => {
+        //   handleChartClick(activeElements, chart);
+        // },
+        plugins: {
+          legend: {
+            display: true,
+            position: "top",
+            labels: {
+              usePointStyle: true,
+              font: { size: 10 },
+              generateLabels: (chart) => {
+                const defaultLabels =
+                  ChartJS.defaults.plugins.legend.labels.generateLabels(chart);
+
+                return defaultLabels
+                  .filter((label) =>
+                    label.text.toLowerCase().includes("angle")
+                  )
+                  .map((label) => ({
+                    ...label,
+                    text: label.text.split("angle")[0].trim(),
+                  }));
+              },
+            },
+            // Sobreescribimos onClick para que oculte/muestre ambos datasets
+            onClick: (e, legendItem, legend) => {
+              const chart = legend.chart;
+              // Obtenemos la etiqueta base, por ejemplo "Left elbow"
+              const baseLabel = legendItem.text.toLowerCase();
+              // Iteramos sobre todos los datasets
+              chart.data.datasets.forEach((ds, i) => {
+                // Si el label del dataset (convertido a minúsculas) incluye la etiqueta base
+                // (asumimos que ambos datasets tienen, por ejemplo, "Left elbow angle" y "Left elbow angular velocity")
+                if (ds.label?.toLowerCase().includes(baseLabel)) {
+                  // Alternamos la visibilidad: si estaba oculto, se muestra, y viceversa.
+                  const meta = chart.getDatasetMeta(i);
+                  meta.hidden = meta.hidden === null ? !chart.data.datasets[i].hidden : !meta.hidden;
+                }
+              });
+              chart.update();
+            },
+          },
+          ...(!realTime && {
+            crosshair: {
+              line: {
+                color: '#F66', 
+                width: 1
+              },
+              sync: {
+                // Habilita la sincronización con otros gráficos
+                enabled: true,
+                // Grupo de gráficos para sincronizar
+                group: 1,
+                // Suprime tooltips al mostrar un tracer sincronizado
+                suppressTooltips: false,
+              },
+              zoom: {
+                enabled: false,  
+              },
+            }
+          }),
+          tooltip: {
+            enabled: !realTime,
+            external: (context) => {
+              const tooltipModel = context.tooltip;
+              const dataPoint = tooltipModel.dataPoints?.[0];
+
+              if (dataPoint && typeof dataPoint.parsed.x === 'number') {
+                onVerticalLineChange(dataPoint.parsed.x);
+              }
+            },
+            callbacks: {
+              title: () => "", // Desactiva el título del tooltip
+              // Formatea cada tooltip (cuando se pincha o se hace hover en un punto)
+              label: function (context) {
+                // Recupera el label original del dataset
+                const originalLabel = context.dataset.label || "";
+                // Si el label contiene la palabra "angle" (sin distinción de mayúsculas), la quitamos
+                const cleanedLabel = originalLabel.toLowerCase().includes("angle")
+                  ? originalLabel.split("angle")[0].trim()
+                  : originalLabel.split("angular velocity")[0].trim();
+    
+                // Formatea el valor del eje x (tiempo)
+                // Aquí lo mostramos con dos decimales y le añadimos " s"
+                const xValue = Number(context.parsed.x).toFixed(2) + " s";
+    
+                // Formatea el valor del eje y
+                // Redondeamos a entero
+                const yRounded = Math.round(context.parsed.y);
+                // Si el label original contenía "angle", añadimos la unidad de grados
+                const yValue = originalLabel.toLowerCase().includes("angle")
+                  ? yRounded + " º"
+                  : yRounded + " º/s";
+    
+                // Puedes retornar un array para que se muestren varias líneas en el tooltip,
+                // o una cadena con un salto de línea
+                return [xValue, `${cleanedLabel}: ${yValue}`];
+              },
+            },
+          },
+          // annotation: {
+          //   annotations: {
+          //     verticalLine: {
+          //       display: !realTime,
+          //       type: 'line',
+          //       xMin: verticalLineValue,
+          //       xMax: verticalLineValue,
+          //       borderColor: 'gray',
+          //       borderWidth: 2,
+          //       label: {
+          //         display: true,
+          //         content: `${verticalLineValue.toFixed(2)} s`,
+          //         position: "end",
+          //       },                                    
+          //     },
+          //   },
+          // },
+        },
+        elements: {
+          point: { 
+            radius: !realTime ? 3 : 0,
+            hitRadius: !realTime ? 3 : 0,
+            hoverRadius: !realTime ? 3 : 0,
+          },
+        },
+        scales: {
+          x: {
+            type: "linear",
+            min: normalizedMinX,
+            max: normalizedMaxX,
+            title: { display: true, text: "Time (seconds)" },
+            ticks: {
+              stepSize: 1,
+              maxTicksLimit: 12,
+              callback: (value) => {
+                // Si el valor es negativo, no se muestra nada.
+                if (Number(value) < 0) return "";
+                
+                return Number(value).toFixed(0);
+              },
+            },
+          },
+          y: {
+            title: {
+              display: false,
+              text: (() => {
+                if (
+                  valueTypes.includes(Kinematics.ANGLE) &&
+                  valueTypes.includes(Kinematics.ANGULAR_VELOCITY)
+                ) {
+                  return "Angle (°) & Angular Velocity (°/s)";
+                }
+                if (valueTypes.includes(Kinematics.ANGLE)) {
+                  return "Angle (°)";
+                }
+                return "";
+              })(),
+            },
+            suggestedMin: 0,
+            suggestedMax: 180,
+            ticks: {
+              display: joints.length > 0,
+              callback: (value) => Number(value).toFixed(0),
+            },
+          },
+        },
+      }
+    }),[datasets]);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const ctx = canvasRef.current.getContext("2d");
+    if (!ctx) return;
+
+    chartRef.current = new ChartJS(ctx, chartConfig);
+
+    return () => {
+      chartRef.current?.destroy();
+      chartRef.current = null;
+    };
+  }, [chartConfig]);
 
   return (
     <div 
       data-element="non-swipeable"
       className={parentStyles}
       >
-      <Line
-        ref={chartRef}
-        className="pb-2 px-2 bg-white"
-        data={{
-          // Al usar puntos con x e y, no se requiere definir "labels"
-          datasets: datasets,
-        }}
-        options={{
-          responsive: true,
-          animation: false,
-          maintainAspectRatio: false,
-          onClick: (
-            event:ChartEvent,
-            activeElements: ActiveElement[], 
-            chart: ChartJS<"line", DataPoint[], unknown> 
-          ) => {
-            handleChartClick(activeElements, chart);
-          },
-          plugins: {
-            legend: {
-              display: true,
-              position: "top",
-              labels: {
-                usePointStyle: true,
-                font: { size: 10 },
-                generateLabels: (chart) => {
-                  const defaultLabels =
-                    ChartJS.defaults.plugins.legend.labels.generateLabels(chart);
+        <canvas 
+          ref={canvasRef} 
+          className='bg-white'
+          />
+        {/* <Line
+          ref={chartRef}
+          className="pb-2 px-2 bg-white"
+          data={{
+            // Al usar puntos con x e y, no se requiere definir "labels"
+            datasets: datasets,
+          }}
+          options={{
+            responsive: true,
+            animation: false,
+            maintainAspectRatio: false,
+            onClick: (
+              event:ChartEvent,
+              activeElements: ActiveElement[], 
+              chart: ChartJS<"line", DataPoint[], unknown> 
+            ) => {
+              handleChartClick(activeElements, chart);
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: "top",
+                labels: {
+                  usePointStyle: true,
+                  font: { size: 10 },
+                  generateLabels: (chart) => {
+                    const defaultLabels =
+                      ChartJS.defaults.plugins.legend.labels.generateLabels(chart);
 
-                  return defaultLabels
-                    .filter((label) =>
-                      label.text.toLowerCase().includes("angle")
-                    )
-                    .map((label) => ({
-                      ...label,
-                      text: label.text.split("angle")[0].trim(),
-                    }));
+                    return defaultLabels
+                      .filter((label) =>
+                        label.text.toLowerCase().includes("angle")
+                      )
+                      .map((label) => ({
+                        ...label,
+                        text: label.text.split("angle")[0].trim(),
+                      }));
+                  },
+                },
+                // Sobreescribimos onClick para que oculte/muestre ambos datasets
+                onClick: (e, legendItem, legend) => {
+                  const chart = legend.chart;
+                  // Obtenemos la etiqueta base, por ejemplo "Left elbow"
+                  const baseLabel = legendItem.text.toLowerCase();
+                  // Iteramos sobre todos los datasets
+                  chart.data.datasets.forEach((ds, i) => {
+                    // Si el label del dataset (convertido a minúsculas) incluye la etiqueta base
+                    // (asumimos que ambos datasets tienen, por ejemplo, "Left elbow angle" y "Left elbow angular velocity")
+                    if (ds.label?.toLowerCase().includes(baseLabel)) {
+                      // Alternamos la visibilidad: si estaba oculto, se muestra, y viceversa.
+                      const meta = chart.getDatasetMeta(i);
+                      meta.hidden = meta.hidden === null ? !chart.data.datasets[i].hidden : !meta.hidden;
+                    }
+                  });
+                  chart.update();
                 },
               },
-              // Sobreescribimos onClick para que oculte/muestre ambos datasets
-              onClick: (e, legendItem, legend) => {
-                const chart = legend.chart;
-                // Obtenemos la etiqueta base, por ejemplo "Left elbow"
-                const baseLabel = legendItem.text.toLowerCase();
-                // Iteramos sobre todos los datasets
-                chart.data.datasets.forEach((ds, i) => {
-                  // Si el label del dataset (convertido a minúsculas) incluye la etiqueta base
-                  // (asumimos que ambos datasets tienen, por ejemplo, "Left elbow angle" y "Left elbow angular velocity")
-                  if (ds.label?.toLowerCase().includes(baseLabel)) {
-                    // Alternamos la visibilidad: si estaba oculto, se muestra, y viceversa.
-                    const meta = chart.getDatasetMeta(i);
-                    meta.hidden = meta.hidden === null ? !chart.data.datasets[i].hidden : !meta.hidden;
-                  }
-                });
-                chart.update();
-              },
-            },
-            tooltip: {
-              enabled: !realTime,
-              callbacks: {
-                title: () => "", // Desactiva el título del tooltip
-                // Formatea cada tooltip (cuando se pincha o se hace hover en un punto)
-                label: function (context) {
-                  // Recupera el label original del dataset
-                  const originalLabel = context.dataset.label || "";
-                  // Si el label contiene la palabra "angle" (sin distinción de mayúsculas), la quitamos
-                  const cleanedLabel = originalLabel.toLowerCase().includes("angle")
-                    ? originalLabel.split("angle")[0].trim()
-                    : originalLabel.split("angular velocity")[0].trim();
-      
-                  // Formatea el valor del eje x (tiempo)
-                  // Aquí lo mostramos con dos decimales y le añadimos " s"
-                  const xValue = Number(context.parsed.x).toFixed(2) + " s";
-      
-                  // Formatea el valor del eje y
-                  // Redondeamos a entero
-                  const yRounded = Math.round(context.parsed.y);
-                  // Si el label original contenía "angle", añadimos la unidad de grados
-                  const yValue = originalLabel.toLowerCase().includes("angle")
-                    ? yRounded + " º"
-                    : yRounded + " º/s";
-      
-                  // Puedes retornar un array para que se muestren varias líneas en el tooltip,
-                  // o una cadena con un salto de línea
-                  return [xValue, `${cleanedLabel}: ${yValue}`];
+              crosshair: {
+                line: {
+                  color: '#F66', 
+                  width: 1
+                },
+                sync: {
+                  // Habilita la sincronización con otros gráficos
+                  enabled: true,
+                  // Grupo de gráficos para sincronizar
+                  group: 1,
+                  // Suprime tooltips al mostrar un tracer sincronizado
+                  suppressTooltips: false,
+                },
+                zoom: {
+                  enabled: false,  
                 },
               },
-            },
-            annotation: {
-              annotations: {
-                verticalLine: {
-                  display: !realTime,
-                  type: 'line',
-                  xMin: verticalLineValue,
-                  xMax: verticalLineValue,
-                  borderColor: 'gray',
-                  borderWidth: 2,
-                  label: {
-                    display: true,
-                    content: `${verticalLineValue.toFixed(2)} s`,
-                    position: "end",
-                  },                                    
+              tooltip: {
+                enabled: !realTime,
+                callbacks: {
+                  title: () => "", // Desactiva el título del tooltip
+                  // Formatea cada tooltip (cuando se pincha o se hace hover en un punto)
+                  label: function (context) {
+                    // Recupera el label original del dataset
+                    const originalLabel = context.dataset.label || "";
+                    // Si el label contiene la palabra "angle" (sin distinción de mayúsculas), la quitamos
+                    const cleanedLabel = originalLabel.toLowerCase().includes("angle")
+                      ? originalLabel.split("angle")[0].trim()
+                      : originalLabel.split("angular velocity")[0].trim();
+        
+                    // Formatea el valor del eje x (tiempo)
+                    // Aquí lo mostramos con dos decimales y le añadimos " s"
+                    const xValue = Number(context.parsed.x).toFixed(2) + " s";
+        
+                    // Formatea el valor del eje y
+                    // Redondeamos a entero
+                    const yRounded = Math.round(context.parsed.y);
+                    // Si el label original contenía "angle", añadimos la unidad de grados
+                    const yValue = originalLabel.toLowerCase().includes("angle")
+                      ? yRounded + " º"
+                      : yRounded + " º/s";
+        
+                    // Puedes retornar un array para que se muestren varias líneas en el tooltip,
+                    // o una cadena con un salto de línea
+                    return [xValue, `${cleanedLabel}: ${yValue}`];
+                  },
                 },
               },
-            },
-          },
-          elements: {
-            point: { 
-              radius: !realTime ? 3 : 0,
-              hitRadius: !realTime ? 3 : 0,
-              hoverRadius: !realTime ? 3 : 0,
-            },
-          },
-          scales: {
-            x: {
-              type: "linear",
-              min: normalizedMinX,
-              max: normalizedMaxX,
-              title: { display: true, text: "Time (seconds)" },
-              ticks: {
-                stepSize: 1,
-                maxTicksLimit: 12,
-                callback: (value) => {
-                  // Si el valor es negativo, no se muestra nada.
-                  if (Number(value) < 0) return "";
-                  
-                  return Number(value).toFixed(0);
+              annotation: {
+                annotations: {
+                  verticalLine: {
+                    display: !realTime,
+                    type: 'line',
+                    xMin: verticalLineValue,
+                    xMax: verticalLineValue,
+                    borderColor: 'gray',
+                    borderWidth: 2,
+                    label: {
+                      display: true,
+                      content: `${verticalLineValue.toFixed(2)} s`,
+                      position: "end",
+                    },                                    
+                  },
                 },
               },
             },
-            y: {
-              title: {
-                display: false,
-                text: (() => {
-                  if (
-                    valueTypes.includes(Kinematics.ANGLE) &&
-                    valueTypes.includes(Kinematics.ANGULAR_VELOCITY)
-                  ) {
-                    return "Angle (°) & Angular Velocity (°/s)";
-                  }
-                  if (valueTypes.includes(Kinematics.ANGLE)) {
-                    return "Angle (°)";
-                  }
-                  return "";
-                })(),
-              },
-              suggestedMin: 0,
-              suggestedMax: 180,
-              ticks: {
-                display: joints.length > 0,
-                callback: (value) => Number(value).toFixed(0),
+            elements: {
+              point: { 
+                radius: !realTime ? 3 : 0,
+                hitRadius: !realTime ? 3 : 0,
+                hoverRadius: !realTime ? 3 : 0,
               },
             },
-          },
-        }}
-      />
+            scales: {
+              x: {
+                type: "linear",
+                min: normalizedMinX,
+                max: normalizedMaxX,
+                title: { display: true, text: "Time (seconds)" },
+                ticks: {
+                  stepSize: 1,
+                  maxTicksLimit: 12,
+                  callback: (value) => {
+                    // Si el valor es negativo, no se muestra nada.
+                    if (Number(value) < 0) return "";
+                    
+                    return Number(value).toFixed(0);
+                  },
+                },
+              },
+              y: {
+                title: {
+                  display: false,
+                  text: (() => {
+                    if (
+                      valueTypes.includes(Kinematics.ANGLE) &&
+                      valueTypes.includes(Kinematics.ANGULAR_VELOCITY)
+                    ) {
+                      return "Angle (°) & Angular Velocity (°/s)";
+                    }
+                    if (valueTypes.includes(Kinematics.ANGLE)) {
+                      return "Angle (°)";
+                    }
+                    return "";
+                  })(),
+                },
+                suggestedMin: 0,
+                suggestedMax: 180,
+                ticks: {
+                  display: joints.length > 0,
+                  callback: (value) => Number(value).toFixed(0),
+                },
+              },
+            },
+          }}
+        /> */}
     </div>
   );
 };

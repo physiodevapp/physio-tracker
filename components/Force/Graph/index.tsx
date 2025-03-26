@@ -376,9 +376,9 @@ const Index: React.FC<IndexProps> = ({
       <div data-element="non-swipeable" className={`relative w-full transition-all duration-300 ease-in-out pb-4`}>
         <section className='relative bg-white rounded-lg px-1 pt-6 pb-2 mt-2'>
           <canvas 
-          ref={canvasRef} 
-          className='bg-white'
-          />
+            ref={canvasRef} 
+            className='bg-white'
+            />
           {sensorData.length > 0 ? (
             <p className="flex flex-row gap-4 absolute top-1 left-2 text-gray-500 text-[0.8rem]">
               <span>Max: <strong>{maxPoint.toFixed(2)} kg</strong></span> 
