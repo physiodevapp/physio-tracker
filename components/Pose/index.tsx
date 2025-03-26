@@ -25,6 +25,8 @@ interface IndexProps {
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const { settings, setSelectedJoints } = useSettings();
 
+  const isSeekingFromChart  = useRef(false);
+
   const [infoMessage, setInfoMessage] = useState({
     show: false,
     message:""
@@ -338,6 +340,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const handleChartValueX = (time: number) => {
     if (videoRef.current) {
       videoRef.current.currentTime = time;
+      isSeekingFromChart.current = true;
 
       setTimeout(() => {
         analyzeSingleFrame();
@@ -778,6 +781,17 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const handleOnTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
     setVideoCurrentTime(e.currentTarget.currentTime);
   };
+
+  useEffect(() => {
+    if (isSeekingFromChart.current) {
+      // Acaba de cambiar por un click en el gráfico, no hagas nada extra
+      isSeekingFromChart.current = false;
+      return;
+    }
+  
+    // Aquí sí actualizas el chart con videoCurrentTime
+    // … por ejemplo, pasando props o usando contexto
+  }, [videoCurrentTime]);
 
   return (
     <>

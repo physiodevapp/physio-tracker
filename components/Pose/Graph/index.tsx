@@ -2,9 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 // import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
-  // ActiveElement,
   ChartDataset,
-  // ChartEvent,
   ChartConfiguration,
   registerables,
 } from "chart.js";
@@ -71,7 +69,7 @@ const Index = ({
   // onPointClick, 
   onVerticalLineChange,
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
-  // verticalLineValue = 0,
+  verticalLineValue = 0,
 }: IndexProps) => {
   const { settings } = useSettings();
 
@@ -523,7 +521,6 @@ const Index = ({
             external: (context) => {
               const tooltipModel = context.tooltip;
               const dataPoint = tooltipModel.dataPoints?.[0];
-
               if (dataPoint && typeof dataPoint.parsed.x === 'number') {
                 onVerticalLineChange(dataPoint.parsed.x);
               }
@@ -638,6 +635,56 @@ const Index = ({
       chartRef.current = null;
     };
   }, [chartConfig]);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    const meta = chart.getDatasetMeta(0);
+
+    // Encuentra el punto más cercano al tiempo del video
+    if (chart.data.datasets[0] === undefined) return;
+    const dataset = chart.data.datasets[0].data as { x: number; y: number }[];
+    const index = dataset.findIndex((point) => point.x >= verticalLineValue);
+
+    if (index !== undefined && index !== -1 && chart.tooltip) {
+      console.log('object')
+      const point = meta.data[index];
+
+      // Simula un evento de hover para activar crosshair y tooltip
+      chart.setActiveElements([
+        {
+          datasetIndex: 0,
+          index,
+        },
+      ]);
+
+      chart.tooltip.setActiveElements(
+        [
+          {
+            datasetIndex: 0,
+            index,
+          },
+        ],
+        { x: point.x, y: point.y }
+      );
+
+      const canvas = chart.canvas;
+
+      // Simular evento en coordenadas del punto
+      const mouseEvent = new MouseEvent('mousemove', {
+        clientX: point.x,
+        clientY: point.y,
+        bubbles: true,
+        cancelable: true,
+      });
+
+      canvas.dispatchEvent(mouseEvent);
+
+      chart.update();
+    }
+    
+  }, [verticalLineValue]);  
 
   return (
     <div 
