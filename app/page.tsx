@@ -13,11 +13,11 @@ const ColorAnalyzer = dynamic(() => import('../components/ColorAnalyzer').then(m
 const Balance = dynamic(() => import('../components/Balance').then(mod => mod.default), { ssr: false });
 
 export default function Home() {
-  const [page, setPage] = useState<MainMenuOption>('force');
+  const [page, setPage] = useState<MainMenuOption>('bodychart');
 
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
 
-  const handlers = useSwipeable({
+  const handlers = useSwipeable({ 
     onSwipedLeft: (eventData) => {
       const targetElement = eventData.event.target as HTMLElement;
       const isSwipeable = !Boolean(targetElement.closest('[data-element="non-swipeable"]'));

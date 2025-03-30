@@ -17,4 +17,47 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+@layer components {
+  .sensor-height-range {
+    @apply appearance-none w-full;
+  }
+
+  .sensor-height-range::-webkit-slider-runnable-track {
+    background: repeating-linear-gradient(
+      to right,
+      #3B82F6,
+      #3B82F6 8px,
+      transparent 8px,
+      transparent 16px
+    );
+    height: 4px;
+    border: none;
+    border-radius: 0;
+  }
+
+  .sensor-height-range::-webkit-slider-thumb {
+    @apply appearance-none w-4 h-4 bg-white/0 border border-blue-500 rounded-full mt-[-6px];
+  }
+
+  .sensor-height-range::-moz-range-track {
+    background: repeating-linear-gradient(
+      to right,
+      #3B82F6,
+      #3B82F6 8px,
+      transparent 8px,
+      transparent 16px
+    );
+    height: 2px;
+    border: none;
+    border-radius: 0;
+  }
+
+  .sensor-height-range::-moz-range-thumb {
+    @apply w-4 h-4 bg-white/0 border border-blue-500 rounded-full;
+  }
+}
+
+
+
+
 

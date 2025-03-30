@@ -25,6 +25,8 @@ interface IndexProps {
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const { settings, setSelectedJoints } = useSettings();
 
+  const [videoReady, setVideoReady] = useState(false);
+
   const isSeekingFromChart  = useRef(false);
 
   const [infoMessage, setInfoMessage] = useState({
@@ -788,19 +790,20 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       isSeekingFromChart.current = false;
       return;
     }
-  
-    // Aquí sí actualizas el chart con videoCurrentTime
-    // … por ejemplo, pasando props o usando contexto
   }, [videoCurrentTime]);
 
   return (
     <>
-      {!detector && (
+      {(!detector && !videoReady) ? (
           <div className="fixed w-full h-dvh z-50 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
-            <CloudArrowDownIcon className="w-8 h-8 animate-bounce"/>
-            <p>Setting up...</p>
+            <p>{(!videoReady && detector) ? "Initializing camera..." : "Setting up Tensorflow..."}</p>
+            {(!videoReady && detector) ? 
+              <ArrowPathIcon className="w-8 h-8 animate-spin"/>
+              : <CloudArrowDownIcon className="w-8 h-8 animate-bounce"/>
+            }
           </div>
-      )}
+        ) : null
+      }
       <div className={`relative z-30 flex flex-col items-center justify-start ${
           displayGraphs ? "h-[50dvh]" : "h-dvh"
         }`}>
@@ -832,6 +835,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             videoConstraints={videoConstraints}
             muted
             mirrored={videoConstraints.facingMode === "user"}
+            onUserMedia={() => setVideoReady(true)}
             />
         )}
         <canvas 

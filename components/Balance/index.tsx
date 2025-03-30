@@ -5,6 +5,7 @@ import { } from "@/services/balance";
 import {
   Bars3Icon,
   Cog6ToothIcon,
+  DevicePhoneMobileIcon,
   PlayIcon,
   StopIcon,
   TrashIcon,
@@ -85,6 +86,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
   }, [COPData]);
 
+  const getThumbPosition = () => {
+    const percentage = ((settings.balance.sensorHeight - 40) / (220 - 40)) * 100;
+    return `${percentage}%`;
+  };
+
   return (
     <>
       <motion.h1
@@ -93,7 +99,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         transition={{ type: "spring", stiffness: 100, damping: 15 }}
         className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-black/40 
         rounded-full py-2 px-4 font-bold mt-2 whitespace-nowrap"
-      >
+        >
         Balance
       </motion.h1>
       {isRecording && (
@@ -254,27 +260,27 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                           data-element="non-swipeable" 
                           className='absolute top-1/2 translate-y-[12rem] w-[100dvw] px-12'
                           >
-                          <input
-                            id='update-height'
-                            type='range'
-                            value={settings.balance.sensorHeight}
-                            min="40"
-                            max="220"
-                            step="5"
-                            onChange={(e) => setSensorHeight(parseInt(e.target.value))}
-                            className="w-full appearance-none bg-gray-300 h-2 rounded-md focus:outline-none 
-                              [&::-webkit-slider-thumb]:appearance-none 
-                              [&::-webkit-slider-thumb]:w-6 
-                              [&::-webkit-slider-thumb]:h-10 
-                              [&::-webkit-slider-thumb]:bg-blue-500 
-                              [&::-webkit-slider-thumb]:rounded-md 
-                              [&::-webkit-slider-thumb]:cursor-pointer 
-                              [&::-moz-range-thumb]:w-6 
-                              [&::-moz-range-thumb]:h-10 
-                              [&::-moz-range-thumb]:bg-blue-500 
-                              [&::-moz-range-thumb]:rounded-md
-                              [&::-moz-range-thumb]:cursor-pointer"
+                          {/* Barra base */}
+                          <div className="w-full h-2 bg-gray-300 rounded-md relative">
+                            {/* Thumb visual */}
+                            <div
+                              className="absolute z-10 top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none"
+                              style={{ left: getThumbPosition() }}
+                              >
+                              <DevicePhoneMobileIcon className="w-8 h-12 text-blue-500 bg-white dark:bg-black" />
+                            </div>
+                            {/* Input funcional (invisible) */}
+                            <input
+                              id="update-height"
+                              type="range"
+                              value={settings.balance.sensorHeight}
+                              min="40"
+                              max="220"
+                              step="5"
+                              onChange={(e) => setSensorHeight(parseInt(e.target.value))}
+                              className="absolute top-0 left-0 w-full h-2 cursor-pointer sensor-height-range"
                             />
+                          </div>
                         </div>
                         <button 
                           className="absolute top-1/2 -translate-y-1/2 px-6 rotate-90 rounded-lg p-2 bg-green-500 font-bold uppercase text-2xl animate-pulse"
