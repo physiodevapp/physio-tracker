@@ -35,6 +35,8 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
   });
+
+  const [videoReady, setVideoReady] = useState(false);
   
   const [showSettings, setShowSettings] = useState(false);
   const [showData, setShowData] = useState(false);
@@ -426,6 +428,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           className={`relative object-cover h-dvh border-0 border-blue-500`}
           videoConstraints={videoConstraints}
           mirrored={videoConstraints.facingMode === "user"}
+          onUserMedia={() => setVideoReady(true)}
         />
         {/* Canvas overlay para contornos (superpuesto al video) */}
         <canvas
@@ -441,7 +444,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           <div className="absolute top-0 z-50 w-full h-dvh flex flex-col items-center justify-center text-white bg-black/40">
             {loading && (
               <p className="flex flex-col items-center gap-4">
-                Cargando OpenCV... {!error && <ArrowPathIcon className="w-8 h-8 animate-spin"/>}
+                {(!videoReady && !loading) ? "Initializing camera..." : "Loading OpenCV..."} {!error && <ArrowPathIcon className="w-8 h-8 animate-spin"/>}
               </p>
             )}
             {error && <p className="p-4 text-center">Error: {error}</p>}
