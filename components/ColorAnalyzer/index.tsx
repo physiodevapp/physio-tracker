@@ -45,6 +45,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   
   const webcamRef = useRef<Webcam>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
+  const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Estado para OpenCV y análisis
@@ -129,12 +130,50 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
     img.onload = () => {
       // Usamos el canvas de captura para procesar la imagen
       const captureCanvas = captureCanvasRef.current;
-      if (!captureCanvas) return;
-      captureCanvas.width = img.width;
-      captureCanvas.height = img.height;
-      const captureCtx = captureCanvas.getContext("2d", { willReadFrequently: true });
-      if (!captureCtx) return;
-      captureCtx.drawImage(img, 0, 0, img.width, img.height);
+      const video = webcamRef.current?.video;
+
+      if (!captureCanvas || !video) return;
+
+      const ctx = captureCanvas.getContext("2d");
+      if (!ctx) return;
+
+      // Tamaño real de la imagen capturada
+      const imgWidth = img.naturalWidth;
+      const imgHeight = img.naturalHeight;
+
+      // Tamaño visible del video en pantalla
+      const displayWidth = video.offsetWidth;
+      const displayHeight = video.offsetHeight;
+
+      // Aspect ratios
+      const imgAspect = imgWidth / imgHeight;
+      const displayAspect = displayWidth / displayHeight;
+
+      // Calculamos el recorte como lo haría object-cover
+      let sx = 0, sy = 0, sw = imgWidth, sh = imgHeight;
+
+      if (imgAspect > displayAspect) {
+        // Imagen más ancha que el contenedor => recortar lados
+        sw = imgHeight * displayAspect;
+        sx = (imgWidth - sw) / 2;
+      } else {
+        // Imagen más alta que el contenedor => recortar arriba y abajo
+        sh = imgWidth / displayAspect;
+        sy = (imgHeight - sh) / 2;
+      }
+
+      // Establecer tamaño del canvas igual al visible
+      captureCanvas.width = displayWidth;
+      captureCanvas.height = displayHeight;
+
+      // Dibujar solo la parte visible
+      ctx.drawImage(
+        img,     // imagen original
+        sx, sy,  // recorte origen
+        sw, sh,  // tamaño del recorte
+        0, 0,    // posición destino
+        displayWidth, displayHeight // tamaño destino
+      );
 
       // Procesar la imagen: convertirla a Mat, pasar a HSV y crear máscaras
       const src: InstanceType<typeof cv.Mat> = cvInstance.imread(captureCanvas);
@@ -165,7 +204,6 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       const upperBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.blueHueUpper, 255, 255, 255]);
       const blueMask = new cvInstance.Mat();
       cvInstance.inRange(hsv, lowerBlue, upperBlue, blueMask);
-
 
       const totalPixels = hsv.rows * hsv.cols;
       const redPixels = cvInstance.countNonZero(redMask);
@@ -243,7 +281,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       cvInstance.imshow(captureCanvas, resultImage);
       resultImage.delete();
 
-      // --- Dibujar solo los contornos en el overlayCanvas ---
+      // --- Dibujar soloamente los contornos en el overlayCanvas ---
       // Creamos una imagen en blanco del mismo tamaño que la imagen original
       const blankMat = new cvInstance.Mat(src.rows, src.cols, cvInstance.CV_8UC4, new cvInstance.Scalar(0, 0, 0, 0));
 
@@ -425,20 +463,20 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           audio={false}
           ref={webcamRef}
           screenshotFormat="image/jpeg"
-          className={`relative object-cover h-dvh border-0 border-blue-500`}
+          className={`relative h-dvh object-cover border-0 border-blue-500`}
           videoConstraints={videoConstraints}
           mirrored={videoConstraints.facingMode === "user"}
           onUserMedia={() => setVideoReady(true)}
         />
-        {/* Canvas overlay para contornos (superpuesto al video) */}
+        {/* Canvas para mostrar contornos (superpuesto al video) */}
         <canvas
           ref={overlayCanvasRef}
           className={`absolute top-0 w-full h-dvh border-0 border-green-500 pointer-events-none`}
           />
-        {/* Canvas de análisis visible para descarga */}
+        {/* Canvas para análisis y descarga*/}
         <canvas 
           ref={captureCanvasRef} 
-          className="absolute hidden top-0 w-full h-dvh border-2 border-red-500" 
+          className="hidden absolute top-0 w-full h-dvh border-2 border-red-500" 
           />
         {(loading || (!loading && error)) && (
           <div className="absolute top-0 z-50 w-full h-dvh flex flex-col items-center justify-center text-white bg-black/40">
