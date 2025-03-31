@@ -45,7 +45,6 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   
   const webcamRef = useRef<Webcam>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
-  const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Estado para OpenCV y análisis
@@ -122,66 +121,135 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       alert("Error al cargar OpenCV");
       return;
     }
+  
     const imageSrc = webcamRef.current?.getScreenshot();
     if (!imageSrc) return;
-
+  
     const img = new Image();
     img.src = imageSrc;
+  
     img.onload = () => {
-      // Usamos el canvas de captura para procesar la imagen
       const captureCanvas = captureCanvasRef.current;
       const video = webcamRef.current?.video;
-
+  
       if (!captureCanvas || !video) return;
-
+  
       const ctx = captureCanvas.getContext("2d");
       if (!ctx) return;
-
-      // Tamaño real de la imagen capturada
+  
       const imgWidth = img.naturalWidth;
       const imgHeight = img.naturalHeight;
-
-      // Tamaño visible del video en pantalla
+  
       const displayWidth = video.offsetWidth;
       const displayHeight = video.offsetHeight;
-
-      // Aspect ratios
+  
       const imgAspect = imgWidth / imgHeight;
       const displayAspect = displayWidth / displayHeight;
-
-      // Calculamos el recorte como lo haría object-cover
+  
       let sx = 0, sy = 0, sw = imgWidth, sh = imgHeight;
-
+  
       if (imgAspect > displayAspect) {
-        // Imagen más ancha que el contenedor => recortar lados
         sw = imgHeight * displayAspect;
         sx = (imgWidth - sw) / 2;
       } else {
-        // Imagen más alta que el contenedor => recortar arriba y abajo
         sh = imgWidth / displayAspect;
         sy = (imgHeight - sh) / 2;
       }
-
-      // Establecer tamaño del canvas igual al visible
+  
       captureCanvas.width = displayWidth;
       captureCanvas.height = displayHeight;
+  
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, displayWidth, displayHeight);
+  
+      const src = cvInstance.imread(captureCanvas);
+  
+      // Detección del folio DIN A4
+      const gray = new cvInstance.Mat();
+      const blurred = new cvInstance.Mat();
+      const edges = new cvInstance.Mat();
+      cvInstance.cvtColor(src, gray, cvInstance.COLOR_RGBA2GRAY);
+      cvInstance.GaussianBlur(gray, blurred, new cvInstance.Size(3, 3), 0);
+      cvInstance.Canny(blurred, edges, 20, 80);
+  
+      const contours = new cvInstance.MatVector();
+      const hierarchy = new cvInstance.Mat();
+      cvInstance.findContours(edges, contours, hierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+  
+      let biggest = null;
+      let maxArea = 0;
+      for (let i = 0; i < contours.size(); i++) {
+        const contour = contours.get(i);
+        const peri = cvInstance.arcLength(contour, true);
+        const approx = new cvInstance.Mat();
+        cvInstance.approxPolyDP(contour, approx, 0.02 * peri, true);
+  
+        if (approx.rows === 4) {
+          const area = cvInstance.contourArea(approx);
+          if (area > maxArea) {
+            biggest = approx.clone();
+            maxArea = area;
+          }
+          approx.delete();
+        }
+      }
+  
+      const totalVisibleArea = src.rows * src.cols;
+      if (!biggest || maxArea < 0.3 * totalVisibleArea) {
+        console.log("No se detectó un folio DIN A4 suficientemente grande.");
+        gray.delete(); blurred.delete(); edges.delete();
+        contours.delete(); hierarchy.delete(); src.delete();
+        return;
+      }
+  
+      const reorderPoints = (ptsMat: cv.Mat) => {
+        const pts = [];
+        for (let i = 0; i < 4; i++) {
+          pts.push({ x: ptsMat.data32S[i * 2], y: ptsMat.data32S[i * 2 + 1] });
+        }
+        pts.sort((a, b) => a.y - b.y);
+        const top = pts.slice(0, 2).sort((a, b) => a.x - b.x);
+        const bottom = pts.slice(2, 4).sort((a, b) => a.x - b.x);
+        return [...top, ...bottom.reverse()];
+      };
+  
+      const ordered = reorderPoints(biggest);
+      const warpWidth = 600;
+      const warpHeight = 848;
+  
+      const srcTri = cvInstance.matFromArray(4, 1, cvInstance.CV_32FC2, ordered.flatMap(p => [p.x, p.y]));
+      const dstTri = cvInstance.matFromArray(4, 1, cvInstance.CV_32FC2, [
+        0, 0,
+        warpWidth, 0,
+        warpWidth, warpHeight,
+        0, warpHeight
+      ]);
+  
+      let warpMat = new cvInstance.Mat();
+      const M = cvInstance.getPerspectiveTransform(srcTri, dstTri);
+      cvInstance.warpPerspective(src, warpMat, M, new cvInstance.Size(warpWidth, warpHeight));
 
-      // Dibujar solo la parte visible
-      ctx.drawImage(
-        img,     // imagen original
-        sx, sy,  // recorte origen
-        sw, sh,  // tamaño del recorte
-        0, 0,    // posición destino
-        displayWidth, displayHeight // tamaño destino
-      );
+      // --- Recorte interno para eliminar bordes residuales del fondo ---
+      const cropMargin = 10; // píxeles a recortar por cada lado
 
-      // Procesar la imagen: convertirla a Mat, pasar a HSV y crear máscaras
-      const src: InstanceType<typeof cv.Mat> = cvInstance.imread(captureCanvas);
+      if (
+        warpMat.cols > cropMargin * 2 &&
+        warpMat.rows > cropMargin * 2
+      ) {
+        const cropRect = new cvInstance.Rect(
+          cropMargin,
+          cropMargin,
+          warpMat.cols - cropMargin * 2,
+          warpMat.rows - cropMargin * 2
+        );
+        const croppedWarp = warpMat.roi(cropRect);
+        warpMat.delete(); // eliminamos el anterior
+        warpMat = croppedWarp; // usamos el recortado
+      }
+  
       const hsv = new cvInstance.Mat();
-      cvInstance.cvtColor(src, src, cvInstance.COLOR_RGBA2RGB);
-      cvInstance.cvtColor(src, hsv, cvInstance.COLOR_RGB2HSV);
-
-      // Máscara para rojo (dos rangos)
+      cvInstance.cvtColor(warpMat, hsv, cvInstance.COLOR_RGBA2RGB);
+      cvInstance.cvtColor(hsv, hsv, cvInstance.COLOR_RGB2HSV);
+  
       const lowerRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.redHueLower1, settings.color.minSaturation, settings.color.minValue, 0]);
       const upperRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.redHueUpper1, 255, 255, 255]);
       const lowerRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.redHueLower2, settings.color.minSaturation, settings.color.minValue, 0]);
@@ -192,31 +260,28 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       cvInstance.inRange(hsv, lowerRed2, upperRed2, redMask2);
       const redMask = new cvInstance.Mat();
       cvInstance.add(redMask1, redMask2, redMask);
-
-      // Máscara para verde
+  
       const lowerGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.greenHueLower, settings.color.minSaturation, settings.color.minValue, 0]);
       const upperGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.greenHueUpper, 255, 255, 255]);
       const greenMask = new cvInstance.Mat();
       cvInstance.inRange(hsv, lowerGreen, upperGreen, greenMask);
-
-      // Máscara para azul
+  
       const lowerBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.blueHueLower, settings.color.minSaturation, settings.color.minValue, 0]);
       const upperBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.blueHueUpper, 255, 255, 255]);
       const blueMask = new cvInstance.Mat();
       cvInstance.inRange(hsv, lowerBlue, upperBlue, blueMask);
-
+  
       const totalPixels = hsv.rows * hsv.cols;
       const redPixels = cvInstance.countNonZero(redMask);
       const greenPixels = cvInstance.countNonZero(greenMask);
       const bluePixels = cvInstance.countNonZero(blueMask);
-      const coloredPixels = redPixels + greenPixels + bluePixels;
-      const othersPixels = totalPixels - coloredPixels;
-
+      const othersPixels = totalPixels - (redPixels + greenPixels + bluePixels);
+  
       const redAnalysis = analyzeContours(redMask, redPixels);
       const greenAnalysis = analyzeContours(greenMask, greenPixels);
       const blueAnalysis = analyzeContours(blueMask, bluePixels);
-
-      const result: AnalysisResult = {
+  
+      setAnalysisResult({
         red: {
           percentage: (redPixels / totalPixels) * 100,
           contours: redAnalysis.count,
@@ -245,101 +310,68 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           averageArea: 0,
           dispersionIndex: 0,
         },
-      };
+      });
+  
+      // Mostrar contornos dentro del folio
+      const resultImage = warpMat.clone();
 
-      setAnalysisResult(result);
-
-      // Dibujar contornos sobre la imagen de análisis en el capture canvas
-      const resultImage = src.clone();
-
-      // Dibujar contornos rojos
       const redContours = new cvInstance.MatVector();
       const redHierarchy = new cvInstance.Mat();
       cvInstance.findContours(redMask, redContours, redHierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
       cvInstance.drawContours(resultImage, redContours, -1, new cvInstance.Scalar(255, 0, 0, 255), 1);
       redContours.delete();
       redHierarchy.delete();
-
-      // Dibujar contornos verdes
+  
       const greenContours = new cvInstance.MatVector();
       const greenHierarchy = new cvInstance.Mat();
       cvInstance.findContours(greenMask, greenContours, greenHierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
       cvInstance.drawContours(resultImage, greenContours, -1, new cvInstance.Scalar(0, 255, 0, 255), 1);
       greenContours.delete();
       greenHierarchy.delete();
-
-      // Dibujar contornos azules
+  
       const blueContours = new cvInstance.MatVector();
       const blueHierarchy = new cvInstance.Mat();
       cvInstance.findContours(blueMask, blueContours, blueHierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
       cvInstance.drawContours(resultImage, blueContours, -1, new cvInstance.Scalar(0, 0, 255, 255), 1);
       blueContours.delete();
       blueHierarchy.delete();
-
-      // Mostrar la imagen con contornos en el capture canvas
-      // Mostrar la imagen con contornos en el canvas de captura
-      cvInstance.imshow(captureCanvas, resultImage);
-      resultImage.delete();
-
-      // --- Dibujar soloamente los contornos en el overlayCanvas ---
-      // Creamos una imagen en blanco del mismo tamaño que la imagen original
-      const blankMat = new cvInstance.Mat(src.rows, src.cols, cvInstance.CV_8UC4, new cvInstance.Scalar(0, 0, 0, 0));
-
-      // Recalculamos los contornos para cada máscara y dibujamos en el blankMat
-
-      // Para rojo
-      const redContoursOverlay = new cvInstance.MatVector();
-      const redHierarchyOverlay = new cvInstance.Mat();
-      cvInstance.findContours(redMask, redContoursOverlay, redHierarchyOverlay, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
-      cvInstance.drawContours(blankMat, redContoursOverlay, -1, new cvInstance.Scalar(255, 0, 0, 255), 1);
-      redContoursOverlay.delete();
-      redHierarchyOverlay.delete();
-
-      // Para verde
-      const greenContoursOverlay = new cvInstance.MatVector();
-      const greenHierarchyOverlay = new cvInstance.Mat();
-      cvInstance.findContours(greenMask, greenContoursOverlay, greenHierarchyOverlay, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
-      cvInstance.drawContours(blankMat, greenContoursOverlay, -1, new cvInstance.Scalar(0, 255, 0, 255), 1);
-      greenContoursOverlay.delete();
-      greenHierarchyOverlay.delete();
-
-      // Para azul
-      const blueContoursOverlay = new cvInstance.MatVector();
-      const blueHierarchyOverlay = new cvInstance.Mat();
-      cvInstance.findContours(blueMask, blueContoursOverlay, blueHierarchyOverlay, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
-      cvInstance.drawContours(blankMat, blueContoursOverlay, -1, new cvInstance.Scalar(0, 0, 255, 255), 1);
-      blueContoursOverlay.delete();
-      blueHierarchyOverlay.delete();
-
-      // Mostrar solo los contornos en el overlayCanvas
+  
+      // Mostrar la imagen procesada en el canvas
+      // Mostrar contornos en overlayCanvas (en lugar de captureCanvas)
       const overlayCanvas = overlayCanvasRef.current;
       if (overlayCanvas) {
-        overlayCanvas.width = src.cols;
-        overlayCanvas.height = src.rows;
-        cvInstance.imshow(overlayCanvas, blankMat);
+        overlayCanvas.width = resultImage.cols;
+        overlayCanvas.height = resultImage.rows;
+
+        const ctx = overlayCanvas.getContext("2d");
+        if (ctx) {
+          ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+          // Mostrar imagen con contornos
+          const imgData = new ImageData(
+            new Uint8ClampedArray(resultImage.data),
+            resultImage.cols,
+            resultImage.rows
+          );
+          ctx.putImageData(imgData, 0, 0);
+        }
       }
-      blankMat.delete();
-
+      resultImage.delete();
+  
       setCaptured(true);
-
-      // Liberar memoria de las matrices utilizadas
-      src.delete();
-      hsv.delete();
-      lowerRed1.delete();
-      upperRed1.delete();
-      lowerRed2.delete();
-      upperRed2.delete();
-      redMask1.delete();
-      redMask2.delete();
-      redMask.delete();
-      lowerGreen.delete();
-      upperGreen.delete();
-      greenMask.delete();
-      lowerBlue.delete();
-      upperBlue.delete();
-      blueMask.delete();
+  
+      // Liberar memoria
+      src.delete(); gray.delete(); blurred.delete(); edges.delete();
+      contours.delete(); hierarchy.delete(); biggest?.delete();
+      warpMat.delete(); hsv.delete();
+      lowerRed1.delete(); upperRed1.delete(); lowerRed2.delete(); upperRed2.delete();
+      redMask1.delete(); redMask2.delete(); redMask.delete();
+      lowerGreen.delete(); upperGreen.delete(); greenMask.delete();
+      lowerBlue.delete(); upperBlue.delete(); blueMask.delete();
+      srcTri.delete(); dstTri.delete(); M.delete();
     };
   };
+  
 
   // Función para limpiar ambos canvases
   const clearCanvases = () => {
