@@ -738,10 +738,16 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
         >
         <>
-          <CameraIcon 
-            className="h-6 w-6 text-white cursor-pointer" 
-            onClick={toggleCamera}
-            />
+          <div 
+            className="relative cursor-pointer"
+            onClick={() => toggleCamera()}
+            >
+              <CameraIcon 
+                className="h-6 w-6 text-white cursor-pointer" 
+                onClick={toggleCamera}
+                />
+              <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 bg-black/80 rounded-full p-[0.1rem]"/>
+          </div>
           <Cog6ToothIcon 
             className="w-6 h-6 text-white"
             onClick={() => toggleSettings()}

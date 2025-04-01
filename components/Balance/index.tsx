@@ -267,7 +267,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                               className="absolute z-10 top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none"
                               style={{ left: getThumbPosition() }}
                               >
-                              <DevicePhoneMobileIcon className="w-8 h-12 text-blue-500 bg-white dark:bg-background-dark" />
+                              <DevicePhoneMobileIcon className="w-8 h-12 text-blue-500 bg-white dark:bg-background-dark"/>
                             </div>
                             {/* Input funcional (invisible) */}
                             <input
