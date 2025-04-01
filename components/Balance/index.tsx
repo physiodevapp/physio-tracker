@@ -251,9 +251,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                         : 'rotate-0 border-[#bebebe] dark:border-[#9b9b9b]'
                     }`}
                     />
-                  {orientation === "portrait" ? (
+                  {orientation === "landscape" ? (
                       <>
-                        <div className="absolute top-1/2 -translate-y-1/2 left-0 w-[6rem] py-1 rotate-90 bg-blue-500 text-white text-lg text-center rounded-xl border-[6px] border-white dark:border-black">
+                        <div className="absolute top-1/2 -translate-y-1/2 left-0 w-[6rem] py-1 rotate-90 bg-blue-500 text-white text-lg text-center rounded-xl border-[6px] border-white dark:border-background-dark">
                           {settings.balance.sensorHeight} cm
                         </div>
                         <div
@@ -267,7 +267,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                               className="absolute z-10 top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none"
                               style={{ left: getThumbPosition() }}
                               >
-                              <DevicePhoneMobileIcon className="w-8 h-12 text-blue-500 bg-white dark:bg-black" />
+                              <DevicePhoneMobileIcon className="w-8 h-12 text-blue-500 bg-white dark:bg-background-dark" />
                             </div>
                             {/* Input funcional (invisible) */}
                             <input
