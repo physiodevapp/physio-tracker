@@ -32,6 +32,7 @@ export interface IndexProps {
 }
 
 const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
+  const [naturalsize, setNaturalSize] = useState<{imgWidth: number, imgHeight: number} | null>();
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
   });
@@ -46,6 +47,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   const webcamRef = useRef<Webcam>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const previewIntervalRef = useRef<number | null>(null);
 
   // Estado para OpenCV y análisis
   const [loading, setLoading] = useState<boolean>(true);
@@ -53,6 +55,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   const [error, setError] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [cvInstance, setCvInstance] = useState<typeof cv | null>(null);
+  const cvInstanceRef = useRef<typeof cv | null>(cvInstance);
   const [captured, setCaptured] = useState<boolean>(false);
 
   // Verificamos la inicialización de OpenCV
@@ -74,7 +77,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         setError("Timeout: OpenCV no se inicializó en el tiempo esperado.");
         setLoading(false);
       }
-    }, 16000);
+    }, 16_000);
 
     return () => clearTimeout(timeoutId);
   }, [scriptLoaded, loading]);
@@ -112,6 +115,146 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
     };
   };
 
+  const previewFolioDetection = () => {
+    const cvInstance = cvInstanceRef.current;
+    if (!cvInstance || !webcamRef.current || !overlayCanvasRef.current) return;
+    
+    const imageSrc = webcamRef.current.getScreenshot();
+    if (!imageSrc) return;
+  
+    const img = new Image();
+    img.src = imageSrc;
+  
+    img.onload = () => {
+      const overlayCanvas = overlayCanvasRef.current;
+      const video = webcamRef.current?.video;
+      if (!overlayCanvas || !video) return;
+
+      const ctx = overlayCanvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+
+      // Tamaño real de la imagen capturada
+      const imgWidth = img.naturalWidth;
+      const imgHeight = img.naturalHeight;
+      setNaturalSize({imgWidth, imgHeight})
+
+      // Tamaño visible del video en pantalla
+      const displayWidth = video.offsetWidth;
+      const displayHeight = video.offsetHeight;
+
+      // Aspect ratios
+      const imgAspect = imgWidth / imgHeight;
+      const displayAspect = displayWidth / displayHeight;
+
+      // Recorte estilo object-cover
+      let sx = 0, sy = 0, sw = imgWidth, sh = imgHeight;
+      if (imgAspect > displayAspect) {
+        sw = imgHeight * displayAspect;
+        sx = (imgWidth - sw) / 2;
+      } else {
+        sh = imgWidth / displayAspect;
+        sy = (imgHeight - sh) / 2;
+      }
+  
+      // Dibujamos la imagen en un canvas temporal
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = displayWidth;
+      tempCanvas.height = displayHeight;
+      const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
+      
+      if (!tempCtx) return;
+
+      // Dibujar solo la parte visible en el canvas temporal
+      tempCtx.drawImage(
+        img,
+        sx, sy, sw, sh,
+        0, 0, displayWidth, displayHeight
+      );
+  
+      // Leer desde el canvas temporal a Mat
+      const src = cvInstance.imread(tempCanvas);
+      const gray = new cvInstance.Mat();
+      const blurred = new cvInstance.Mat();
+      const edges = new cvInstance.Mat();
+
+      cvInstance.cvtColor(src, gray, cvInstance.COLOR_RGBA2GRAY);
+      cvInstance.GaussianBlur(gray, blurred, new cvInstance.Size(3, 3), 0);
+      cvInstance.Canny(blurred, edges, 30, 80);
+
+      const contours = new cvInstance.MatVector();
+      const hierarchy = new cvInstance.Mat();
+      cvInstance.findContours(edges, contours, hierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+
+      let biggest = null;
+      let maxArea = 0;
+  
+      for (let i = 0; i < contours.size(); i++) {
+        const contour = contours.get(i);
+        const peri = cvInstance.arcLength(contour, true);
+        const approx = new cvInstance.Mat();
+        cvInstance.approxPolyDP(contour, approx, 0.02 * peri, true);
+  
+        if (approx.rows === 4) {
+          const area = cvInstance.contourArea(approx);
+          if (area > maxArea) {
+            biggest = approx.clone();
+            maxArea = area;
+          }
+          approx.delete();
+        }
+      }
+  
+      // Limpiar overlay y dibujar si hay folio válido
+      overlayCanvas.width = displayWidth;
+      overlayCanvas.height = displayHeight;
+      ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  
+      // const totalVisibleArea = src.rows * src.cols;
+      if (biggest) {
+        const ordered = [];
+        for (let i = 0; i < 4; i++) {
+          ordered.push({
+            x: biggest.data32S[i * 2],
+            y: biggest.data32S[i * 2 + 1],
+          });
+        }
+  
+        ordered.sort((a, b) => a.y - b.y);
+        const top = ordered.slice(0, 2).sort((a, b) => a.x - b.x);
+        const bottom = ordered.slice(2, 4).sort((a, b) => a.x - b.x);
+        const finalPoints = [...top, ...bottom.reverse()];
+  
+        ctx.beginPath();
+        ctx.moveTo(finalPoints[0].x, finalPoints[0].y);
+        for (let i = 1; i < finalPoints.length; i++) {
+          ctx.lineTo(finalPoints[i].x, finalPoints[i].y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = "green";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+  
+      // Limpieza
+      src.delete(); gray.delete(); blurred.delete(); edges.delete();
+      contours.delete(); hierarchy.delete(); biggest?.delete();
+    };
+  };
+
+  useEffect(() => {
+    previewIntervalRef.current = window.setInterval(previewFolioDetection, 250);
+  
+    return () => {
+      if (previewIntervalRef.current) {
+        clearInterval(previewIntervalRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    cvInstanceRef.current = cvInstance;
+  }, [cvInstance])
+
   const captureAndAnalyze = () => {
     if (loading) {
       alert("OpenCV se está cargando");
@@ -134,7 +277,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   
       if (!captureCanvas || !video) return;
   
-      const ctx = captureCanvas.getContext("2d");
+      const ctx = captureCanvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) return;
   
       const imgWidth = img.naturalWidth;
@@ -167,9 +310,10 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       const gray = new cvInstance.Mat();
       const blurred = new cvInstance.Mat();
       const edges = new cvInstance.Mat();
+      
       cvInstance.cvtColor(src, gray, cvInstance.COLOR_RGBA2GRAY);
       cvInstance.GaussianBlur(gray, blurred, new cvInstance.Size(3, 3), 0);
-      cvInstance.Canny(blurred, edges, 20, 80);
+      cvInstance.Canny(blurred, edges, 30, 100);
   
       const contours = new cvInstance.MatVector();
       const hierarchy = new cvInstance.Mat();
@@ -194,10 +338,13 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       }
   
       const totalVisibleArea = src.rows * src.cols;
-      if (!biggest || maxArea < 0.3 * totalVisibleArea) {
+      if (!biggest || maxArea < 0.4 * totalVisibleArea) {
         console.log("No se detectó un folio DIN A4 suficientemente grande.");
         gray.delete(); blurred.delete(); edges.delete();
         contours.delete(); hierarchy.delete(); src.delete();
+        if (!previewIntervalRef.current) {
+          previewIntervalRef.current = window.setInterval(previewFolioDetection, 250);
+        }
         return;
       }
   
@@ -343,7 +490,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         overlayCanvas.width = resultImage.cols;
         overlayCanvas.height = resultImage.rows;
 
-        const ctx = overlayCanvas.getContext("2d");
+        const ctx = overlayCanvas.getContext("2d", { willReadFrequently: true });
         if (ctx) {
           ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
@@ -392,6 +539,9 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
     setAnalysisResult(null);
     setCaptured(false);
     setShowData(false);
+    if (!previewIntervalRef.current) {
+      previewIntervalRef.current = window.setInterval(previewFolioDetection, 250);
+    }
   };
 
   // Función para descargar la imagen del canvas de captura
@@ -472,6 +622,10 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
 
   return (
     <>
+      <p className="absolute bottom-0 right-0 z-50 pr-2">
+        w: {naturalsize?.imgWidth} px <br/>
+        h: {naturalsize?.imgHeight} px
+      </p>
       <Script 
         src="/opencv.js" 
         strategy="afterInteractive" 
@@ -539,7 +693,14 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           {!captured && (
             <SwatchIcon 
               className="w-6 h-6 text-white"
-              onClick={captureAndAnalyze}
+              onClick={() => {
+                if (previewIntervalRef.current) {
+                  clearInterval(previewIntervalRef.current);
+                  previewIntervalRef.current = null;
+                }
+
+                captureAndAnalyze();
+              }}
               /> 
           )}
           {captured && (
