@@ -251,7 +251,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                         : 'rotate-0 border-[#bebebe] dark:border-[#9b9b9b]'
                     }`}
                     />
-                  {orientation === "landscape" ? (
+                  {orientation === "portrait" ? (
                       <>
                         <div className="absolute top-1/2 -translate-y-1/2 left-0 w-[6rem] py-1 rotate-90 bg-blue-500 text-white text-lg text-center rounded-xl border-[6px] border-white dark:border-black">
                           {settings.balance.sensorHeight} cm
@@ -261,7 +261,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                           className='absolute top-1/2 translate-y-[12rem] w-[100dvw] px-12'
                           >
                           {/* Barra base */}
-                          <div className="w-full h-2 bg-gray-300 rounded-md relative">
+                          <div className="w-full h-2 rounded-md relative">
                             {/* Thumb visual */}
                             <div
                               className="absolute z-10 top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none"

@@ -33,6 +33,8 @@ export interface IndexProps {
 
 const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   const [naturalsize, setNaturalSize] = useState<{imgWidth: number, imgHeight: number} | null>();
+  const [maxArea, setMaxArea] = useState<number | null>();
+
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
   });
@@ -136,7 +138,6 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       // Tamaño real de la imagen capturada
       const imgWidth = img.naturalWidth;
       const imgHeight = img.naturalHeight;
-      setNaturalSize({imgWidth, imgHeight})
 
       // Tamaño visible del video en pantalla
       const displayWidth = video.offsetWidth;
@@ -209,6 +210,8 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       overlayCanvas.height = displayHeight;
       ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
   
+      setNaturalSize({imgWidth, imgHeight});
+      setMaxArea(maxArea);
       // const totalVisibleArea = src.rows * src.cols;
       if (biggest) {
         const ordered = [];
@@ -624,7 +627,8 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
     <>
       <p className="absolute bottom-0 right-0 z-50 pr-2">
         w: {naturalsize?.imgWidth} px <br/>
-        h: {naturalsize?.imgHeight} px
+        h: {naturalsize?.imgHeight} px <br/>
+        a: {maxArea?.toFixed(0)}
       </p>
       <Script 
         src="/opencv.js" 

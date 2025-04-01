@@ -19,7 +19,7 @@ body {
 
 @layer components {
   .sensor-height-range {
-    @apply appearance-none w-full;
+    @apply appearance-none w-full bg-transparent;
   }
 
   .sensor-height-range::-webkit-slider-runnable-track {
