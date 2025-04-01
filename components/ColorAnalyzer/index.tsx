@@ -32,12 +32,8 @@ export interface IndexProps {
 }
 
 const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
-  const [naturalsize, setNaturalSize] = useState<{imgWidth: number, imgHeight: number} | null>();
-  const [maxArea, setMaxArea] = useState<number | null>();
-  const [aspectRatio, setAspectRatio] = useState<number | null>();
-
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
-    facingMode: "user",
+    facingMode: "environment",
   });
 
   const [videoReady, setVideoReady] = useState(false);
@@ -51,6 +47,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const previewIntervalRef = useRef<number | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<number | null>();
 
   // Estado para OpenCV y análisis
   const [loading, setLoading] = useState<boolean>(true);
@@ -211,11 +208,8 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       overlayCanvas.height = displayHeight;
       ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
   
-      setNaturalSize({imgWidth, imgHeight});
-      setMaxArea(maxArea);
       const minVisibleArea = src.cols * src.cols;
       if (biggest && maxArea >= 0.8 * minVisibleArea) {
-      // if (biggest) {
         const ordered = [];
         for (let i = 0; i < 4; i++) {
           ordered.push({
@@ -352,7 +346,6 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   
       const minVisibleArea = src.cols * src.cols;
       if (!biggest || maxArea < 0.8 * minVisibleArea) {
-      // if (!biggest) {
         console.log("No se detectó un folio DIN A4 suficientemente grande.");
         gray.delete(); blurred.delete(); edges.delete();
         contours.delete(); hierarchy.delete(); src.delete();
@@ -635,12 +628,6 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
 
   return (
     <>
-      <p className="absolute bottom-0 right-0 z-50 pr-2">
-        w: {naturalsize?.imgWidth} px <br/>
-        h: {naturalsize?.imgHeight} px <br/>
-        a: {maxArea?.toFixed(0)} <br/>
-        ratio: {aspectRatio?.toFixed(3)}
-      </p>
       <Script 
         src="/opencv.js" 
         strategy="afterInteractive" 
