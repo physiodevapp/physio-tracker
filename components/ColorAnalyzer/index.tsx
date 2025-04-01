@@ -34,6 +34,7 @@ export interface IndexProps {
 const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   const [naturalsize, setNaturalSize] = useState<{imgWidth: number, imgHeight: number} | null>();
   const [maxArea, setMaxArea] = useState<number | null>();
+  const [aspectRatio, setAspectRatio] = useState<number | null>();
 
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
@@ -212,8 +213,9 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   
       setNaturalSize({imgWidth, imgHeight});
       setMaxArea(maxArea);
-      // const totalVisibleArea = src.rows * src.cols;
-      if (biggest) {
+      const minVisibleArea = src.cols * src.cols;
+      if (biggest && maxArea >= 0.8 * minVisibleArea) {
+      // if (biggest) {
         const ordered = [];
         for (let i = 0; i < 4; i++) {
           ordered.push({
@@ -233,9 +235,17 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           ctx.lineTo(finalPoints[i].x, finalPoints[i].y);
         }
         ctx.closePath();
-        ctx.strokeStyle = "green";
+        ctx.strokeStyle = "blue";
         ctx.lineWidth = 2;
         ctx.stroke();
+
+        const distance = (p1: { x: number; y: number; }, p2: { x: number; y: number; }) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
+        // Ancho: distancia entre top-left y top-right
+        const width = distance(finalPoints[0], finalPoints[1]);
+        // Alto: distancia entre top-left y bottom-left
+        const height = distance(finalPoints[0], finalPoints[3]);
+        // Ratio ancho / alto
+        setAspectRatio(width / height);
       }
   
       // Limpieza
@@ -340,8 +350,9 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         }
       }
   
-      const totalVisibleArea = src.rows * src.cols;
-      if (!biggest || maxArea < 0.4 * totalVisibleArea) {
+      const minVisibleArea = src.cols * src.cols;
+      if (!biggest || maxArea < 0.8 * minVisibleArea) {
+      // if (!biggest) {
         console.log("No se detectó un folio DIN A4 suficientemente grande.");
         gray.delete(); blurred.delete(); edges.delete();
         contours.delete(); hierarchy.delete(); src.delete();
@@ -380,7 +391,6 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
 
       // --- Recorte interno para eliminar bordes residuales del fondo ---
       const cropMargin = 10; // píxeles a recortar por cada lado
-
       if (
         warpMat.cols > cropMargin * 2 &&
         warpMat.rows > cropMargin * 2
@@ -462,7 +472,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         },
       });
   
-      // Mostrar contornos dentro del folio
+      // ---- Mostrar contornos dentro del folio ----
       const resultImage = warpMat.clone();
 
       const redContours = new cvInstance.MatVector();
@@ -486,8 +496,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       blueContours.delete();
       blueHierarchy.delete();
   
-      // Mostrar la imagen procesada en el canvas
-      // Mostrar contornos en overlayCanvas (en lugar de captureCanvas)
+      // Mostrar contornos de la imagen procesada en overlayCanvas
       const overlayCanvas = overlayCanvasRef.current;
       if (overlayCanvas) {
         overlayCanvas.width = resultImage.cols;
@@ -545,6 +554,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
     if (!previewIntervalRef.current) {
       previewIntervalRef.current = window.setInterval(previewFolioDetection, 250);
     }
+    setAspectRatio(null);
   };
 
   // Función para descargar la imagen del canvas de captura
@@ -628,7 +638,8 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       <p className="absolute bottom-0 right-0 z-50 pr-2">
         w: {naturalsize?.imgWidth} px <br/>
         h: {naturalsize?.imgHeight} px <br/>
-        a: {maxArea?.toFixed(0)}
+        a: {maxArea?.toFixed(0)} <br/>
+        ratio: {aspectRatio?.toFixed(3)}
       </p>
       <Script 
         src="/opencv.js" 
@@ -653,7 +664,9 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           audio={false}
           ref={webcamRef}
           screenshotFormat="image/jpeg"
-          className={`relative h-dvh object-cover border-0 border-blue-500`}
+          className={`relative h-dvh object-cover border-0 border-blue-500 ${
+            captured ? 'opacity-0' : 'unset'
+          }`}
           videoConstraints={videoConstraints}
           mirrored={videoConstraints.facingMode === "user"}
           onUserMedia={() => setVideoReady(true)}
@@ -661,12 +674,20 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         {/* Canvas para mostrar contornos (superpuesto al video) */}
         <canvas
           ref={overlayCanvasRef}
-          className={`absolute top-0 w-full h-dvh border-0 border-green-500 pointer-events-none`}
+          className={`absolute top-1/2 -translate-y-1/2 w-full h-dvh border-0 border-green-500 pointer-events-none`}
+          style={{ 
+            aspectRatio: (captured && aspectRatio) ? aspectRatio.toFixed(3) : "unset",
+            height: (captured && aspectRatio) ? 'unset' : 'h-dvh' 
+          }}
           />
         {/* Canvas para análisis y descarga*/}
         <canvas 
           ref={captureCanvasRef} 
-          className="hidden absolute top-0 w-full h-dvh border-2 border-red-500" 
+          className="hidden absolute top-1/2 -translate-y-1/2 w-full border-2 border-red-500" 
+          style={{ 
+            aspectRatio: (captured && aspectRatio) ? aspectRatio.toFixed(3) : "unset",
+            height: (captured && aspectRatio) ? 'unset' : 'h-dvh' 
+          }}
           />
         {(loading || (!loading && error)) && (
           <div className="absolute top-0 z-50 w-full h-dvh flex flex-col items-center justify-center text-white bg-black/40">
