@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import type * as cv from "@techstark/opencv-js";
 import Webcam from "react-webcam";
-import { ArrowPathIcon, Bars3Icon, CameraIcon, Cog6ToothIcon, DocumentArrowDownIcon, PresentationChartBarIcon, SwatchIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { ArrowPathIcon, Bars3Icon, CameraIcon, Cog6ToothIcon, DocumentArrowDownIcon, PresentationChartBarIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import { VideoConstraints } from "@/interfaces/camera";
 import { useSettings } from "@/providers/Settings";
 import ColorAnalyzerSettings from "@/modals/ColorAnalyzerSettings";
@@ -640,7 +640,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-black/40 
         rounded-full py-2 px-4 font-bold mt-2 whitespace-nowrap"
       >
-        Color Analyzer
+        BodyChart
       </motion.h1>
       <div 
         className="relative w-full h-dvh"
@@ -665,6 +665,16 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           style={{ 
             aspectRatio: (captured && aspectRatio) ? aspectRatio.toFixed(3) : "unset",
             height: (captured && aspectRatio) ? 'unset' : 'h-dvh' 
+          }}
+          onClick={() => {
+            if (captured) return;
+
+            if (previewIntervalRef.current) {
+              clearInterval(previewIntervalRef.current);
+              previewIntervalRef.current = null;
+            }
+
+            captureAndAnalyze();
           }}
           />
         {/* Canvas para análisis y descarga*/}
@@ -702,19 +712,6 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
                 onClick={() => handleMainMenu()}
                 />
           }
-          {!captured && (
-            <SwatchIcon 
-              className="w-6 h-6 text-white"
-              onClick={() => {
-                if (previewIntervalRef.current) {
-                  clearInterval(previewIntervalRef.current);
-                  previewIntervalRef.current = null;
-                }
-
-                captureAndAnalyze();
-              }}
-              /> 
-          )}
           {captured && (
             <>
               <TrashIcon 
@@ -742,10 +739,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
             className="relative cursor-pointer"
             onClick={() => toggleCamera()}
             >
-              <CameraIcon 
-                className="h-6 w-6 text-white cursor-pointer" 
-                onClick={toggleCamera}
-                />
+              <CameraIcon className="h-6 w-6 text-white cursor-pointer"/>
               <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 bg-black/80 rounded-full p-[0.1rem]"/>
           </div>
           <Cog6ToothIcon 

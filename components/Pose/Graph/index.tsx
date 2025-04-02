@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-// import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   ChartDataset,
@@ -10,24 +9,15 @@ import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
 import { getColorsForJoint } from "@/services/joint";
 import { useSettings } from "@/providers/Settings";
 import { lttbDownsample } from "@/services/chart";
-import annotationPlugin from 'chartjs-plugin-annotation';
 import CrosshairPlugin from 'chartjs-plugin-crosshair';
+// import annotationPlugin from 'chartjs-plugin-annotation';
 
 // Registro de componentes de Chart.js
 ChartJS.register(
   ...registerables,
-  annotationPlugin,
   CrosshairPlugin,
+  // annotationPlugin,
 );
-
-// interface VerticalLineAnnotation {
-//   xMin: number;
-//   xMax: number;
-//   label: {
-//     content: string;
-//   };
-//   // Puedes agregar más propiedades según necesites, como borderColor, borderWidth, etc.
-// }
 
 // Definimos la interfaz para cada punto de datos
 interface DataPoint {
@@ -364,25 +354,6 @@ const Index = ({
               chart.update();
             },
           },
-          ...(!realTime && {
-            crosshair: {
-              line: {
-                color: '#F66', 
-                width: 1
-              },
-              sync: {
-                // Habilita la sincronización con otros gráficos
-                enabled: true,
-                // Grupo de gráficos para sincronizar
-                group: 1,
-                // Suprime tooltips al mostrar un tracer sincronizado
-                suppressTooltips: false,
-              },
-              zoom: {
-                enabled: false,  
-              },
-            }
-          }),
           tooltip: {
             enabled: !realTime,
             external: (context) => {
@@ -419,6 +390,25 @@ const Index = ({
               },
             },
           },
+          ...(!realTime ? {
+            crosshair: {
+              line: {
+                color: '#F66', 
+                width: 1
+              },
+              sync: {
+                // Habilita la sincronización con otros gráficos
+                enabled: true,
+                // Grupo de gráficos para sincronizar
+                group: 1,
+                // Suprime tooltips al mostrar un tracer sincronizado
+                suppressTooltips: false,
+              },
+              zoom: {
+                enabled: false,  
+              },
+            }
+          } : {})
         },
         elements: {
           point: { 
@@ -434,6 +424,7 @@ const Index = ({
             max: normalizedMaxX,
             title: { display: true, text: "Time (seconds)" },
             ticks: {
+              display: joints.length > 0,
               stepSize: 1,
               maxTicksLimit: 12,
               callback: (value) => {
@@ -469,7 +460,7 @@ const Index = ({
           },
         },
       }
-    }),[datasets]);
+    }),[datasets, realTime, joints]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -486,7 +477,7 @@ const Index = ({
 
   useEffect(() => {
     const chart = chartRef.current;
-    if (!chart) return;
+    if (!chart || realTime) return;
 
     const meta = chart.getDatasetMeta(0);
 
@@ -496,7 +487,6 @@ const Index = ({
     const index = dataset.findIndex((point) => point.x >= verticalLineValue);
 
     if (index !== undefined && index !== -1 && chart.tooltip) {
-      console.log('object')
       const point = meta.data[index];
 
       // Simula un evento de hover para activar crosshair y tooltip
@@ -532,7 +522,7 @@ const Index = ({
       chart.update();
     }
     
-  }, [verticalLineValue]);  
+  }, [verticalLineValue, realTime]);  
 
   return (
     <div 
@@ -541,7 +531,7 @@ const Index = ({
       >
         <canvas 
           ref={canvasRef} 
-          className='bg-white'
+          className='bg-white px-2'
           />
     </div>
   );

@@ -102,6 +102,8 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
 
     if (!isLandscape) {
       setLog("Position error");
+    } else {
+      setLog("");
     }
   
     return isLandscape;

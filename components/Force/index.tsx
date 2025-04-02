@@ -293,7 +293,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }
 
   const toggleMassCalibration = (visibility?: boolean) => {
-    if (taringStatus !== 1) return
+    if (taringStatus !== 1) return;
     if (visibility === undefined && showSettings) {
       setShowSettings(false);
     }
@@ -422,39 +422,56 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 onClick={() => handleMainMenu()}
                 />
           }
-          {device && isConnected && (
+          {(device && isConnected) && (
             <>
-              <div 
-                className="relative" 
-                onClick={() => !showMassCalibration && tareSensor()}
-                >
-                <ScaleIcon
-                  className={`w-6 h-6 text-white ${
-                    taringStatus === 0 ? 'animate-pulse' : ''
-                  } ${
-                    showMassCalibration ? 'opacity-40' : ''
-                  }`}
-                  />
-                {taringStatus === 1 && (
-                  <CheckCircleIcon className={`absolute -bottom-2 -right-1 w-5 h-5 rounded-full ${
-                    showMassCalibration ? 'text-gray-300' : 'text-white'
-                  }`}/>
-                )}
-              </div>
+              {(sensorData.length === 0 || isRecording) && (
+                <>
+                  <div 
+                    className="relative" 
+                    onClick={() => !showMassCalibration && !isRecording && tareSensor()}
+                    >
+                    <ScaleIcon
+                      className={`w-6 h-6 text-white ${
+                        taringStatus === 0 ? 'animate-pulse' : ''
+                      } ${
+                        (showMassCalibration || isRecording) ? 'opacity-40' : ''
+                      }`}
+                      />
+                    {taringStatus === 1 && (
+                      <CheckCircleIcon className={`absolute -bottom-2 -right-1 w-5 h-5 rounded-full ${
+                        showMassCalibration ? 'text-gray-300' : 'text-white'
+                      }`}/>
+                    )}
+                  </div>
+                  <p 
+                    className={`w-6 h-6 text-white text-center leading-[normal] ${
+                      taringStatus !== 1 || isRecording ? 'opacity-40' : ''
+                    } ${
+                      updatedWorkLoad !== null ? 'text-md border-2 rounded-full p-[0.1rem] animate-pulse' : 'text-2xl'
+                    }`}
+                    onClick={() => !isRecording && toggleMassCalibration()}
+                    > N
+                  </p>
+                </>
+              )}
               {(!isRecording || showMassCalibration) && (
                 <>
-                  {sensorData.length === 0 ? (
-                    <PlayIcon
-                      className={`w-6 h-6 text-white ${
+                  {(sensorData.length === 0 && !showMassCalibration && !showSettings) ? (
+                    <button
+                      className={`fixed w-3/4 bottom-6 left-1/2 -translate-x-1/2 bg-[#5dadec] hover:bg-gray-600 text-white font-bold text-lg px-4 py-4 rounded-lg transition ${
                         taringStatus !== 1 || showMassCalibration ? 'opacity-40' : ''
                       }`}
                       onClick={handleStartTest}
-                      /> ) : (
-                      <TrashIcon
-                        className="h-6 w-6 text-red-500 cursor-pointer"
-                        onClick={() => setSensorData([])}
-                        />
-                      )
+                      >
+                      Start test / exercise
+                    </button> ) :  null
+                  }
+                  {sensorData.length > 0 ? (
+                    <TrashIcon
+                      className="h-6 w-6 text-red-500 cursor-pointer"
+                      onClick={() => setSensorData([])}
+                      />
+                    ) : null
                   }
                   {Boolean(sensorData.length && !isRecording) && (
                     <DocumentArrowDownIcon 
@@ -466,10 +483,12 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 </>
               )}
               {(isRecording && !showMassCalibration) && (
-                <StopIcon
-                  className={`w-6 h-6 ${isRecording ? 'animate-pulse text-green-500' : 'text-white'}`}
+                <button
+                  className="fixed w-3/4 bottom-6 left-1/2 -translate-x-1/2 z-40 bg-red-500 hover:bg-red-600 text-white font-bold text-lg px-4 py-4 rounded-lg animate-pulse"
                   onClick={handleStopTest}
-                  />
+                  >
+                  Stop test / exercise
+                </button>
               )}
             </>
           )}
@@ -491,14 +510,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               className="w-6 h-6 text-white"
               onClick={shutdown}
               />
-            <p 
-              className={`w-6 h-6 text-white text-center leading-[normal] ${
-                taringStatus !== 1 ? 'opacity-40' : ''
-              } ${
-                updatedWorkLoad !== null ? 'text-md border-2 rounded-full p-[0.1rem] animate-pulse' : 'text-2xl'
-              }`}
-              onClick={() => !isRecording && toggleMassCalibration()}
-              >N</p>
             <Cog6ToothIcon 
               className="w-6 h-6 text-white"
               onClick={() => !isRecording && toggleSettings()}

@@ -461,7 +461,7 @@ const Index: React.FC<IndexProps> = ({
             {((cycleData?.[cycleData.length - 1]?.cycleCount ?? null) !== null && 
             (cycleData?.[cycleData.length - 1]?.cycleCount ?? 0) > 0) ? (
               <button 
-              onClick={() => setIsExpanded(!isExpanded)} 
+              onClick={() => !isRecording && setIsExpanded(!isExpanded)} 
               className="flex items-center dark:text-gray-500"
               >
                 <>

@@ -127,7 +127,9 @@ const Index: React.FC<IndexProps> = ({ ellipseParams, areaParams, options }) => 
   }, [ellipsePoints, convertedCOPPoints, copAreaPoints]);
 
   return (
-    <div className="w-full aspect-square max-w-screen bg-white rounded-lg py-2 pr-1">
+    <div 
+      data-element="non-swipeable"
+      className="w-full aspect-square max-w-screen bg-white rounded-lg py-2 pr-1">
       <canvas id={canvasId} ref={canvasRef} className="bg-white"/>
     </div>
   )

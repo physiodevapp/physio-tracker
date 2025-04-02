@@ -140,7 +140,9 @@ const Index: React.FC<IndexProps> = ({
   }, [chartConfig]);
 
   return (
-    <div className="w-full h-auto max-w-screen bg-white rounded-lg py-2 pr-1">
+    <div 
+      data-element="non-swipeable"
+      className="w-full h-auto max-w-screen bg-white rounded-lg py-2 pr-1">
       <canvas id={canvasId} ref={canvasRef} className="bg-white"/>
     </div>
   );
