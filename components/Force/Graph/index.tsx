@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {Chart as ChartJS, ChartConfiguration, registerables} from 'chart.js'; 
+import {Chart as ChartJS, ChartConfiguration, registerables, Plugin as ChartPlugin} from 'chart.js'; 
 import CrosshairPlugin from 'chartjs-plugin-crosshair';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { lttbDownsample } from '@/services/chart';
@@ -8,7 +8,11 @@ import useCyclesDetector from '../Hooks/useCyclesDetector';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 
 // Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
-ChartJS.register(...registerables, annotationPlugin, CrosshairPlugin);
+ChartJS.register(
+  ...registerables,
+  // CrosshairPlugin,
+  annotationPlugin,
+);
 
 // Define el tipo para cada punto de datos
 export interface DataPoint {
@@ -142,6 +146,9 @@ const Index: React.FC<IndexProps> = ({
   const chartConfig = useMemo<ChartConfiguration>(
     () => ({
       type: "line",
+      plugins: [
+        CrosshairPlugin as ChartPlugin,
+      ],
       data: {
         labels: downsampledData.map(point => point.x),
         datasets: [
@@ -343,7 +350,6 @@ const Index: React.FC<IndexProps> = ({
     };
   }, [chartConfig]);
   
-
   return (
     <div className={`mt-12`}
       >

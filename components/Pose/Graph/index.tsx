@@ -4,6 +4,7 @@ import {
   ChartDataset,
   ChartConfiguration,
   registerables,
+  Plugin as ChartPlugin,
 } from "chart.js";
 import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
 import { getColorsForJoint } from "@/services/joint";
@@ -15,7 +16,7 @@ import CrosshairPlugin from 'chartjs-plugin-crosshair';
 // Registro de componentes de Chart.js
 ChartJS.register(
   ...registerables,
-  CrosshairPlugin,
+  // CrosshairPlugin,
   // annotationPlugin,
 );
 
@@ -306,6 +307,9 @@ const Index = ({
       data: {
         datasets: datasets,
       },
+      plugins: [
+        CrosshairPlugin as ChartPlugin,
+      ],
       options: {
         responsive: true,
         animation: false,
@@ -390,25 +394,23 @@ const Index = ({
               },
             },
           },
-          ...(!realTime ? {
-            crosshair: {
-              line: {
-                color: '#F66', 
-                width: 1
-              },
-              sync: {
-                // Habilita la sincronización con otros gráficos
-                enabled: true,
-                // Grupo de gráficos para sincronizar
-                group: 1,
-                // Suprime tooltips al mostrar un tracer sincronizado
-                suppressTooltips: false,
-              },
-              zoom: {
-                enabled: false,  
-              },
-            }
-          } : {})
+          crosshair: realTime ? false : {
+            line: {
+              color: '#F66', 
+              width: 1
+            },
+            sync: {
+              // Habilita la sincronización con otros gráficos
+              enabled: true,
+              // Grupo de gráficos para sincronizar
+              group: 1,
+              // Suprime tooltips al mostrar un tracer sincronizado
+              suppressTooltips: false,
+            },
+            zoom: {
+              enabled: false,  
+            },
+          }
         },
         elements: {
           point: { 
@@ -460,7 +462,7 @@ const Index = ({
           },
         },
       }
-    }),[datasets, realTime, joints]);
+    }),[datasets]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -477,7 +479,7 @@ const Index = ({
 
   useEffect(() => {
     const chart = chartRef.current;
-    if (!chart || realTime) return;
+    if (!chart) return;
 
     const meta = chart.getDatasetMeta(0);
 
@@ -522,7 +524,7 @@ const Index = ({
       chart.update();
     }
     
-  }, [verticalLineValue, realTime]);  
+  }, [verticalLineValue]);  
 
   return (
     <div 
