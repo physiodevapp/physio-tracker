@@ -30,6 +30,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const { settings, setSensorHeight } = useSettings();
 
   const [isRecording, setIsRecording] = useState<boolean | null>(null);
+  const [isCancellationRequested, setIsCancellationRequested] = useState<boolean | null>(null);
 
   const [hasValidTestResults, setHasValidTestResults] = useState(false);
   const [isDefaultState, setIsDefaultState] = useState(false);
@@ -70,6 +71,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       setHasValidTestResults(false);
     } 
     else {
+      setIsCancellationRequested(false);
       stopMotion();
     }
   }, [isRecording]);
@@ -100,11 +102,29 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         >
         Balance
       </motion.h1>
+      {(isRecording && isCancellationRequested) ? (
+          <div 
+            data-element="non-swipeable"
+            className="absolute top-0 h-dvh w-full z-40 flex items-center justify-center bg-black/60"
+            onClick={() => setIsCancellationRequested(false)}
+            >
+            <div className="dark:bg-gray-800 rounded-lg px-10 py-6 flex flex-col gap-2 rotate-90">
+              <p className="text-lg">Are you sure?</p>
+              <button 
+                className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg p-2"
+                onClick={() =>  setIsRecording(false)}
+                >
+                  Cancel now
+                </button>
+            </div>
+          </div>
+        ) : null
+      }
       {isRecording && (
         <div 
-          data-element="non-swipeable"
+          {...(!isOrientationCorrect && { 'data-element': 'non-swipeable' })}
           className='absolute w-full h-dvh z-50 flex justify-center items-center bg-black/30'
-          onClick={() => setIsRecording(false)}
+          onClick={() => setIsCancellationRequested(true)}
           >
           <CountdownRing 
             seconds={15}

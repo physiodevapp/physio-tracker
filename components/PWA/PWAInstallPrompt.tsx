@@ -13,7 +13,7 @@ export default function PWAInstallPrompt() {
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (event: Event) => {
-      console.log("🔥 `beforeinstallprompt` event fired!");
+      // console.log("🔥 `beforeinstallprompt` event fired!");
       event.preventDefault();
       setDeferredPrompt(event as BeforeInstallPromptEvent);
       setShowPrompt(true);
@@ -28,7 +28,7 @@ export default function PWAInstallPrompt() {
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
-    console.log("🛠️ Calling prompt()...");
+    // console.log("🛠️ Calling prompt()...");
     deferredPrompt.prompt();
     const choice = await deferredPrompt.userChoice;
     console.log("✅ User choice:", choice.outcome);

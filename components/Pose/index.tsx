@@ -144,7 +144,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       handleMainMenu(false);
     } 
     else {
-      if (!videoUrl) {
+      if (!videoUrl && !displayGraphs) {
         setIsFrozen(prev => !prev);
       }
 
@@ -496,6 +496,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   useEffect(() => {
     if (displayGraphs) {
       setIsPoseSettingsModalOpen(false);
+
+      if (!videoUrl) {
+        setIsFrozen(false);
+      }
     } else {
       setIsPoseGraphSettingsModalOpen(false);
     }

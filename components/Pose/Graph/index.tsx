@@ -360,6 +360,7 @@ const Index = ({
           },
           tooltip: {
             enabled: !realTime,
+            boxPadding: 6,
             external: (context) => {
               const tooltipModel = context.tooltip;
               const dataPoint = tooltipModel.dataPoints?.[0];
