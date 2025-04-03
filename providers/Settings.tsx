@@ -12,6 +12,7 @@ interface PoseSettings {
   poseUpdateInterval: number;
   poseGraphSample: number;
   poseGraphSampleThreshold: number;
+  processingSpeed: number;
 }
 
 interface ColorSettings {
@@ -71,6 +72,7 @@ interface SettingsContextProps {
   setPoseUpdateInterval: (timeInMiliseconds: number) => void;
   setPoseGraphSample: (sample: number) => void;
   setPoseGraphSampleThreshold: (sampleThreshold: number) => void;
+  setProcessingSpeed: (speed: number) => void;
   // Setters para color
   setRedHueLower1: (value: number) => void;
   setRedHueUpper1: (value: number) => void;
@@ -103,7 +105,7 @@ interface SettingsContextProps {
   setTestDuration: (value: number) => void;
   setSensorHeight: (value: number) => void;
   // Función para resetear los settings
-  resetPoseSettings: () => void;
+  resetPoseSettings: (value: boolean) => void;
   resetPoseGraphSettings: () => void;
   resetForceSettings: () => void;
   resetColorSettings: () => void;
@@ -126,6 +128,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       poseUpdateInterval: 300,
       poseGraphSample: 50,
       poseGraphSampleThreshold: 60,
+      processingSpeed: 0.4,
     },
     color: {
       redHueLower1: 0,
@@ -197,10 +200,22 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const setPoseGraphSampleThreshold = (sampleThreshold: number) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseGraphSampleThreshold: sampleThreshold } }));
   };
-  const resetPoseSettings = () => {
-    setSettings(prev => ({ ...prev, pose: {...prev.pose,
-      velocityHistorySize: defaultConfig.pose.velocityHistorySize,
-      angularHistorySize: defaultConfig.pose.angularHistorySize,} }));
+  const setProcessingSpeed = (speed: number) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, processingSpeed: speed } }));
+  }
+  const resetPoseSettings = (extraReset = false) => {
+    setSettings(prev => ({
+      ...prev,
+      pose: {
+        ...prev.pose,
+        velocityHistorySize: defaultConfig.pose.velocityHistorySize,
+        angularHistorySize: defaultConfig.pose.angularHistorySize,
+        ...(extraReset && {
+          processingSpeed: defaultConfig.pose.processingSpeed,
+          poseUpdateInterval: defaultConfig.pose.poseUpdateInterval,
+        }),
+      },
+    }));
   };
   const resetPoseGraphSettings = () => {
     setSettings(prev => ({
@@ -279,6 +294,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setPoseUpdateInterval,
         setPoseGraphSample,
         setPoseGraphSampleThreshold,
+        setProcessingSpeed,
         resetPoseSettings,
         resetPoseGraphSettings,
         setRedHueLower1,

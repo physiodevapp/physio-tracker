@@ -90,7 +90,12 @@ const Index = ({
               />
           </div>
           <div className=" flex-1 flex flex-col justify-between gap-2">
-            <label htmlFor="update-interval" className="text-white">
+            <label 
+              htmlFor="update-interval" 
+              className={`${
+                videoProcessed ? "text-white/60" : "text-white"
+              }`}
+              >
               Update<span className='align-sub text-[0.6rem] uppercase'> freq</span>: {(1000 / poseUpdateInterval).toFixed(0)} Hz
             </label>
             <input
@@ -101,8 +106,8 @@ const Index = ({
               step="1"  // Paso en Hz para que siempre sean valores enteros
               value={1000 / poseUpdateInterval} // Mostramos Hz en la UI
               onChange={handleUpdateIntervalChange} // Usamos la función de manejo de cambios
-              className="w-full"
-            />
+              disabled={videoProcessed}
+              />
           </div>
         </div>
         {videoProcessed && (

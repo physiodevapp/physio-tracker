@@ -312,7 +312,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     if (!video) return;
 
     if (restart) {
-      video.playbackRate = 0.2;
+      video.playbackRate = settings.pose.processingSpeed;
 
       recordedPositionsRef.current = {};
       
@@ -996,6 +996,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
         <PoseSettingsModal 
           isModalOpen={isPoseSettingsModalOpen}
+          showExtraSettings={Boolean(videoUrl)}
           />
       </div> 
 

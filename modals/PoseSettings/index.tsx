@@ -4,17 +4,27 @@ import React from 'react'
 
 interface IndexProps {
   isModalOpen: boolean;
+  showExtraSettings: boolean;
 }
 
 const Index = ({
   isModalOpen,
+  showExtraSettings = false,
 }: IndexProps) => {
   const { 
     settings, 
     setAngularHistorySize, 
     setPoseVelocityHistorySize,
+    setPoseUpdateInterval,
+    setProcessingSpeed,
     resetPoseSettings,
   } = useSettings();
+  const {
+    angularHistorySize,
+    velocityHistorySize,
+    poseUpdateInterval,
+    processingSpeed,
+  } = settings.pose;
 
   const handleAngleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
@@ -32,6 +42,19 @@ const Index = ({
     setPoseVelocityHistorySize(value);
   };
 
+  const handleUpdateIntervalChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const newHz = parseInt(event.target.value, 10); // Obtenemos el valor en Hz desde el slider
+      const value = Number((1000 / newHz).toFixed(0)); // Convertimos Hz a ms antes de almacenarlo
+  
+      setPoseUpdateInterval(value);
+    };
+  
+  const handleProcessingSpeedChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(event.target.value);
+
+    setProcessingSpeed(value);
+  }
+
   if (!isModalOpen) return null;
 
   return (
@@ -41,24 +64,24 @@ const Index = ({
       >
         <div
         className="w-full h-9 flex justify-end text-white/60 italic font-light cursor-pointer"
-        onClick={resetPoseSettings}
+        onClick={() => resetPoseSettings(showExtraSettings)}
         >
         Set default values{" "}
         <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>
-        <form className='w-full flex flex-col justify-center'>
+        <form className='w-full flex flex-col justify-center gap-6'>
           <div className='flex w-full gap-6'>
             <div className='flex-1 flex flex-col justify-between gap-2'>
               <label
-                htmlFor='time-window'
+                htmlFor='angular-history'
                 className='text-white'
                 >
-                Angle<span className='align-sub uppercase text-[0.6rem]'> Smth</span>: {settings.pose.angularHistorySize}
+                Angle<span className='align-sub uppercase text-[0.6rem]'> Smth</span>: {angularHistorySize}
               </label>
               <input
-                id='time-window'
+                id='angular-history'
                 type='range'
-                value={settings.pose.angularHistorySize}
+                value={angularHistorySize}
                 min="5"
                 max="20"
                 onChange={handleAngleChange}
@@ -66,21 +89,59 @@ const Index = ({
             </div>
             <div className='flex-1 flex flex-col justify-between gap-2'>
               <label
-                htmlFor='update-interval'
+                htmlFor='velocity-history'
                 className='text-white'
                 >
-                Velocity<span className='align-sub uppercase text-[0.6rem]'> Smth</span>: {settings.pose.velocityHistorySize}
+                Velocity<span className='align-sub uppercase text-[0.6rem]'> Smth</span>: {velocityHistorySize}
               </label>
               <input
-                id='update-interval'
+                id='velocity-history'
                 type='range'
-                value={settings.pose.velocityHistorySize}
+                value={velocityHistorySize}
                 min="5"
                 max="20"
                 onChange={handleAngularVelocityChange}
                 />
             </div>
           </div>
+          {showExtraSettings ? (
+            <div className='flex w-full gap-6'>
+              <div className='flex-1 flex flex-col justify-between gap-2'>
+                <label
+                  htmlFor='processing-speed'
+                  className='text-white'
+                  >
+                  Processing<span className='align-sub uppercase text-[0.6rem]'> speed</span>: {processingSpeed}
+                </label>
+                <input
+                  id='processing-speed'
+                  type='range'
+                  value={processingSpeed}
+                  min="0.1"
+                  max="1"
+                  step="0.1"
+                  onChange={handleProcessingSpeedChange}
+                  />
+              </div>
+              <div className='flex-1 flex flex-col justify-between gap-2'>
+                <label
+                  htmlFor='update-interval'
+                  className='text-white'
+                  >
+                  Update<span className='align-sub uppercase text-[0.6rem]'> freq</span>: {(1000 / poseUpdateInterval).toFixed(0)} Hz
+                </label>
+                <input
+                  id='update-interval'
+                  type='range'
+                  min="2"
+                  max="10"
+                  step="1"
+                  value={1000 / poseUpdateInterval}
+                  onChange={handleUpdateIntervalChange}
+                  />
+              </div>
+            </div>
+          ) : null}
         </form>
     </div>
   )
