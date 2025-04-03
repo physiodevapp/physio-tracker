@@ -292,6 +292,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   };
 
   const handleProcessVideo = () => {
+    if (isPoseSettingsModalOpen || isPoseGraphSettingsModalOpen || isMainMenuOpen) {
+      setIsPoseSettingsModalOpen(false);
+  
+      setIsPoseGraphSettingsModalOpen(false);
+  
+      handleMainMenu(false);
+    }
+
     if (visibleJointsRef.current.length > 0 && videoRef.current) {  
       setProcessVideo((prev) => prev * (-1));
     } else {

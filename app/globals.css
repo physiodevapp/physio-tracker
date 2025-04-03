@@ -18,6 +18,28 @@ body {
 }
 
 @layer components {
+  input[type="range"] {
+    @apply appearance-none w-full cursor-pointer bg-transparent;
+  }
+
+  /* === WebKit (Chrome, Safari) === */
+  input[type="range"]::-webkit-slider-runnable-track {
+    @apply bg-white rounded-full h-[6px];
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    @apply appearance-none bg-blue-500 -mt-[4.6px] w-4 h-4 rounded-full;
+  }
+
+  /* === Firefox === */
+  input[type="range"]::-moz-range-track {
+    @apply bg-white rounded-full h-1;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    @apply bg-blue-500 border-none w-4 h-4;
+  }
+
   .sensor-height-range {
     @apply appearance-none w-full bg-transparent;
   }
@@ -29,7 +51,7 @@ body {
       #3B82F6 8px,
       transparent 8px,
       transparent 16px
-    );
+    ) !important;
     height: 4px;
     border: none;
     border-radius: 0;
@@ -46,7 +68,7 @@ body {
       #3B82F6 8px,
       transparent 8px,
       transparent 16px
-    );
+    ) !important;
     height: 2px;
     border: none;
     border-radius: 0;

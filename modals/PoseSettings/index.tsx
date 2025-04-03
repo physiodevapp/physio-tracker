@@ -47,7 +47,7 @@ const Index = ({
         <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>
         <form className='w-full flex flex-col justify-center'>
-          <div className='flex w-full gap-2'>
+          <div className='flex w-full gap-6'>
             <div className='flex-1 flex flex-col justify-between gap-2'>
               <label
                 htmlFor='time-window'

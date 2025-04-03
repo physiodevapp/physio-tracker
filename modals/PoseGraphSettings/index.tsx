@@ -19,6 +19,12 @@ const Index = ({
     setPoseGraphSampleThreshold,
     resetPoseGraphSettings,
   } = useSettings();
+  const {
+    poseTimeWindow,
+    poseUpdateInterval,
+    poseGraphSample,
+    poseGraphSampleThreshold,
+  } = settings.pose;
 
   const handleTimeWindowChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
@@ -36,7 +42,7 @@ const Index = ({
   const handleSampleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
     // Si el nuevo valor de sample supera el valor de threshold, se ajusta threshold a ese valor
-    if (value > settings.pose.poseGraphSampleThreshold) {
+    if (value > poseGraphSampleThreshold) {
 
       setPoseGraphSampleThreshold(value);
     }
@@ -47,7 +53,7 @@ const Index = ({
   const handleSampleThresholdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
     // Si el nuevo valor de threshold es menor que el valor actual de sample, se ajusta sample a ese valor
-    if (value < settings.pose.poseGraphSample) {
+    if (value < poseGraphSample) {
       setPoseGraphSample(value);
     }
     
@@ -69,15 +75,15 @@ const Index = ({
         <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>
       <form className="w-full flex flex-col justify-center gap-4">
-        <div className='flex w-full gap-2'>
+        <div className='flex w-full gap-6'>
           <div className=" flex-1 flex flex-col justify-between gap-2">
             <label htmlFor="time-window" className="text-white">
-              Window: {settings.pose.poseTimeWindow} s
+              Window: {poseTimeWindow} s
             </label>
             <input
               id="time-window"
               type="range"
-              value={settings.pose.poseTimeWindow}
+              value={poseTimeWindow}
               min="5"
               max="10"
               onChange={handleTimeWindowChange}
@@ -85,7 +91,7 @@ const Index = ({
           </div>
           <div className=" flex-1 flex flex-col justify-between gap-2">
             <label htmlFor="update-interval" className="text-white">
-              Frequency: {(1000 / settings.pose.poseUpdateInterval).toFixed(0)} Hz
+              Update<span className='align-sub text-[0.6rem] uppercase'> freq</span>: {(1000 / poseUpdateInterval).toFixed(0)} Hz
             </label>
             <input
               id="update-interval"
@@ -93,35 +99,35 @@ const Index = ({
               min="2"   // 2 Hz (equivalente a 500 ms)
               max="10"  // 10 Hz (equivalente a 100 ms)
               step="1"  // Paso en Hz para que siempre sean valores enteros
-              value={1000 / settings.pose.poseUpdateInterval} // Mostramos Hz en la UI
+              value={1000 / poseUpdateInterval} // Mostramos Hz en la UI
               onChange={handleUpdateIntervalChange} // Usamos la función de manejo de cambios
               className="w-full"
             />
           </div>
         </div>
         {videoProcessed && (
-          <div className='flex w-full gap-2'>
-            <div className="flex-1 flex flex-col justify-between">
+          <div className='flex w-full gap-6'>
+            <div className="flex-1 flex flex-col justify-between gap-2">
               <label htmlFor="sample" className="text-white">
-                Sample (lttb): {settings.pose.poseGraphSample}
+                Sample<span className='align-sub text-[0.6rem] uppercase'> lttb</span>: {poseGraphSample}
               </label>
               <input
                 id="sample"
                 type="range"
-                value={settings.pose.poseGraphSample}
+                value={poseGraphSample}
                 min="50"
                 max="120"
                 onChange={handleSampleChange}
-              />
+                />
             </div>
             <div className="flex-1 flex flex-col justify-between">
               <label htmlFor="sample-threshold" className="text-white">
-                Threshold (lttb): {settings.pose.poseGraphSampleThreshold}
+                Threshold<span className='align-sub text-[0.6rem] uppercase'> lttb</span>: {poseGraphSampleThreshold}
               </label>
               <input
                 id="sample-threshold"
                 type="range"
-                value={settings.pose.poseGraphSampleThreshold}
+                value={poseGraphSampleThreshold}
                 min="60"
                 max="140"
                 onChange={handleSampleThresholdChange}

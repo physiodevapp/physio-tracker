@@ -63,6 +63,12 @@ const Index = ({
   verticalLineValue = 0,
 }: IndexProps) => {
   const { settings } = useSettings();
+  const { 
+    poseTimeWindow,
+    poseUpdateInterval,
+    poseGraphSample,
+    poseGraphSampleThreshold,
+  } = settings.pose;
 
   // --- Cofiguración del gráfico ----
   const chartRef = useRef<ChartJS | null>(null);
@@ -125,8 +131,8 @@ const Index = ({
             : jointData.angularVelocityPoints;
 
         // Si la cantidad de puntos es mayor que el threshold deseado, los reducimos.
-        if (dataPoints.length > settings.pose.poseGraphSampleThreshold) {
-          dataPoints = lttbDownsample(dataPoints, settings.pose.poseGraphSample);
+        if (dataPoints.length > poseGraphSampleThreshold) {
+          dataPoints = lttbDownsample(dataPoints, poseGraphSample);
         }
   
         result.push({
@@ -136,7 +142,7 @@ const Index = ({
           backgroundColor: baseBackgroundColor,
           borderWidth: vType === Kinematics.ANGLE ? 2 : 1,          
           tension: 0.6,
-          pointRadius: 0,
+          pointRadius: 2,
           pointHoverRadius: 4,
           pointHoverBorderWidth: 1,
           pointHoverBorderColor: 'red',
@@ -148,7 +154,7 @@ const Index = ({
     });
 
     return result;
-  }, [chartData, joints, valueTypes, settings.pose.poseGraphSample, settings.pose.poseGraphSampleThreshold]);
+  }, [chartData, joints, valueTypes, poseGraphSample, poseGraphSampleThreshold, poseTimeWindow, poseUpdateInterval]);
 
   // Calculamos el rango del eje X usando el tiempo normalizado
   let normalizedMaxX;
@@ -157,14 +163,14 @@ const Index = ({
     const allXValues = Object.values(chartData)
     .flatMap(data => data.anglePoints.map(point => point.x));
     normalizedMaxX = allXValues.length > 0 
-      ? Math.min(Math.max(...allXValues), settings.pose.poseTimeWindow) 
+      ? Math.min(Math.max(...allXValues), poseTimeWindow) 
       : 0;
     normalizedMinX = 0;
   } else {
     normalizedMaxX = startTimeRef.current
       ? (currentTime - startTimeRef.current) / 1000
       : currentTime / 1000;
-    normalizedMinX = normalizedMaxX - settings.pose.poseTimeWindow;
+    normalizedMinX = normalizedMaxX - poseTimeWindow;
   }
 
   useEffect(() => {
@@ -178,7 +184,7 @@ const Index = ({
       const now = performance.now();
       setCurrentTime(now);
 
-      if (now - lastUpdate >= settings.pose.poseUpdateInterval) {
+      if (now - lastUpdate >= poseUpdateInterval) {
         joints.forEach((joint) => {
           const newData = getDataForJoint(joint);
           if (newData) {
@@ -200,7 +206,7 @@ const Index = ({
                 : [];
   
               // Si aún no se ha establecido el tiempo inicial global, lo fijamos
-              if (startTimeRef.current === null) {
+              if (startTimeRef.current === null) {                
                 startTimeRef.current = newData.timestamp;
               }
   
@@ -220,12 +226,12 @@ const Index = ({
               const updatedAnglePoints = [
                 ...anglePoints,
                 { x: normalizedTime, y: newData.angle },
-              ].slice(-settings.pose.poseGraphSample);
+              ].slice(-poseGraphSample);
   
               const updatedAngularVelocityPoints = [
                 ...angularVelocityPoints,
                 { x: normalizedTime, y: newData.angularVelocity },
-              ].slice(-settings.pose.poseGraphSample);
+              ].slice(-poseGraphSample);
   
               return {
                 ...prev,
@@ -248,7 +254,7 @@ const Index = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [getDataForJoint, joints, settings.pose.poseUpdateInterval, settings.pose.poseGraphSample, settings.pose.poseGraphSampleThreshold, realTime]);
+  }, [getDataForJoint, joints, poseTimeWindow, poseUpdateInterval, poseGraphSample, poseGraphSampleThreshold, realTime]);
 
   useEffect(() => {
     if (recordedPositions) {
@@ -432,7 +438,7 @@ const Index = ({
               maxTicksLimit: 12,
               callback: (value) => {
                 // Si el valor es negativo, no se muestra nada.
-                if (Number(value) < 0) return "";
+                if (Number(value) < 0 || datasets.length === 0) return "";
                 
                 return Number(value).toFixed(0);
               },
