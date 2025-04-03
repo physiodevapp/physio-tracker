@@ -815,8 +815,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           initial={{ y: 0, opacity: 1 }}
           animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 100, damping: 15 }}
-          className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-black/40 
-          rounded-full py-2 px-4 font-bold mt-2 whitespace-nowrap">
+          className={`absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-black/40 
+          rounded-full py-2 pl-4 font-bold mt-2 whitespace-nowrap transition-[padding] ${
+            isFrozen ? "pr-8" : "pr-4"
+          }`}>
           Kinematics
           <PauseIcon className={`absolute top-1/2 -translate-y-1/2 right-4 h-6 w-6 animate-pulse ${
             !isFrozen ? "hidden" : ""

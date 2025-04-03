@@ -110,7 +110,7 @@ const Index = ({
                 type="range"
                 value={settings.pose.poseGraphSample}
                 min="50"
-                max="80"
+                max="120"
                 onChange={handleSampleChange}
               />
             </div>
@@ -123,7 +123,7 @@ const Index = ({
                 type="range"
                 value={settings.pose.poseGraphSampleThreshold}
                 min="60"
-                max="100"
+                max="140"
                 onChange={handleSampleThresholdChange}
               />
             </div>
