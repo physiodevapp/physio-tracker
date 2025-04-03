@@ -1,10 +1,9 @@
 "use client";
 
-import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, Cog6ToothIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import { useState, useRef, useEffect, useContext } from "react";
-import ForceChart from "./Graph";
+import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, Cog6ToothIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon, TrashIcon, XMarkIcon, Bars3Icon, BookmarkIcon as BookmarkIconSolid } from "@heroicons/react/24/solid";
 import { BookmarkIcon, DocumentArrowDownIcon } from "@heroicons/react/24/outline";
-import { Bars3Icon, BookmarkIcon as BookmarkIconSolid } from "@heroicons/react/24/solid";
+import ForceChart from "./Graph";
 import { useSettings } from "@/providers/Settings";
 import ForceSettings from "@/modals/ForceGraphSettings";
 import Image from "next/image";
@@ -458,12 +457,12 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 <>
                   {(sensorData.length === 0 && !showMassCalibration && !showSettings) ? (
                     <button
-                      className={`fixed w-3/4 bottom-6 left-1/2 -translate-x-1/2 bg-[#5dadec] hover:bg-gray-600 text-white font-bold text-lg px-4 py-4 rounded-lg transition ${
+                      className={`fixed w-3/4 bottom-6 left-1/2 -translate-x-1/2 bg-[#5dadec] hover:bg-gray-600 text-white font-bold text-lg px-6 py-4 rounded-lg uppercase transition ${
                         taringStatus !== 1 || showMassCalibration ? 'opacity-40' : ''
                       }`}
                       onClick={handleStartTest}
                       >
-                      Start test / exercise
+                      Start
                     </button> ) :  null
                   }
                   {sensorData.length > 0 ? (
@@ -484,10 +483,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               )}
               {(isRecording && !showMassCalibration) && (
                 <button
-                  className="fixed w-3/4 bottom-6 left-1/2 -translate-x-1/2 z-40 bg-red-500 hover:bg-red-600 text-white font-bold text-lg px-4 py-4 rounded-lg animate-pulse"
+                  className="fixed w-3/4 bottom-6 left-1/2 -translate-x-1/2 z-40 bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg px-4 py-4 rounded-lg uppercase animate-pulse"
                   onClick={handleStopTest}
                   >
-                  Stop test / exercise
+                  Stop
                 </button>
               )}
             </>
@@ -498,7 +497,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         data-element="non-swipeable"
         className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between items-center gap-6 bg-black/40 rounded-full"
         >
-        {(isConnected || (isDeviceAvailable && !device)) && (
+        {((isDeviceAvailable && !device)) && (
           <LinkIcon 
             className="w-6 h-6 text-white"
             onClick={connectToSensor}
