@@ -163,11 +163,8 @@ export const updateJoint = ({
   jointData,
   jointName,
   invert = false,
-  // velocityHistorySize = 5,
   angleHistorySize = 5,
-  // withVelocity = false,
   mirror = false,
-  // drawVelocity = true,
 }: UpdateJointParams): JointData => {
   // Buscar los keypoints de la articulación
   const jointKeypoints = getJointKeypoints(jointName, keypoints);
@@ -177,8 +174,6 @@ export const updateJoint = ({
       jointData ?? {
         angle: 0,
         lastTimestamp: performance.now(),
-        // angularVelocity: 0,
-        // angularVelocityHistory: [],
         angleHistory: [],
         color: getColorsForJoint(null),
       }
@@ -190,86 +185,10 @@ export const updateJoint = ({
   let smoothedAngle = angleNow;
   const timeNow = performance.now();
 
-  // if (withVelocity) {
-  //   if (!jointData) {
-  //     // Inicializar si no existe información previa
-  //     jointData = {
-  //       angle: angleNow,
-  //       lastTimestamp: timeNow,
-  //       angularVelocity: 0,
-  //       angularVelocityHistory: [],
-  //       angleHistory: [],
-  //       color: getColorsForJoint(null),
-  //     };
-  //   } else {
-  //     const prevData = jointData;
-  //     const anglePrev = prevData.angle;
-  //     const timePrev = prevData.lastTimestamp;
-  //     const deltaTime = (timeNow - timePrev) / 1000; // convertir a segundos
-
-  //     let angularVelocity = 0;
-  //     if (deltaTime > 0) {
-  //       angularVelocity = (angleNow - anglePrev) / deltaTime;
-  //     }
-
-  //     // Actualizar historial de velocidades
-  //     prevData.angularVelocityHistory.push(angularVelocity);
-  //     if (prevData.angularVelocityHistory.length > velocityHistorySize) {
-  //       prevData.angularVelocityHistory.shift();
-  //     }
-
-  //     // Calcular velocidad angular suavizada (media móvil)
-  //     const smoothedAngularVelocity =
-  //       prevData.angularVelocityHistory.reduce((acc, v) => acc + v, 0) /
-  //       prevData.angularVelocityHistory.length;
-
-  //     // Actualizar historial de ángulos para suavizar el valor mostrado
-  //     prevData.angleHistory.push(angleNow);
-  //     if (prevData.angleHistory.length > angleHistorySize) {
-  //       prevData.angleHistory.shift();
-  //     }
-
-  //     smoothedAngle =
-  //       prevData.angleHistory.reduce((sum, a) => sum + a, 0) /
-  //       prevData.angleHistory.length;
-
-  //     // Guardar el nuevo estado de la articulación
-  //     jointData = {
-  //       angle: angleNow,
-  //       lastTimestamp: timeNow,
-  //       angularVelocity: smoothedAngularVelocity,
-  //       angularVelocityHistory: prevData.angularVelocityHistory,
-  //       angleHistory: prevData.angleHistory,
-  //       color: getColorsForJoint(jointName),
-  //     };
-  //   }
-  // } else {
-  //   // Si solo se requiere dibujar el ángulo, se actualiza solo la información necesaria
-  //   if (!jointData) {
-  //     jointData = {
-  //       angle: angleNow,
-  //       lastTimestamp: timeNow,
-  //       angularVelocity: 0,
-  //       angularVelocityHistory: [],
-  //       angleHistory: [],
-  //       color: getColorsForJoint(null),
-  //     };
-  //   } else {
-  //     jointData = {
-  //       ...jointData,
-  //       angle: angleNow,
-  //       lastTimestamp: timeNow,
-  //       color: getColorsForJoint(jointName)
-  //     };
-  //   }
-  // }
-
   if (!jointData) {
     jointData = {
       angle: angleNow,
       lastTimestamp: timeNow,
-      // angularVelocity: 0,
-      // angularVelocityHistory: [],
       angleHistory: [],
       color: getColorsForJoint(null),
     };
@@ -295,11 +214,6 @@ export const updateJoint = ({
   // Dibujar en el canvas:
   // Siempre se dibuja el ángulo
   drawAngle({ctx, kp: kpB, angle: smoothedAngle, mirror});
-
-  // Dibujar la velocidad angular solo si withVelocity es true
-  // if (withVelocity && drawVelocity === true) {
-  //   drawAngularVelocity({ctx, kp: kpB, angularVelocity: jointData.angularVelocity, mirror});
-  // }
 
   return jointData;
 };

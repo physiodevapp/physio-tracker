@@ -11,13 +11,10 @@ import { getColorsForJoint } from "@/services/joint";
 import { useSettings } from "@/providers/Settings";
 import { lttbDownsample } from "@/services/chart";
 import CrosshairPlugin from 'chartjs-plugin-crosshair';
-// import annotationPlugin from 'chartjs-plugin-annotation';
 
 // Registro de componentes de Chart.js
 ChartJS.register(
   ...registerables,
-  // CrosshairPlugin,
-  // annotationPlugin,
 );
 
 // Definimos la interfaz para cada punto de datos
@@ -106,13 +103,6 @@ const Index = ({
     return words.join(" ");
   };
 
-  const transformKinematicsLabel = (vType: Kinematics): string => {
-    // if (vType === Kinematics.ANGULAR_VELOCITY) {
-    //   return "angular velocity";
-    // }
-    return vType; // En este caso, "angle"
-  };
-
   // Construir los datasets usando los puntos (x, y) para cada articulación y cada valueType
   // Este bloque se recalcula solo cuando cambian chartData, joints o valueTypes.
   const datasets = useMemo(() => {
@@ -125,10 +115,6 @@ const Index = ({
       const baseBackgroundColor = jointData.color.backgroundColor;
   
       valueTypes.forEach((vType) => {
-        // let dataPoints =
-        //   vType === Kinematics.ANGLE
-        //     ? jointData.anglePoints
-        //     : jointData.angularVelocityPoints;
         let dataPoints = jointData.anglePoints
 
         // Si la cantidad de puntos es mayor que el threshold deseado, los reducimos.
@@ -137,7 +123,7 @@ const Index = ({
         }
   
         result.push({
-          label: `${transformJointName(joint)} ${transformKinematicsLabel(vType)}`,
+          label: `${transformJointName(joint)} ${vType}`,
           data: dataPoints,
           borderColor: baseColor,
           backgroundColor: baseBackgroundColor,
@@ -149,7 +135,6 @@ const Index = ({
           pointHoverBorderColor: 'red',
           pointHitRadius: 0,
           parsing: false,
-          // ...(vType === Kinematics.ANGULAR_VELOCITY && { borderDash: [2, 2] }),
         });
       });
     });
@@ -229,16 +214,10 @@ const Index = ({
                 { x: normalizedTime, y: newData.angle },
               ].slice(-poseGraphSample);
   
-              // const updatedAngularVelocityPoints = [
-              //   ...angularVelocityPoints,
-              //   { x: normalizedTime, y: newData.angularVelocity },
-              // ].slice(-poseGraphSample);
-  
               return {
                 ...prev,
                 [joint]: {
                   anglePoints: updatedAnglePoints,
-                  // angularVelocityPoints: updatedAngularVelocityPoints,
                   color: newData.color,
                 },
               };
@@ -262,7 +241,6 @@ const Index = ({
       const newChartData: {
         [joint: string]: {
           anglePoints: DataPoint[];
-          // angularVelocityPoints: DataPoint[];
           color: JointColors;
         };
       } = {};
@@ -275,13 +253,8 @@ const Index = ({
             x: (d.timestamp - start) / 1000,
             y: d.angle,
           }));
-          // const angularVelocityPoints = dataArray.map((d: { timestamp: number; angularVelocity: number; }) => ({
-          //   x: (d.timestamp - start) / 1000,
-          //   y: d.angularVelocity,
-          // }));
           newChartData[joint] = {
             anglePoints,
-            // angularVelocityPoints,
             // Puedes elegir el color del primer dato o utilizar una función de colores:
             color: dataArray[0].color,
           };
@@ -333,6 +306,7 @@ const Index = ({
             labels: {
               usePointStyle: true,
               font: { size: 10 },
+              padding: 20,
               generateLabels: (chart) => {
                 const defaultLabels =
                   ChartJS.defaults.plugins.legend.labels.generateLabels(chart);
@@ -382,9 +356,6 @@ const Index = ({
                 // Recupera el label original del dataset
                 const originalLabel = context.dataset.label || "";
                 // Si el label contiene la palabra "angle" (sin distinción de mayúsculas), la quitamos
-                // const cleanedLabel = originalLabel.toLowerCase().includes("angle")
-                //   ? originalLabel.split("angle")[0].trim()
-                //   : originalLabel.split("angular velocity")[0].trim();
                 const cleanedLabel = originalLabel.split("angle")[0].trim()
     
                 // Formatea el valor del eje x (tiempo)
@@ -395,9 +366,6 @@ const Index = ({
                 // Redondeamos a entero
                 const yRounded = Math.round(context.parsed.y);
                 // Si el label original contenía "angle", añadimos la unidad de grados
-                // const yValue = originalLabel.toLowerCase().includes("angle")
-                //   ? yRounded + " º"
-                //   : yRounded + " º/s";
                 const yValue = yRounded + " º"
     
                 return [xValue, `${cleanedLabel}: ${yValue}`];
@@ -451,12 +419,6 @@ const Index = ({
             title: {
               display: false,
               text: (() => {
-                // if (
-                //   valueTypes.includes(Kinematics.ANGLE) &&
-                //   valueTypes.includes(Kinematics.ANGULAR_VELOCITY)
-                // ) {
-                //   return "Angle (°) & Angular Velocity (°/s)";
-                // }
                 if (valueTypes.includes(Kinematics.ANGLE)) {
                   return "Angle (°)";
                 }

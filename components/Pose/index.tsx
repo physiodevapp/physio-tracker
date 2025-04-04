@@ -13,7 +13,6 @@ import { CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, VideoCam
 import { BackwardIcon, ForwardIcon, PauseIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Pose";
-import PoseGraphSettingsModal from "@/modals/PoseGraphSettings";
 import PoseSettingsModal from "@/modals/PoseSettings";
 import { motion } from "framer-motion";
 
@@ -51,15 +50,12 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   
   const [
     visibleKinematics, 
-    // setVisibleKinematics
   ] = useState<Kinematics[]>([Kinematics.ANGLE]);
   const [displayGraphs, setDisplayGraphs] = useState(false);
   
   const [isPoseModalOpen, setIsPoseModalOpen] = useState(false);
   const [isPoseSettingsModalOpen, setIsPoseSettingsModalOpen] = useState(false);
-  const [isPoseGraphSettingsModalOpen, setIsPoseGraphSettingsModalOpen] = useState(false);
   
-  // const jointVelocityHistorySizeRef = useRef(settings.pose.velocityHistorySize);
   const jointAngleHistorySizeRef = useRef(settings.pose.angularHistorySize);
   
   const jointDataRef = useRef<JointDataMap>({});
@@ -82,7 +78,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     [joint in CanvasKeypointName]?: {
       timestamp: number;
       angle: number;
-      // angularVelocity: number;
       color: JointColors;
     }[];
   }>({});
@@ -96,10 +91,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const maxJointsAllowed = useMemo(() => {
     return visibleKinematics.length === 2 ? 3 : 6;
   }, [visibleKinematics]);
-  
-  // const maxKinematicsAllowed = useMemo(() => {
-  //   return settings.pose.selectedJoints.length > 0 ? Math.floor(6 / settings.pose.selectedJoints.length) : 2;
-  // }, [settings]);
   
   const detector = usePoseDetector();
 
@@ -139,10 +130,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   ], []);
 
   const handleClickOnCanvas = () => {    
-    if (isPoseSettingsModalOpen || isPoseGraphSettingsModalOpen || isMainMenuOpen) {
+    if (isPoseSettingsModalOpen || isMainMenuOpen) {
       setIsPoseSettingsModalOpen(false);
-  
-      setIsPoseGraphSettingsModalOpen(false);
   
       handleMainMenu(false);
     } 
@@ -161,14 +150,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setSelectedJoints(selectedJoints as CanvasKeypointName[]);
   }, []);
 
-  // const handleKinematicsSelection = (selectedKinematic: Kinematics) => {
-  //   setVisibleKinematics((prevKinematics) =>
-  //     prevKinematics.includes(selectedKinematic)
-  //       ? prevKinematics.filter((kinematic) => kinematic !== selectedKinematic)
-  //       : [...prevKinematics, selectedKinematic]
-  //   );
-  // };
-
   const handleGrahpsVisibility = () => {
     setDisplayGraphs((prev) =>!prev);
   };
@@ -178,11 +159,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }
 
   const handleSettingsModal = ({hide}: {hide?: boolean}) => {
-    if (displayGraphs) {
-      setIsPoseGraphSettingsModalOpen((prev) => hide ? false : !prev);
-    } else {
-      setIsPoseSettingsModalOpen((prev) => hide ? false : !prev);
-    }
+    setIsPoseSettingsModalOpen((prev) => hide ? false : !prev);
   }
 
   const handleStartRecording = async () => {
@@ -253,16 +230,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     mediaRecorderRef.current.start();
 
     setRecording(true);
-
-    // Establece un límite de grabación de 10 segundos
-    // const videoDurationThreshold = 10_000;
-    // const rate = videoRef.current?.playbackRate ?? 1;
-    // const adjustedDelay = videoDurationThreshold / rate;
-    // setTimeout(() => {
-    //   if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-    //     handleStopRecording();
-    //   }
-    // }, adjustedDelay);
   };
 
   const handleDataAvailable = (event: BlobEvent) => {
@@ -277,11 +244,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
     
     setRecording(false);
-
-    // if ((videoRef.current?.currentTime ?? 0) >= 10_000) {
-    // }
-    // videoRef.current?.pause();
-    // handleEnded();
   };
   
   const handlePreview = ({uploadedUrl}: {uploadedUrl?: string}) => {
@@ -295,17 +257,13 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   };
 
   const handleProcessVideo = () => {
-    if (isPoseSettingsModalOpen || isPoseGraphSettingsModalOpen || isMainMenuOpen) {
+    if (isPoseSettingsModalOpen || isMainMenuOpen) {
       setIsPoseSettingsModalOpen(false);
-  
-      setIsPoseGraphSettingsModalOpen(false);
   
       handleMainMenu(false);
     }
 
     if (visibleJointsRef.current.length > 0 && videoRef.current) {  
-      // handleKinematicsSelection(Kinematics.ANGULAR_VELOCITY)
-
       setProcessVideo((prev) => prev * (-1));
     } else {
       setIsPoseModalOpen(true);
@@ -425,11 +383,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         jointData,
         jointName,
         invert: jointConfig.invert,
-        // velocityHistorySize: jointVelocityHistorySizeRef.current,
         angleHistorySize: jointAngleHistorySizeRef.current,
-        // withVelocity: visibleKinematicsRef.current.includes(Kinematics.ANGULAR_VELOCITY),
         mirror: videoConstraintsRef.current.facingMode === "user",
-        drawVelocity: !videoProcessed,
       });
       jointDataRef.current[jointName] = updatedData;
   
@@ -441,7 +396,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         recordedPositionsRef.current[jointName]!.push({
           timestamp: videoRef.current!.currentTime * 1000, // updatedData.lastTimestamp,
           angle: updatedData.angle,
-          // angularVelocity: updatedData.angularVelocity,
           color: updatedData.color
         });
       }
@@ -493,7 +447,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }, [videoProcessed])
   
   useEffect(() => {
-    // jointVelocityHistorySizeRef.current = settings.pose.velocityHistorySize;
     jointAngleHistorySizeRef.current = settings.pose.angularHistorySize;
     visibleJointsRef.current = settings.pose.selectedJoints;
   }, [settings])
@@ -508,13 +461,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   useEffect(() => {
     if (displayGraphs) {
-      setIsPoseSettingsModalOpen(false);
-
       if (!videoUrl) {
         setIsFrozen(false);
       }
-    } else {
-      setIsPoseGraphSettingsModalOpen(false);
     }
   }, [displayGraphs]);
 
@@ -958,16 +907,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 }`}
                 onClick={() => !recording && handlePoseModal()}
                 />
-              {/* {maxKinematicsAllowed > 1 && (
-                <p 
-                  className={`h-6 w-6 text-white text-center  cursor-pointer lowercase ${
-                    visibleKinematics.length > 1 ? 'leading-[110%] border-2 rounded-full p-[0.1rem] animate-pulse' : 'text-[2rem] leading-6'
-                  } ${
-                    recording ? 'opacity-40' : ''
-                  }`}
-                  onClick={() => !recording && handleKinematicsSelection(Kinematics.ANGULAR_VELOCITY)}
-                  >v̅</p>
-              )} */}
               <Cog6ToothIcon 
                 className={`h-6 w-6 text-white cursor-pointer ${
                   recording ? 'opacity-40' : ''
@@ -998,11 +937,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               )}
           </section>
         )}
-
-        <PoseSettingsModal 
-          isModalOpen={isPoseSettingsModalOpen}
-          showExtraSettings={Boolean(videoUrl)}
-          />
       </div> 
 
       <PoseModal 
@@ -1014,34 +948,33 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         onSelectionChange={handleJointSelection} 
         />
 
-      {displayGraphs && (
-        <>
-          <PoseGraph 
-            joints={settings.pose.selectedJoints}
-            valueTypes={visibleKinematics}
-            getDataForJoint={(joint) => {
-              const data = jointDataRef.current[joint];
-                return data
-                  ? { 
-                      timestamp: data.lastTimestamp, 
-                      angle: data.angle, 
-                      // angularVelocity: data.angularVelocity,
-                      color: data.color
-                    }
-                  : null;
-            }}
-            recordedPositions={videoProcessed ? recordedPositionsRef.current : undefined}
-            onPointClick={handleChartValueX}
-            onVerticalLineChange={handleChartValueX}
-            verticalLineValue={videoCurrentTime}
-            parentStyles="relative z-0 h-[50dvh]"
-            />
+      <PoseSettingsModal 
+        displayGraphs={displayGraphs}
+        isModalOpen={isPoseSettingsModalOpen}
+        videoUrl={videoUrl}
+        videoProcessed={videoProcessed}
+        />
 
-          <PoseGraphSettingsModal 
-            isModalOpen={isPoseGraphSettingsModalOpen}
-            videoProcessed={videoProcessed}
-            />
-        </>
+      {displayGraphs && (
+        <PoseGraph 
+          joints={settings.pose.selectedJoints}
+          valueTypes={visibleKinematics}
+          getDataForJoint={(joint) => {
+            const data = jointDataRef.current[joint];
+              return data
+                ? { 
+                    timestamp: data.lastTimestamp, 
+                    angle: data.angle, 
+                    color: data.color
+                  }
+                : null;
+          }}
+          recordedPositions={videoProcessed ? recordedPositionsRef.current : undefined}
+          onPointClick={handleChartValueX}
+          onVerticalLineChange={handleChartValueX}
+          verticalLineValue={videoCurrentTime}
+          parentStyles="relative z-0 h-[50dvh]"
+          />
       )}
 
       {infoMessage.show ? (

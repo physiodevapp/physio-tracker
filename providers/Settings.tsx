@@ -7,7 +7,6 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 interface PoseSettings {
   selectedJoints: CanvasKeypointName[];
   angularHistorySize: number;
-  // velocityHistorySize: number;
   poseTimeWindow: number;
   poseUpdateInterval: number;
   poseGraphSample: number;
@@ -67,7 +66,6 @@ interface SettingsContextProps {
   // Setters para pose
   setSelectedJoints: (joints: CanvasKeypointName[]) => void;
   setAngularHistorySize: (size: number) => void;
-  // setPoseVelocityHistorySize: (size: number) => void;
   setPoseTimeWindow: (timeInSeconds: number) => void;
   setPoseUpdateInterval: (timeInMiliseconds: number) => void;
   setPoseGraphSample: (sample: number) => void;
@@ -123,7 +121,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     pose: {
       selectedJoints: [],
       angularHistorySize: 5,
-      // velocityHistorySize: 10,
       poseTimeWindow: 10,
       poseUpdateInterval: 300,
       poseGraphSample: 50,
@@ -183,11 +180,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       setSettings(prev => ({ ...prev, pose: { ...prev.pose, angularHistorySize: size } }));
     }
   };
-  // const setPoseVelocityHistorySize = (size: number) => {
-  //   if (size >= 1 && size <= 20) {
-  //     setSettings(prev => ({ ...prev, pose: { ...prev.pose, velocityHistorySize: size } }));
-  //   }
-  // };
   const setPoseTimeWindow = (timeInSeconds: number) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseTimeWindow: timeInSeconds } }));
   };
@@ -208,7 +200,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       ...prev,
       pose: {
         ...prev.pose,
-        // velocityHistorySize: defaultConfig.pose.velocityHistorySize,
         angularHistorySize: defaultConfig.pose.angularHistorySize,
         ...(extraReset && {
           processingSpeed: defaultConfig.pose.processingSpeed,
@@ -289,7 +280,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         settings,
         setSelectedJoints,
         setAngularHistorySize,
-        // setPoseVelocityHistorySize,
         setPoseTimeWindow,
         setPoseUpdateInterval,
         setPoseGraphSample,

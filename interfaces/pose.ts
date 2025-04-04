@@ -17,7 +17,6 @@ export enum CanvasKeypointName {
 
 export enum Kinematics {
   ANGLE = "angle",
-  // ANGULAR_VELOCITY = "angularVelocity",
 }
 
 export interface PoseSettings {
@@ -37,8 +36,6 @@ export interface JointColors {
 export interface JointData {
   angle: number;
   lastTimestamp: number;
-  // angularVelocity: number;
-  // angularVelocityHistory: number[];
   angleHistory: number[];
   color: JointColors;
 }
@@ -51,11 +48,8 @@ export interface UpdateJointParams {
   jointData: JointData | null;
   jointName: CanvasKeypointName;
   invert?: boolean;
-  // velocityHistorySize?: number;
   angleHistorySize?: number;
-  // withVelocity?: boolean;
   mirror?: boolean;
-  drawVelocity?: boolean
 }
 
 export type JointConfigMap = Partial<{ [key in CanvasKeypointName]: { invert: boolean } }>;
