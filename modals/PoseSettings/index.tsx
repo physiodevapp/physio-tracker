@@ -14,14 +14,14 @@ const Index = ({
   const { 
     settings, 
     setAngularHistorySize, 
-    setPoseVelocityHistorySize,
+    // setPoseVelocityHistorySize,
     setPoseUpdateInterval,
     setProcessingSpeed,
     resetPoseSettings,
   } = useSettings();
   const {
     angularHistorySize,
-    velocityHistorySize,
+    // velocityHistorySize,
     poseUpdateInterval,
     processingSpeed,
   } = settings.pose;
@@ -34,13 +34,13 @@ const Index = ({
     setAngularHistorySize(value);
   };
   
-  const handleAngularVelocityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Number(event.target.value);
+  // const handleAngularVelocityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  //   const value = Number(event.target.value);
 
-    setPoseVelocityHistorySize(value);
+  //   setPoseVelocityHistorySize(value);
 
-    setPoseVelocityHistorySize(value);
-  };
+  //   setPoseVelocityHistorySize(value);
+  // };
 
   const handleUpdateIntervalChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       const newHz = parseInt(event.target.value, 10); // Obtenemos el valor en Hz desde el slider
@@ -87,7 +87,7 @@ const Index = ({
                 onChange={handleAngleChange}
                 />
             </div>
-            <div className='flex-1 flex flex-col justify-between gap-2'>
+            {/* <div className='flex-1 flex flex-col justify-between gap-2'>
               <label
                 htmlFor='velocity-history'
                 className='text-white'
@@ -102,7 +102,7 @@ const Index = ({
                 max="20"
                 onChange={handleAngularVelocityChange}
                 />
-            </div>
+            </div> */}
           </div>
           {showExtraSettings ? (
             <div className='flex w-full gap-6'>
@@ -111,7 +111,7 @@ const Index = ({
                   htmlFor='processing-speed'
                   className='text-white'
                   >
-                  Processing<span className='align-sub uppercase text-[0.6rem]'> speed</span>: {processingSpeed}
+                  Processing<span className='align-sub uppercase text-[0.6rem]'> speed</span>: {processingSpeed.toFixed(1)}
                 </label>
                 <input
                   id='processing-speed'

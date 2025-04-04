@@ -49,14 +49,17 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   
   const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
   
-  const [visibleKinematics, setVisibleKinematics] = useState<Kinematics[]>([Kinematics.ANGLE]);
+  const [
+    visibleKinematics, 
+    // setVisibleKinematics
+  ] = useState<Kinematics[]>([Kinematics.ANGLE]);
   const [displayGraphs, setDisplayGraphs] = useState(false);
   
   const [isPoseModalOpen, setIsPoseModalOpen] = useState(false);
   const [isPoseSettingsModalOpen, setIsPoseSettingsModalOpen] = useState(false);
   const [isPoseGraphSettingsModalOpen, setIsPoseGraphSettingsModalOpen] = useState(false);
   
-  const jointVelocityHistorySizeRef = useRef(settings.pose.velocityHistorySize);
+  // const jointVelocityHistorySizeRef = useRef(settings.pose.velocityHistorySize);
   const jointAngleHistorySizeRef = useRef(settings.pose.angularHistorySize);
   
   const jointDataRef = useRef<JointDataMap>({});
@@ -79,7 +82,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     [joint in CanvasKeypointName]?: {
       timestamp: number;
       angle: number;
-      angularVelocity: number;
+      // angularVelocity: number;
       color: JointColors;
     }[];
   }>({});
@@ -94,9 +97,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     return visibleKinematics.length === 2 ? 3 : 6;
   }, [visibleKinematics]);
   
-  const maxKinematicsAllowed = useMemo(() => {
-    return settings.pose.selectedJoints.length > 0 ? Math.floor(6 / settings.pose.selectedJoints.length) : 2;
-  }, [settings]);
+  // const maxKinematicsAllowed = useMemo(() => {
+  //   return settings.pose.selectedJoints.length > 0 ? Math.floor(6 / settings.pose.selectedJoints.length) : 2;
+  // }, [settings]);
   
   const detector = usePoseDetector();
 
@@ -158,13 +161,13 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setSelectedJoints(selectedJoints as CanvasKeypointName[]);
   }, []);
 
-  const handleKinematicsSelection = (selectedKinematic: Kinematics) => {
-    setVisibleKinematics((prevKinematics) =>
-      prevKinematics.includes(selectedKinematic)
-        ? prevKinematics.filter((kinematic) => kinematic !== selectedKinematic)
-        : [...prevKinematics, selectedKinematic]
-    );
-  };
+  // const handleKinematicsSelection = (selectedKinematic: Kinematics) => {
+  //   setVisibleKinematics((prevKinematics) =>
+  //     prevKinematics.includes(selectedKinematic)
+  //       ? prevKinematics.filter((kinematic) => kinematic !== selectedKinematic)
+  //       : [...prevKinematics, selectedKinematic]
+  //   );
+  // };
 
   const handleGrahpsVisibility = () => {
     setDisplayGraphs((prev) =>!prev);
@@ -301,6 +304,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
 
     if (visibleJointsRef.current.length > 0 && videoRef.current) {  
+      // handleKinematicsSelection(Kinematics.ANGULAR_VELOCITY)
+
       setProcessVideo((prev) => prev * (-1));
     } else {
       setIsPoseModalOpen(true);
@@ -420,9 +425,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         jointData,
         jointName,
         invert: jointConfig.invert,
-        velocityHistorySize: jointVelocityHistorySizeRef.current,
+        // velocityHistorySize: jointVelocityHistorySizeRef.current,
         angleHistorySize: jointAngleHistorySizeRef.current,
-        withVelocity: visibleKinematicsRef.current.includes(Kinematics.ANGULAR_VELOCITY),
+        // withVelocity: visibleKinematicsRef.current.includes(Kinematics.ANGULAR_VELOCITY),
         mirror: videoConstraintsRef.current.facingMode === "user",
         drawVelocity: !videoProcessed,
       });
@@ -436,7 +441,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         recordedPositionsRef.current[jointName]!.push({
           timestamp: videoRef.current!.currentTime * 1000, // updatedData.lastTimestamp,
           angle: updatedData.angle,
-          angularVelocity: updatedData.angularVelocity,
+          // angularVelocity: updatedData.angularVelocity,
           color: updatedData.color
         });
       }
@@ -488,7 +493,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }, [videoProcessed])
   
   useEffect(() => {
-    jointVelocityHistorySizeRef.current = settings.pose.velocityHistorySize;
+    // jointVelocityHistorySizeRef.current = settings.pose.velocityHistorySize;
     jointAngleHistorySizeRef.current = settings.pose.angularHistorySize;
     visibleJointsRef.current = settings.pose.selectedJoints;
   }, [settings])
@@ -953,7 +958,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 }`}
                 onClick={() => !recording && handlePoseModal()}
                 />
-              {maxKinematicsAllowed > 1 && (
+              {/* {maxKinematicsAllowed > 1 && (
                 <p 
                   className={`h-6 w-6 text-white text-center  cursor-pointer lowercase ${
                     visibleKinematics.length > 1 ? 'leading-[110%] border-2 rounded-full p-[0.1rem] animate-pulse' : 'text-[2rem] leading-6'
@@ -962,7 +967,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   }`}
                   onClick={() => !recording && handleKinematicsSelection(Kinematics.ANGULAR_VELOCITY)}
                   >v̅</p>
-              )}
+              )} */}
               <Cog6ToothIcon 
                 className={`h-6 w-6 text-white cursor-pointer ${
                   recording ? 'opacity-40' : ''
@@ -1020,7 +1025,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   ? { 
                       timestamp: data.lastTimestamp, 
                       angle: data.angle, 
-                      angularVelocity: data.angularVelocity ,
+                      // angularVelocity: data.angularVelocity,
                       color: data.color
                     }
                   : null;
