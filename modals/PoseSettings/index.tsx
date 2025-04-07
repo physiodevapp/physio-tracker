@@ -194,7 +194,7 @@ const Index = ({
               type="range"
               value={poseGraphSample}
               min="50"
-              max="200"
+              max="300"
               onChange={handleSampleChange}
               disabled={!videoProcessed || !displayGraphs}
               />
@@ -213,7 +213,7 @@ const Index = ({
               type="range"
               value={poseGraphSampleThreshold}
               min="60"
-              max="220"
+              max="320"
               onChange={handleSampleThresholdChange}
               disabled={!videoProcessed || !displayGraphs}
             />

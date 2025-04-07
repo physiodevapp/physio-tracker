@@ -24,18 +24,10 @@ interface IndexProps {
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const { settings, setSelectedJoints } = useSettings();
 
-  const [videoReady, setVideoReady] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
 
-  const [isSeekingFromChart, setIsSeekingFromChart] = useState<{
-    isSeeking: boolean;
-    newValue: null | {
-      x: number;
-      values: { label: string; y: number }[];
-    }
-  }>({
-    isSeeking: false,
-    newValue: null,
-  });
+  // const isSeekingManually = useRef(false);
+  const lastXRef = useRef<number | null>(null);
   const isSeekingFromChartRef  = useRef<{
     isSeeking: boolean;
     newValue: null | {
@@ -160,15 +152,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       }
 
       if (videoProcessed && videoUrl) {
-        // console.log('object')
         isSeekingFromChartRef.current = {
           isSeeking: false,
           newValue: null,
         };
-        setIsSeekingFromChart({
-          isSeeking: false,
-          newValue: null,
-        });
 
         togglePlayback({});
       }
@@ -344,47 +331,70 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     values: { label: string; y: number }[];
   }) => {
     const video = videoRef.current;
-    if (video) {
-      if (!video.paused) {
-        if (videoProcessed && videoUrl) {
-          // console.log('object')
-          isSeekingFromChartRef.current = {
-            isSeeking: false,
-            newValue: null,
-          };
-          setIsSeekingFromChart({
-            isSeeking: false,
-            newValue: null,
-          });
-  
-          togglePlayback({});
-        }
-      }
-      
-      video.currentTime = newValue.x;
-      
-      setTimeout(async () => {
-        // console.log('newValue 1 ', newValue)
-        if (video!.paused) {
-          isSeekingFromChartRef.current = {
-            isSeeking: true,
-            newValue: newValue,
-          };
-          // console.log(isSeekingFromChartRef.current.newValue)
-          setIsSeekingFromChart({
-            isSeeking: true,
-            newValue: newValue,
-          });
-        }
+    if (!video) return;
 
-        await analyzeSingleFrame();
-      }, 260);
+    if (newValue.x === lastXRef.current) return; 
+    lastXRef.current = newValue.x;
+    // isSeekingManually.current = true;
+
+    
+    if (!video.paused) {
+      if (videoProcessed && videoUrl) {
+        // console.log('object')
+        isSeekingFromChartRef.current = {
+          isSeeking: false,
+          newValue: null,
+        };
+        
+        togglePlayback({});
+      }
     }
+    
+    video.currentTime = newValue.x;
+    setVideoCurrentTime(video.currentTime);
+    // return;
+    
+    setTimeout(async () => {
+      // console.log('newValue 1 ', newValue)
+      if (video!.paused) {
+        isSeekingFromChartRef.current = {
+          isSeeking: true,
+          newValue: newValue,
+        };
+      }
+
+      await analyzeSingleFrame();
+      
+      // isSeekingManually.current = false;
+    }, 400);
   };
 
-  useEffect(() => {
-    isSeekingFromChartRef.current = isSeekingFromChart
-  }, [isSeekingFromChart])
+  const updateIsSeekingFromCurrentVideoTime = (timestampMs: number) => {
+    // Obtener el ángulo más cercano por articulación
+    const values: { label: string; y: number }[] = [];
+    Object.entries(recordedPositionsRef.current).forEach(([jointName, history]) => {
+      if (!history?.length) return;
+
+      // Buscar el ángulo con timestamp más cercano al tiempo actual
+      const closest = history.reduce((prev, curr) =>
+        Math.abs(curr.timestamp - timestampMs) < Math.abs(prev.timestamp - timestampMs)
+          ? curr
+          : prev
+      );
+
+      if (closest) {
+        values.push({ label: jointName, y: closest.angle });
+      }
+    });
+    // Actualizar isSeekingFromChartRef
+    isSeekingFromChartRef.current = {
+      isSeeking: true,
+      newValue: {
+        x: timestampMs,
+        values,
+      },
+    };
+  }
 
   const rewindStep = () => {
     if (videoRef.current!.currentTime <= 0) return;
@@ -397,30 +407,52 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
       videoRef.current.currentTime = Math.max(videoRef.current.currentTime - stepTime, 0);
 
-      setTimeout(() => {
-        analyzeSingleFrame();
-      }, 100);
+      // Obtener el ángulo más cercano por articulación
+      const timestampMs = videoRef.current.currentTime * 1000;
+      updateIsSeekingFromCurrentVideoTime(timestampMs);
+
+      setTimeout(async () => {
+        await analyzeSingleFrame();
+      }, 200);
     }
   };
 
   const forwardStep = () => {
     if (videoRef.current!.currentTime >= videoRef.current!.duration) return;
-
+    
     togglePlayback({action: "pause"});
-
+    
     const fps = (estimatedFps ?? 0) < 30 ? 30 : estimatedFps;
     if (videoRef.current && fps) {
       const stepTime = 1 / fps;
       
       videoRef.current.currentTime = Math.min(videoRef.current.currentTime + stepTime, videoRef.current.duration);
 
-      setTimeout(() => {
-        analyzeSingleFrame();
-      }, 100);
+      // Obtener el ángulo más cercano por articulación
+      const timestampMs = videoRef.current.currentTime * 1000;
+      updateIsSeekingFromCurrentVideoTime(timestampMs);      
+      
+      setTimeout(async () => {
+        await analyzeSingleFrame();
+      }, 200);
     }
   };
 
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+  
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+  
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+  
+
   const handleRemoveRecord = () => {
+    setIsCameraReady(false);
+    clearCanvas();
+
     setVideoUrl(null);
 
     setEstimatedFps(null);
@@ -500,8 +532,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   useEffect(() => { 
     if (videoRef.current) {
       setDisplayGraphs(false);
-
+      
+      videoProcessedRef.current = false;
       setVideoProcessed(false);
+      setProcessVideo(1);
 
       togglePlayback({restart: true});
     }
@@ -509,11 +543,21 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   useEffect(() => {
     if (videoUrl === null) {
-      recordedPositionsRef.current = {};
-
-      setVideoProcessed(false);
-
       setDisplayGraphs(false);
+
+      isSeekingFromChartRef.current = {
+        isSeeking: false,
+        newValue: null
+      };
+  
+      jointDataRef.current = {};
+      recordedPositionsRef.current = {};
+  
+      setCapturedChunks([]);
+      
+      videoProcessedRef.current = false;
+      setVideoProcessed(false);
+      setProcessVideo(1);
     }
   }, [videoUrl]);
 
@@ -751,6 +795,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               });
 
               // Calcular ángulo entre tres keypoints
+              if (videoRef.current && videoProcessedRef.current) {
+                const timestampMs = videoRef.current.currentTime * 1000;
+                updateIsSeekingFromCurrentVideoTime(timestampMs);
+              }
               updateMultipleJoints({ctx, keypoints, jointNames: visibleJointsRef.current, jointDataRef, jointConfigMap});
             }
           }
@@ -805,7 +853,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
   };
 
-  const handleLoadedMetadata = () => {    
+  const handleLoadedMetadata = () => {  
     if (videoRef.current) {
       const duration = videoRef.current.duration;
       if (duration <= 10) {
@@ -822,15 +870,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   };
 
   const handleOnTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
+    // if (isSeekingManually.current) return;
     setVideoCurrentTime(e.currentTarget.currentTime);
   };
 
   return (
     <>
-      {(!detector && !videoReady) ? (
+      {(!detector && !isCameraReady) ? (
           <div className="fixed w-full h-dvh z-50 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
-            <p>{(!videoReady && detector) ? "Initializing camera..." : "Setting up Tensorflow..."}</p>
-            {(!videoReady && detector) ? 
+            <p>{(!isCameraReady && detector) ? "Initializing camera..." : "Setting up Tensorflow..."}</p>
+            {(!isCameraReady && detector) ? 
               <ArrowPathIcon className="w-8 h-8 animate-spin"/>
               : <CloudArrowDownIcon className="w-8 h-8 animate-bounce"/>
             }
@@ -870,12 +919,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             videoConstraints={videoConstraints}
             muted
             mirrored={videoConstraints.facingMode === "user"}
-            onUserMedia={() => setVideoReady(true)}
+            onUserMedia={() => setIsCameraReady(true)}
             />
         )}
         <canvas 
           ref={canvasRef} 
-          className={`absolute object-cover h-full w-full`} 
+          className={`absolute object-cover h-full w-full ${
+            !isCameraReady ? "hidden" : ""
+          }`} 
           onClick={handleClickOnCanvas}/>
 
         {(!videoUrl || (videoProcessed || videoRef.current?.paused)) && (
@@ -1024,27 +1075,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
       {displayGraphs ? (
         <div className="relative">
-          <div className="absolute z-10 top-1 w-full flex justify-center gap-4 text-[0.8rem] bg-white text-gray-500">
-            {isSeekingFromChartRef.current?.newValue?.values.map(({ label, y }) => {
-              // Formatea el label
-              const formattedLabel = label
-                .replace(/^right_/, 'R ')
-                .replace(/^left_/, 'L ')
-                .replace('_', ' ');
-
-              const color = jointDataRef.current?.[label as CanvasKeypointName]?.color?.borderColor ?? '#999';
-
-              return (
-                <div key={label} className="flex items-center gap-1">
-                  <span
-                    className="inline-block w-3 h-3 rounded-full mb-[0.2rem]"
-                    style={{ backgroundColor: color }}
-                  ></span>
-                  <span>{formattedLabel}: {Math.round(y)}º</span>
-                </div>
-              );
-            })}
-          </div>
           <PoseGraph 
             joints={settings.pose.selectedJoints}
             valueTypes={visibleKinematics}
@@ -1060,7 +1090,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             }}
             recordedPositions={videoProcessed ? recordedPositionsRef.current : undefined}
             onVerticalLineChange={handleChartValueX}
-            verticalLineValue={videoCurrentTime}
+            // verticalLineValue={videoCurrentTime}
             parentStyles="relative z-0 h-[50dvh]"
             />
         </div> ) : null

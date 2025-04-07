@@ -123,8 +123,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       angularHistorySize: 5,
       poseTimeWindow: 10,
       poseUpdateInterval: 300,
-      poseGraphSample: 50,
-      poseGraphSampleThreshold: 60,
+      poseGraphSample: 100,
+      poseGraphSampleThreshold: 120,
       processingSpeed: 0.4,
     },
     color: {

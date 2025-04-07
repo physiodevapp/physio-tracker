@@ -3,14 +3,13 @@ import {
   Chart as ChartJS,
   ChartDataset,
   ChartConfiguration,
+  ChartEvent,
   registerables,
-  Plugin as ChartPlugin,
 } from "chart.js";
 import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
 import { getColorsForJoint } from "@/services/joint";
 import { useSettings } from "@/providers/Settings";
 import { lttbDownsample } from "@/services/chart";
-import CrosshairPlugin from 'chartjs-plugin-crosshair';
 
 // Registro de componentes de Chart.js
 ChartJS.register(
@@ -50,6 +49,45 @@ interface IndexProps {
   recordedPositions?: RecordedPositions;
   verticalLineValue?: number;
 }
+
+const customCrosshairPlugin = (realTime: boolean) => ({
+  id: 'customCrosshair',
+  afterEvent(chart: ChartJS & { _customCrosshairX?: number }, args: { event: ChartEvent }) {
+    if (realTime) return;
+
+    const { chartArea } = chart;
+    const { event } = args;
+
+    if (!event || event.x == null || event.y == null) return;
+
+    if (
+      event.x >= chartArea.left &&
+      event.x <= chartArea.right &&
+      event.y >= chartArea.top &&
+      event.y <= chartArea.bottom
+    ) {
+      chart._customCrosshairX = event.x;
+    } else {
+      chart._customCrosshairX = undefined;
+    }
+  },
+  afterDraw(chart: ChartJS & { _customCrosshairX?: number }) {
+    if (realTime) return;
+
+    const x = chart._customCrosshairX;
+    if (!x) return;
+
+    const { ctx, chartArea } = chart;
+    ctx.save();
+    ctx.strokeStyle = '#F66';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, chartArea.top);
+    ctx.lineTo(x, chartArea.bottom);
+    ctx.stroke();
+    ctx.restore();
+  },
+});
 
 const Index = ({
   joints,
@@ -285,7 +323,7 @@ const Index = ({
         datasets: datasets,
       },
       plugins: [
-        CrosshairPlugin as ChartPlugin,
+        customCrosshairPlugin(realTime)
       ],
       options: {
         responsive: true,
@@ -295,16 +333,37 @@ const Index = ({
           mode: "index", //"nearest",
           axis: "x",
           intersect: false,
-        },
+          includeInvisible: false,
+        },       
         plugins: {
           legend: {
-            display: false,
+            display: true,
             position: "top",
             labels: {
               usePointStyle: true,
               font: { size: 10 },
-              padding: 20,                         
+              padding: 20,  
+              generateLabels: (chart) => {
+                const defaultLabels = ChartJS.defaults.plugins.legend.labels.generateLabels(chart);
+        
+                return defaultLabels.map((label: { text: string; }) => {
+                  const rawText = label.text.toLowerCase();
+        
+                  const formattedLabel = rawText
+                    .replace(/^right\s/, "R ")
+                    .replace(/^left\s/, "L ")
+                    .replace(/\s*angle$/, "") // Elimina "angle" al final
+                    .replace(/\s+/g, " ")     // Limpieza de espacios extra
+                    .trim();
+        
+                  return {
+                    ...label,
+                    text: formattedLabel,
+                  };
+                });
+              },
             },
+            onClick: () => {},                       
           },
           tooltip: {
             enabled: false,
@@ -328,26 +387,9 @@ const Index = ({
                     y: dp.parsed.y,
                   };
                 });
-                
+
                 onVerticalLineChange({ x, values });
               }
-            },
-          },
-          crosshair: realTime ? false : {
-            line: {
-              color: '#F66', 
-              width: 1
-            },
-            sync: {
-              // Habilita la sincronización con otros gráficos
-              enabled: true,
-              // Grupo de gráficos para sincronizar
-              group: 1,
-              // Suprime tooltips al mostrar un tracer sincronizado
-              suppressTooltips: false,
-            },
-            zoom: {
-              enabled: false,  
             },
           }
         },
@@ -418,7 +460,7 @@ const Index = ({
       >
         <canvas 
           ref={canvasRef} 
-          className='bg-white px-2 pt-6 pb-2'
+          className='bg-white px-2 pb-2'
           />
     </div>
   );
