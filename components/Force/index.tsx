@@ -456,14 +456,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               {(!isRecording || showMassCalibration) && (
                 <>
                   {(sensorData.length === 0 && !showMassCalibration && !showSettings) ? (
-                    <button
-                      className={`fixed w-3/4 bottom-6 left-1/2 -translate-x-1/2 bg-[#5dadec] hover:bg-gray-600 text-white font-bold text-lg px-6 py-4 rounded-lg uppercase transition ${
-                        taringStatus !== 1 || showMassCalibration ? 'opacity-40' : ''
-                      }`}
-                      onClick={handleStartTest}
-                      >
-                      Start
-                    </button> ) :  null
+                    <div className="fixed bottom-4 left-0 right-0 px-2 flex items-center">
+                      <button
+                        className={`w-full bg-[#5dadec] hover:bg-[#5dadec]/80 text-white font-bold text-lg px-6 py-2 rounded-lg uppercase transition ${
+                          taringStatus !== 1 || showMassCalibration ? 'opacity-40' : ''
+                        }`}
+                        onClick={handleStartTest}
+                        >
+                        Start
+                      </button>
+                    </div> ) : null
                   }
                   {sensorData.length > 0 ? (
                     <TrashIcon
@@ -481,14 +483,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   )}
                 </>
               )}
-              {(isRecording && !showMassCalibration) && (
-                <button
-                  className="fixed w-3/4 bottom-6 left-1/2 -translate-x-1/2 z-40 bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg px-4 py-4 rounded-lg uppercase animate-pulse"
-                  onClick={handleStopTest}
-                  >
-                  Stop
-                </button>
-              )}
+              {(isRecording && !showMassCalibration) ? (
+                <div className="fixed z-40 bottom-4 left-0 right-0 px-2 flex items-center">
+                  <button
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg px-4 py-2 rounded-lg uppercase animate-pulse"
+                    onClick={handleStopTest}
+                    >
+                    Stop
+                  </button>
+                </div> ) : null 
+              }
             </>
           )}
         </>

@@ -50,10 +50,10 @@ interface IndexProps {
   verticalLineValue?: number;
 }
 
-const customCrosshairPlugin = (realTime: boolean) => ({
+const customCrosshairPlugin = (isActive: boolean = true) => ({
   id: 'customCrosshair',
   afterEvent(chart: ChartJS & { _customCrosshairX?: number }, args: { event: ChartEvent }) {
-    if (realTime) return;
+    if (isActive) return;
 
     const { chartArea } = chart;
     const { event } = args;
@@ -72,7 +72,7 @@ const customCrosshairPlugin = (realTime: boolean) => ({
     }
   },
   afterDraw(chart: ChartJS & { _customCrosshairX?: number }) {
-    if (realTime) return;
+    if (isActive) return;
 
     const x = chart._customCrosshairX;
     if (!x) return;
@@ -323,7 +323,7 @@ const Index = ({
         datasets: datasets,
       },
       plugins: [
-        customCrosshairPlugin(realTime)
+        customCrosshairPlugin(!realTime)
       ],
       options: {
         responsive: true,

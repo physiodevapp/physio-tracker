@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {Chart as ChartJS, ChartConfiguration, registerables, Plugin as ChartPlugin} from 'chart.js'; 
-import CrosshairPlugin from 'chartjs-plugin-crosshair';
+import {Chart as ChartJS, ChartEvent, ChartConfiguration, registerables} from 'chart.js'; 
+// import CrosshairPlugin from 'chartjs-plugin-crosshair';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { lttbDownsample } from '@/services/chart';
 import { ForceSettings } from '@/providers/Settings';
@@ -29,6 +29,45 @@ interface IndexProps {
   settings: ForceSettings;
   isRecording: boolean;
 }
+
+const customCrosshairPlugin = (isActive: boolean = true) => ({
+  id: 'customCrosshair',
+  afterEvent(chart: ChartJS & { _customCrosshairX?: number }, args: { event: ChartEvent }) {
+    if (!isActive) return;
+
+    const { chartArea } = chart;
+    const { event } = args;
+
+    if (!event || event.x == null || event.y == null) return;
+
+    if (
+      event.x >= chartArea.left &&
+      event.x <= chartArea.right &&
+      event.y >= chartArea.top &&
+      event.y <= chartArea.bottom
+    ) {
+      chart._customCrosshairX = event.x;
+    } else {
+      chart._customCrosshairX = undefined;
+    }
+  },
+  afterDraw(chart: ChartJS & { _customCrosshairX?: number }) {
+    if (!isActive) return;
+
+    const x = chart._customCrosshairX;
+    if (!x) return;
+
+    const { ctx, chartArea } = chart;
+    ctx.save();
+    ctx.strokeStyle = '#F66';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, chartArea.top);
+    ctx.lineTo(x, chartArea.bottom);
+    ctx.stroke();
+    ctx.restore();
+  },
+});
 
 const Index: React.FC<IndexProps> = ({
   sensorData,
@@ -77,21 +116,18 @@ const Index: React.FC<IndexProps> = ({
     cycleCount: number | null; 
     cycleDuration: number | null; 
     cycleAmplitude: number | null}[]>([]);
-  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     if (cycleCount === 0) {
       setCycleData([]);
-
-      setIsExpanded(false);
     };
 
     setCycleData(prevData => {
         const newCycle = { 
-            workLoad: workLoad, 
-            cycleCount, 
-            cycleDuration, 
-            cycleAmplitude 
+          workLoad: workLoad, 
+          cycleCount, 
+          cycleDuration, 
+          cycleAmplitude 
         };
 
         const updatedData = [...prevData, newCycle];
@@ -130,7 +166,7 @@ const Index: React.FC<IndexProps> = ({
         divElement.removeEventListener("scroll", checkScroll);
       }
     };
-  }, [cycleData, isExpanded]);
+  }, [cycleData]);
 
   // ---- Ventana de tiempo de 10 segundos ----
   const timeWindow = 10_000; // 10 segundos en ms
@@ -147,7 +183,8 @@ const Index: React.FC<IndexProps> = ({
     () => ({
       type: "line",
       plugins: [
-        CrosshairPlugin as ChartPlugin,
+        // CrosshairPlugin as ChartPlugin,
+        customCrosshairPlugin(),
       ],
       data: {
         labels: downsampledData.map(point => point.x),
@@ -166,7 +203,7 @@ const Index: React.FC<IndexProps> = ({
             pointHitRadius: 0,
           },
         ],
-      }, 
+      },
       options: {
         responsive: true,
         animation: false,
@@ -183,23 +220,23 @@ const Index: React.FC<IndexProps> = ({
           legend: {
             display: false,
           },
-          crosshair: {
-            line: {
-              color: (isRecording || sensorData.length === 0) ? 'transparent' : '#F66', 
-              width: 1
-            },
-            sync: {
-              // Habilita la sincronización con otros gráficos
-              enabled: true,
-              // Grupo de gráficos para sincronizar
-              group: 1,
-              // Suprime tooltips al mostrar un tracer sincronizado
-              suppressTooltips: false,
-            },
-            zoom: {
-              enabled: false,  
-            },
-          },
+          // crosshair: {
+          //   line: {
+          //     color: (isRecording || sensorData.length === 0) ? 'transparent' : '#F66', 
+          //     width: 1
+          //   },
+          //   sync: {
+          //     // Habilita la sincronización con otros gráficos
+          //     enabled: true,
+          //     // Grupo de gráficos para sincronizar
+          //     group: 1,
+          //     // Suprime tooltips al mostrar un tracer sincronizado
+          //     suppressTooltips: false,
+          //   },
+          //   zoom: {
+          //     enabled: false,  
+          //   },
+          // },
           tooltip: {
             enabled: false,
             external: function (context) {
@@ -355,7 +392,7 @@ const Index: React.FC<IndexProps> = ({
       >
       <section className='relative w-full text-lg'>
         <div className={`absolute w-full flex flex-col justify-center items-center text-center font-base text-2xl left-1/2 -translate-x-1/2 transition-[top] duration-300 ease-in-out px-8 ${
-            fatigueStatus.isFatigued 
+            fatigueStatus.isFatigued
               ? 'text-red-500 animate-pulse -top-12' 
               : '-top-10'
           } ${
@@ -367,7 +404,7 @@ const Index: React.FC<IndexProps> = ({
             {cycleCount ?? 0} {cycleCount === 1 ? 'rep.' : 'reps.'}
           </p>
           {fatigueStatus.isFatigued ? (
-            <p className='text-sm'>{fatigueStatus.reasons}</p> 
+            <p className='text-[1rem] leading-[1]'>{fatigueStatus.interpretation}</p> 
             ) : null
           }
         </div>
@@ -406,11 +443,14 @@ const Index: React.FC<IndexProps> = ({
         <section className="mt-2 px-1 py-2 border-2 border-black dark:border-white rounded-lg">
           <div className="grid grid-cols-4 font-semibold bg-white dark:bg-black border-b py-1 mb-2">
             <div className="pl-2">Load (kg)</div>
-            <div className="pl-2">{!isExpanded ? "Last" : ""} Rep</div>
+            <div className="pl-2">Rep</div>
             <div className="pl-2">Time (s)</div>
             <div className="pl-2">Amp (kg)</div>
           </div>
-          <div ref={scrollContainerRef} className="max-h-[calc(100dvh-540px)] overflow-y-auto">
+          <div ref={scrollContainerRef} className={`overflow-y-auto transition-[max-height] ${isRecording
+            ? "max-h-[calc(100dvh-590px)]"
+            : "max-h-[calc(100dvh-540px)]"
+          }`}>
             <table className="w-full border-collapse text-left table-fixed transition-transform">
               <thead className="hidden md:table-header-group">
                 <tr className="align-baseline">
@@ -421,36 +461,9 @@ const Index: React.FC<IndexProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {/* Si no está expandido, solo muestra la última fila */}
-                {!isExpanded && cycleData.length > 0 && (
-                  <tr>
-                    <td className="pl-2">{
-                      cycleData.length > 0 && cycleData[cycleData.length - 1].workLoad !== null 
-                        ? cycleData[cycleData.length - 1].workLoad!.toFixed(1) 
-                        : "-"
-                    }</td>
-                    <td className="pl-2">{
-                      cycleData.length > 0 && cycleData[cycleData.length - 1].cycleCount !== null && cycleData[cycleData.length - 1].cycleCount! > 0 
-                        ? cycleData[cycleData.length - 1].cycleCount!.toFixed(0) 
-                        : "-"
-                    }</td>
-                    <td className="pl-2">{
-                      cycleData.length > 0 && cycleData[cycleData.length - 1].cycleDuration !== null 
-                        ? (cycleData[cycleData.length - 1].cycleDuration! / 1000).toFixed(2) 
-                        : "-"
-                      
-                    }</td>
-                    <td className="pl-2">{
-                      cycleData.length > 0 && cycleData[cycleData.length - 1].cycleAmplitude !== null 
-                        ? cycleData[cycleData.length - 1].cycleAmplitude!.toFixed(2) 
-                        : "-"
-                    }</td>
-                  </tr>
-                )}
-
-                {/* Si está expandido, muestra todas las filas */}
-                {isExpanded && cycleData
+                {[...cycleData]
                   .filter((data) => data.cycleCount !== 0)
+                  .reverse()
                   .map((data, index) => (
                     <tr key={index}>
                       <td className="pl-2">{data.workLoad !== null ? data.workLoad.toFixed(1) : "-"}</td>
@@ -463,27 +476,10 @@ const Index: React.FC<IndexProps> = ({
               </tbody>
             </table>
           </div>
-          <div className='flex flex-row justify-between items-center mt-2'>
-            {((cycleData?.[cycleData.length - 1]?.cycleCount ?? null) !== null && 
-            (cycleData?.[cycleData.length - 1]?.cycleCount ?? 0) > 0) ? (
-              <button 
-              onClick={() => !isRecording && setIsExpanded(!isExpanded)} 
-              className="flex items-center dark:text-gray-500"
-              >
-                <>
-                  <ChevronDownIcon className={`w-5 h-5 mr-2 transition-transform ${
-                    isExpanded ? 'rotate-180' : ''
-                  }`} />
-                  {isExpanded ? 'Collapse' : 'Expand'}
-                </>
-              </button>
-            ) : null
-            }
-            {showScrollHint && (
-              <div className="text-sm italic dark:text-gray-500 animate-pulse">
-                Scroll down for more...
-              </div>
-            )}
+          <div className='flex flex-row justify-end items-center mt-2'>
+            <div className="text-sm italic dark:text-gray-500 animate-pulse">
+              {showScrollHint ? "Scroll down for more..." : <br/> }
+            </div>
           </div>
         </section>
       </div>

@@ -29,7 +29,33 @@ export default function useCyclesDetector({
     peakDropThreshold: amplitudeDropThreshold,
     cyclesToAverage,
   } = settings
-// ---------- Estados y refs para la lógica de ciclos ----------
+
+  const fatigueTipsMap: Record<string, string> = {
+    "↓ Amp": "Lower amplitude → possible fatigue.",
+    "↑ Cyc": "Slower cycles → fatigue signs.",
+    "↓ F̅": "Average force dropped.",
+    "↓ V̅": "Speed is down.",
+    "↑ Var": "Inconsistent movement.",
+  
+    "↓ Amp,↑ Cyc": "Shorter and slower → clear fatigue.",
+    "↓ Amp,↓ V̅": "Weaker and slower movement.",
+    "↓ F̅,↓ V̅": "Lower force and speed.",
+    "↑ Cyc,↑ Var": "Slow and unstable rhythm.",
+    "↓ Amp,↑ Var": "Short and erratic movement.",
+    "↓ F̅,↑ Var": "Weak and inconsistent.",
+
+    "↓ Amp,↑ Cyc,↑ Var": "Short, slow and unstable.",
+    "↓ Amp,↓ V̅,↑ Var": "Weak, slow and erratic.",
+    "↓ Amp,↓ F̅,↓ V̅": "Strong drop in output metrics.",
+    "↑ Cyc,↓ V̅,↑ Var": "Sluggish and inconsistent rhythm.",
+    "↓ F̅,↓ V̅,↑ Var": "Unstable force and speed.",
+    "↓ Amp,↑ Cyc,↓ V̅": "Movement slowed and weakened.",
+    "↓ Amp,↑ Cyc,↓ F̅": "Short, slow and less forceful.",
+    "↓ Amp,↓ F̅,↑ Var": "Weak and unstable motion.",
+    "↓ F̅,↑ Cyc,↑ Var": "Less force with erratic rhythm.",
+  };
+
+  // ---------- Estados y refs para la lógica de ciclos ----------
   const [cycleCount, setCycleCount] = useState(0);
   const [cycleDuration, setCycleDuration] = useState<number | null>(null);
   const [cycleAmplitude, setCycleAmplitude] = useState<number | null>(null);
@@ -186,8 +212,8 @@ export default function useCyclesDetector({
 
   // ------ Fatiga ------
   // Función de detección de fatiga basada en las métricas agregadas
-  const detectFatigue = (): {isFatigued: boolean, reasons: string[]} => {
-    if (!aggregatedCycleMetrics || !cycleMetrics || !cycleDurations) return { isFatigued: false, reasons: [] };
+  const detectFatigue = (): {isFatigued: boolean, reasons: string[], interpretation: string} => {
+    if (!aggregatedCycleMetrics || !cycleMetrics || !cycleDurations) return { isFatigued: false, reasons: [], interpretation: "" };
 
     // Verifica si se puede normalizar
     const isWorkLoadConstant = (workLoad ?? 0) > 0; 
@@ -242,16 +268,29 @@ export default function useCyclesDetector({
 
     // Guardamos las razones específicas de fatiga
     const fatigueReasons: string[] = [];
-    if (cycleAmplitudeFatigue) fatigueReasons.push(" ↓ Amp");
-    if (cycleDurationFatigue) fatigueReasons.push(" ↑ Cyc");
-    if (timeWindowAmplitudeFatigue) fatigueReasons.push(" ↓ F̅");
-    if (velocityFatigue) fatigueReasons.push(" ↓ V̅");
-    if (variabilityFatigue) fatigueReasons.push(" ↑ Var");
+    if (cycleAmplitudeFatigue) fatigueReasons.push("↓ Amp");
+    if (cycleDurationFatigue) fatigueReasons.push("↑ Cyc");
+    if (timeWindowAmplitudeFatigue) fatigueReasons.push("↓ F̅");
+    if (velocityFatigue) fatigueReasons.push("↓ V̅");
+    if (variabilityFatigue) fatigueReasons.push("↑ Var");
 
     const isFatigued = fatigueReasons.length >= 2;
+    const fatigueTip = getFatigueTip(fatigueReasons);
 
-    return { isFatigued, reasons: fatigueReasons };
+    return { isFatigued, reasons: fatigueReasons, interpretation: fatigueTip };
   }
+
+  const getFatigueTip = (fatigueReasons: string[]): string => {
+    if (fatigueReasons.length === 0) return "No fatigue detected.";
+  
+    const key = fatigueReasons.sort().join(',');
+  
+    if (fatigueReasons.length <= 3 && fatigueTipsMap[key]) {
+      return fatigueTipsMap[key];
+    }
+  
+    return "Fatigue affects multiple metrics.";
+  };
 
   // Calcular la detección de fatiga (puedes mostrarla o usarla en la UI)
   const fatigueStatus = useMemo(() => detectFatigue(), [aggregatedCycleMetrics, recentWindowData, peak]);
