@@ -94,26 +94,6 @@ const getJointKeypoints = (
   return [kpA, kpB, kpC];
 };
 
-// export enum CanvasKeypointName {
-//   LEFT_SHOULDER = "left_shoulder",
-//   LEFT_ELBOW = "left_elbow",
-//   LEFT_WRIST = "left_wrist",
-//   LEFT_HIP = "left_hip",
-//   LEFT_KNEE = "left_knee",
-//   LEFT_ANKLE = "left_ankle",
-//   RIGHT_SHOULDER = "right_shoulder",
-//   RIGHT_ELBOW = "right_elbow",
-//   RIGHT_WRIST = "right_wrist",
-//   RIGHT_HIP = "right_hip",
-//   RIGHT_KNEE = "right_knee",
-//   RIGHT_ANKLE = "right_ankle",
-// }
-
-// export interface JointColors {
-//   borderColor: string;
-//   backgroundColor: string;
-// }
-
 export const getColorsForJoint = (jointName: string | null): JointColors => {
   // Si es null o no está en el enum, retorna blanco
   if (
@@ -165,6 +145,7 @@ export const updateJoint = ({
   invert = false,
   angleHistorySize = 5,
   mirror = false,
+  graphAngle = null,
 }: UpdateJointParams): JointData => {
   // Buscar los keypoints de la articulación
   const jointKeypoints = getJointKeypoints(jointName, keypoints);
@@ -181,7 +162,8 @@ export const updateJoint = ({
   }
 
   const [kpA, kpB, kpC] = jointKeypoints;
-  const angleNow = calculateJointAngleDegrees(kpA, kpB, kpC, invert);
+  // console.log('graphAngle ', graphAngle)
+  const angleNow = graphAngle ?? calculateJointAngleDegrees(kpA, kpB, kpC, invert);
   let smoothedAngle = angleNow;
   const timeNow = performance.now();
 
@@ -194,14 +176,16 @@ export const updateJoint = ({
     };
   } else {
     // ---- Actualizar historial de ángulos para suavizar el valor mostrado ---- review
-    const prevData = jointData;
-    prevData.angleHistory.push(angleNow);
-    if (prevData.angleHistory.length > angleHistorySize) {
-      prevData.angleHistory.shift();
+    if (!graphAngle) {
+      const prevData = jointData;
+      prevData.angleHistory.push(angleNow);
+      if (prevData.angleHistory.length > angleHistorySize) {
+        prevData.angleHistory.shift();
+      }
+      smoothedAngle =
+        prevData.angleHistory.reduce((sum, a) => sum + a, 0) /
+        prevData.angleHistory.length;
     }
-    smoothedAngle =
-      prevData.angleHistory.reduce((sum, a) => sum + a, 0) /
-      prevData.angleHistory.length;
 
     jointData = {
       ...jointData,

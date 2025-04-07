@@ -26,7 +26,26 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const [videoReady, setVideoReady] = useState(false);
 
-  const isSeekingFromChart  = useRef(false);
+  const [isSeekingFromChart, setIsSeekingFromChart] = useState<{
+    isSeeking: boolean;
+    newValue: null | {
+      x: number;
+      values: { label: string; y: number }[];
+    }
+  }>({
+    isSeeking: false,
+    newValue: null,
+  });
+  const isSeekingFromChartRef  = useRef<{
+    isSeeking: boolean;
+    newValue: null | {
+      x: number;
+      values: { label: string; y: number }[];
+    }
+  }>({
+    isSeeking: false,
+    newValue: null,
+  });
 
   const [infoMessage, setInfoMessage] = useState({
     show: false,
@@ -141,6 +160,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       }
 
       if (videoProcessed && videoUrl) {
+        // console.log('object')
+        isSeekingFromChartRef.current = {
+          isSeeking: false,
+          newValue: null,
+        };
+        setIsSeekingFromChart({
+          isSeeking: false,
+          newValue: null,
+        });
+
         togglePlayback({});
       }
     }
@@ -163,7 +192,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }
 
   const handleStartRecording = async () => {
-    console.log('handleStartRecording');
+    // console.log('handleStartRecording');
     setVideoUrl(null);
 
     setDisplayGraphs(false);
@@ -247,7 +276,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   };
   
   const handlePreview = ({uploadedUrl}: {uploadedUrl?: string}) => {
-    console.log('handlePreview ', Boolean(videoRef.current))
+    // console.log('handlePreview ', Boolean(videoRef.current))
     if (capturedChunks.length || uploadedUrl) {
       const blob = new Blob(capturedChunks, { type: 'video/webm' });
       const url = uploadedUrl ?? URL.createObjectURL(blob);
@@ -310,16 +339,52 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
   };
 
-  const handleChartValueX = (time: number) => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = time;
-      isSeekingFromChart.current = true;
+  const handleChartValueX = (newValue: {
+    x: number;
+    values: { label: string; y: number }[];
+  }) => {
+    const video = videoRef.current;
+    if (video) {
+      if (!video.paused) {
+        if (videoProcessed && videoUrl) {
+          // console.log('object')
+          isSeekingFromChartRef.current = {
+            isSeeking: false,
+            newValue: null,
+          };
+          setIsSeekingFromChart({
+            isSeeking: false,
+            newValue: null,
+          });
+  
+          togglePlayback({});
+        }
+      }
+      
+      video.currentTime = newValue.x;
+      
+      setTimeout(async () => {
+        // console.log('newValue 1 ', newValue)
+        if (video!.paused) {
+          isSeekingFromChartRef.current = {
+            isSeeking: true,
+            newValue: newValue,
+          };
+          // console.log(isSeekingFromChartRef.current.newValue)
+          setIsSeekingFromChart({
+            isSeeking: true,
+            newValue: newValue,
+          });
+        }
 
-      setTimeout(() => {
-        analyzeSingleFrame();
-      }, 200);
+        await analyzeSingleFrame();
+      }, 260);
     }
   };
+
+  useEffect(() => {
+    isSeekingFromChartRef.current = isSeekingFromChart
+  }, [isSeekingFromChart])
 
   const rewindStep = () => {
     if (videoRef.current!.currentTime <= 0) return;
@@ -377,6 +442,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
       const jointData = jointDataRef.current[jointName] ?? null;
 
+      const {
+        isSeeking,
+        newValue,
+      } = isSeekingFromChartRef.current;
+
       const updatedData = updateJoint({
         ctx,
         keypoints,
@@ -385,6 +455,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         invert: jointConfig.invert,
         angleHistorySize: jointAngleHistorySizeRef.current,
         mirror: videoConstraintsRef.current.facingMode === "user",
+        graphAngle: isSeeking 
+          ? newValue?.values.find(
+              (value) => value.label === jointName
+            )?.y 
+          : null,
       });
       jointDataRef.current[jointName] = updatedData;
   
@@ -750,14 +825,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setVideoCurrentTime(e.currentTarget.currentTime);
   };
 
-  useEffect(() => {
-    if (isSeekingFromChart.current) {
-      // Acaba de cambiar por un click en el gráfico, no hagas nada extra
-      isSeekingFromChart.current = false;
-      return;
-    }
-  }, [videoCurrentTime]);
-
   return (
     <>
       {(!detector && !videoReady) ? (
@@ -871,9 +938,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               {videoUrl && (
                 <CubeTransparentIcon 
                   className={`h-6 w-6 text-white cursor-pointer ${
-                    (!isFrozen && videoProcessed) ? "opacity-40" : ""
+                    ((!isFrozen && videoProcessed) || displayGraphs) ? "opacity-40" : ""
                   }`}
-                  onClick={() => (isFrozen || !videoProcessed) && handleProcessVideo()}
+                  onClick={() => ((isFrozen || !videoProcessed) && !displayGraphs) && handleProcessVideo()}
                   />
               )}
               {((videoUrl && videoProcessed) || !videoUrl) && (
@@ -955,28 +1022,49 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         videoProcessed={videoProcessed}
         />
 
-      {displayGraphs && (
-        <PoseGraph 
-          joints={settings.pose.selectedJoints}
-          valueTypes={visibleKinematics}
-          getDataForJoint={(joint) => {
-            const data = jointDataRef.current[joint];
-              return data
-                ? { 
-                    timestamp: data.lastTimestamp, 
-                    angle: data.angle, 
-                    color: data.color
-                  }
-                : null;
-          }}
-          recordedPositions={videoProcessed ? recordedPositionsRef.current : undefined}
-          onPointClick={handleChartValueX}
-          onVerticalLineChange={handleChartValueX}
-          verticalLineValue={videoCurrentTime}
-          parentStyles="relative z-0 h-[50dvh]"
-          />
-      )}
+      {displayGraphs ? (
+        <div className="relative">
+          <div className="absolute z-10 top-1 w-full flex justify-center gap-4 text-[0.8rem] bg-white text-gray-500">
+            {isSeekingFromChartRef.current?.newValue?.values.map(({ label, y }) => {
+              // Formatea el label
+              const formattedLabel = label
+                .replace(/^right_/, 'R ')
+                .replace(/^left_/, 'L ')
+                .replace('_', ' ');
 
+              const color = jointDataRef.current?.[label as CanvasKeypointName]?.color?.borderColor ?? '#999';
+
+              return (
+                <div key={label} className="flex items-center gap-1">
+                  <span
+                    className="inline-block w-3 h-3 rounded-full mb-[0.2rem]"
+                    style={{ backgroundColor: color }}
+                  ></span>
+                  <span>{formattedLabel}: {Math.round(y)}º</span>
+                </div>
+              );
+            })}
+          </div>
+          <PoseGraph 
+            joints={settings.pose.selectedJoints}
+            valueTypes={visibleKinematics}
+            getDataForJoint={(joint) => {
+              const data = jointDataRef.current[joint];
+                return data
+                  ? { 
+                      timestamp: data.lastTimestamp, 
+                      angle: data.angle, 
+                      color: data.color
+                    }
+                  : null;
+            }}
+            recordedPositions={videoProcessed ? recordedPositionsRef.current : undefined}
+            onVerticalLineChange={handleChartValueX}
+            verticalLineValue={videoCurrentTime}
+            parentStyles="relative z-0 h-[50dvh]"
+            />
+        </div> ) : null
+      }
       {infoMessage.show ? (
           <div 
             data-element="non-swipeable"

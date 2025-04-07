@@ -42,8 +42,10 @@ interface IndexProps {
     // angularVelocity: number;
     color: JointColors;
   } | null;
-  onPointClick: (time: number) => void;
-  onVerticalLineChange: (newValue: number) => void;
+  onVerticalLineChange: (newValue: {
+    x: number;
+    values: { label: string; y: number }[];
+  }) => void;
   parentStyles?: string; // Estilos CSS para el contenedor
   recordedPositions?: RecordedPositions;
   verticalLineValue?: number;
@@ -54,7 +56,6 @@ const Index = ({
   valueTypes = [Kinematics.ANGLE],
   getDataForJoint,
   recordedPositions = undefined,
-  // onPointClick, 
   onVerticalLineChange,
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
   verticalLineValue = 0,
@@ -92,7 +93,6 @@ const Index = ({
   // Ref para almacenar el tiempo inicial global (se fija la primera vez que se recibe un dato)
   const startTimeRef = useRef<number | null>(null);
 
-
   const transformJointName = (joint: string): string => {
     const words = joint.split("_");
     if (words.length === 0) return joint;
@@ -127,11 +127,11 @@ const Index = ({
           data: dataPoints,
           borderColor: baseColor,
           backgroundColor: baseBackgroundColor,
-          borderWidth: vType === Kinematics.ANGLE ? 2 : 1,          
+          borderWidth: 2,          
           tension: 0.6,
-          pointRadius: 2,
-          pointHoverRadius: 4,
-          pointHoverBorderWidth: 1,
+          pointRadius: 0,
+          pointHoverRadius: !realTime ? 3 : 0,
+          pointHoverBorderWidth: !realTime ? 1 : 0,
           pointHoverBorderColor: 'red',
           pointHitRadius: 0,
           parsing: false,
@@ -187,9 +187,6 @@ const Index = ({
               const anglePoints = Array.isArray(previousData.anglePoints)
                 ? previousData.anglePoints
                 : [];
-              // const angularVelocityPoints = Array.isArray(previousData.angularVelocityPoints)
-              //   ? previousData.angularVelocityPoints
-              //   : [];
   
               // Si aún no se ha establecido el tiempo inicial global, lo fijamos
               if (startTimeRef.current === null) {                
@@ -295,81 +292,45 @@ const Index = ({
         animation: false,
         maintainAspectRatio: false,
         interaction: {
-          mode: "nearest",
+          mode: "index", //"nearest",
           axis: "x",
           intersect: false,
         },
         plugins: {
           legend: {
-            display: true,
+            display: false,
             position: "top",
             labels: {
               usePointStyle: true,
               font: { size: 10 },
-              padding: 20,
-              generateLabels: (chart) => {
-                const defaultLabels =
-                  ChartJS.defaults.plugins.legend.labels.generateLabels(chart);
-
-                return defaultLabels
-                  .filter((label) =>
-                    label.text.toLowerCase().includes("angle")
-                  )
-                  .map((label) => ({
-                    ...label,
-                    text: label.text.split("angle")[0].trim(),
-                  }));
-              },
-            },
-            // Sobreescribimos onClick para que oculte/muestre ambos datasets
-            onClick: (e, legendItem, legend) => {
-              const chart = legend.chart;
-              // Obtenemos la etiqueta base, por ejemplo "Left elbow"
-              const baseLabel = legendItem.text.toLowerCase();
-              // Iteramos sobre todos los datasets
-              chart.data.datasets.forEach((ds, i) => {
-                // Si el label del dataset (convertido a minúsculas) incluye la etiqueta base
-                // (asumimos que ambos datasets tienen, por ejemplo, "Left elbow angle" y "Left elbow angular velocity")
-                if (ds.label?.toLowerCase().includes(baseLabel)) {
-                  // Alternamos la visibilidad: si estaba oculto, se muestra, y viceversa.
-                  const meta = chart.getDatasetMeta(i);
-                  meta.hidden = meta.hidden === null ? !chart.data.datasets[i].hidden : !meta.hidden;
-                }
-              });
-              chart.update();
+              padding: 20,                         
             },
           },
           tooltip: {
-            enabled: !realTime,
+            enabled: false,
             boxPadding: 6,
             external: (context) => {
               const tooltipModel = context.tooltip;
-              const dataPoint = tooltipModel.dataPoints?.[0];
-              if (dataPoint && typeof dataPoint.parsed.x === 'number') {
-                onVerticalLineChange(dataPoint.parsed.x);
+              const dataPoints = tooltipModel.dataPoints;
+
+              if (dataPoints && dataPoints.length > 0) {
+                const x = dataPoints[0].parsed.x;
+                const values = dataPoints.map(dp => {
+                  const rawLabel = dp.dataset.label ?? '';
+              
+                  const jointLabel = rawLabel
+                    .toLowerCase()
+                    .replace(/ (angle)/, '')
+                    .replace(/\s+/g, '_');
+              
+                  return {
+                    label: jointLabel,
+                    y: dp.parsed.y,
+                  };
+                });
+                
+                onVerticalLineChange({ x, values });
               }
-            },
-            callbacks: {
-              title: () => "", // Desactiva el título del tooltip
-              // Formatea cada tooltip (cuando se pincha o se hace hover en un punto)
-              label: function (context) {
-                // Recupera el label original del dataset
-                const originalLabel = context.dataset.label || "";
-                // Si el label contiene la palabra "angle" (sin distinción de mayúsculas), la quitamos
-                const cleanedLabel = originalLabel.split("angle")[0].trim()
-    
-                // Formatea el valor del eje x (tiempo)
-                // Aquí lo mostramos con dos decimales y le añadimos " s"
-                const xValue = Number(context.parsed.x).toFixed(2) + " s";
-    
-                // Formatea el valor del eje y
-                // Redondeamos a entero
-                const yRounded = Math.round(context.parsed.y);
-                // Si el label original contenía "angle", añadimos la unidad de grados
-                const yValue = yRounded + " º"
-    
-                return [xValue, `${cleanedLabel}: ${yValue}`];
-              },
             },
           },
           crosshair: realTime ? false : {
@@ -392,9 +353,9 @@ const Index = ({
         },
         elements: {
           point: { 
-            radius: !realTime ? 3 : 0,
-            hitRadius: !realTime ? 3 : 0,
-            hoverRadius: !realTime ? 3 : 0,
+            radius: 0,
+            hitRadius: 0,
+            hoverRadius: 0,
           },
         },
         scales: {
@@ -402,7 +363,7 @@ const Index = ({
             type: "linear",
             min: normalizedMinX,
             max: normalizedMaxX,
-            title: { display: true, text: "Time (seconds)" },
+            title: { display: false, text: "Time (seconds)" },
             ticks: {
               display: joints.length > 0,
               stepSize: 1,
@@ -449,55 +410,7 @@ const Index = ({
     };
   }, [chartConfig]);
 
-  useEffect(() => {
-    const chart = chartRef.current;
-    if (!chart) return;
-
-    const meta = chart.getDatasetMeta(0);
-
-    // Encuentra el punto más cercano al tiempo del video
-    if (chart.data.datasets[0] === undefined) return;
-    const dataset = chart.data.datasets[0].data as { x: number; y: number }[];
-    const index = dataset.findIndex((point) => point.x >= verticalLineValue);
-
-    if (index !== undefined && index !== -1 && chart.tooltip) {
-      const point = meta.data[index];
-
-      // Simula un evento de hover para activar crosshair y tooltip
-      chart.setActiveElements([
-        {
-          datasetIndex: 0,
-          index,
-        },
-      ]);
-
-      chart.tooltip.setActiveElements(
-        [
-          {
-            datasetIndex: 0,
-            index,
-          },
-        ],
-        { x: point.x, y: point.y }
-      );
-
-      const canvas = chart.canvas;
-
-      // Simular evento en coordenadas del punto
-      const mouseEvent = new MouseEvent('mousemove', {
-        clientX: point.x,
-        clientY: point.y,
-        bubbles: true,
-        cancelable: true,
-      });
-
-      canvas.dispatchEvent(mouseEvent);
-
-      chart.update();
-    }
-    
-  }, [verticalLineValue]);  
-
+  
   return (
     <div 
       data-element="non-swipeable"
@@ -505,7 +418,7 @@ const Index = ({
       >
         <canvas 
           ref={canvasRef} 
-          className='bg-white px-2'
+          className='bg-white px-2 pt-6 pb-2'
           />
     </div>
   );

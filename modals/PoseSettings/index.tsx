@@ -139,7 +139,9 @@ const Index = ({
             <label
               htmlFor='processing-speed'
               className={`${
-                !videoUrl ? "text-white/60" : "text-white"
+                (!videoUrl || displayGraphs) 
+                  ? "text-white/60" 
+                  : "text-white"
               }`}
               >
               Processing<span className='align-sub uppercase text-[0.6rem]'> speed</span>: {processingSpeed.toFixed(1)}
@@ -152,14 +154,15 @@ const Index = ({
               max="1"
               step="0.1"
               onChange={handleProcessingSpeedChange}
-              disabled={!videoUrl}
+              disabled={!videoUrl || displayGraphs}
               />
           </div>
           <div className=" flex-1 flex flex-col justify-between gap-2">
             <label 
-              htmlFor="update-interval" 
-              className={`${
-                videoProcessed ? "text-white/60" : "text-white"
+              htmlFor="update-interval"
+              className={`${ displayGraphs 
+                ? "text-white/60" 
+                : "text-white"
               }`}
               >
               Update<span className='align-sub text-[0.6rem] uppercase'> freq</span>: {(1000 / poseUpdateInterval).toFixed(0)} Hz
@@ -172,7 +175,7 @@ const Index = ({
               step="1"  // Paso en Hz para que siempre sean valores enteros
               value={1000 / poseUpdateInterval} // Mostramos Hz en la UI
               onChange={handleUpdateIntervalChange} // Usamos la función de manejo de cambios
-              disabled={videoProcessed}
+              disabled={displayGraphs}
               />
           </div>
         </div>
@@ -181,7 +184,7 @@ const Index = ({
             <label 
               htmlFor="sample" 
               className={`${
-                !videoProcessed ? "text-white/60" : "text-white"
+                !videoProcessed || !displayGraphs ? "text-white/60" : "text-white"
               }`}
               >
               Sample<span className='align-sub text-[0.6rem] uppercase'> lttb</span>: {poseGraphSample}
@@ -191,16 +194,16 @@ const Index = ({
               type="range"
               value={poseGraphSample}
               min="50"
-              max="120"
+              max="200"
               onChange={handleSampleChange}
-              disabled={!videoProcessed}
+              disabled={!videoProcessed || !displayGraphs}
               />
           </div>
           <div className="flex-1 flex flex-col justify-between">
             <label 
               htmlFor="sample-threshold" 
               className={`${
-                !videoProcessed ? "text-white/60" : "text-white"
+                !videoProcessed || !displayGraphs ? "text-white/60" : "text-white"
               }`}
               >
               Threshold<span className='align-sub text-[0.6rem] uppercase'> lttb</span>: {poseGraphSampleThreshold}
@@ -210,9 +213,9 @@ const Index = ({
               type="range"
               value={poseGraphSampleThreshold}
               min="60"
-              max="140"
+              max="220"
               onChange={handleSampleThresholdChange}
-              disabled={!videoProcessed}
+              disabled={!videoProcessed || !displayGraphs}
             />
           </div>
         </div>
