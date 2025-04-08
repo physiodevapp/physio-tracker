@@ -18,7 +18,6 @@
     "@tensorflow/tfjs-core": "^4.22.0",
     "chart.js": "^4.4.7",
     "chartjs-plugin-annotation": "^3.1.0",
-    "chartjs-plugin-crosshair": "^2.0.0",
     "dsp.js-browser": "^1.0.1",
     "framer-motion": "^12.2.0",
     "next": "15.1.6",

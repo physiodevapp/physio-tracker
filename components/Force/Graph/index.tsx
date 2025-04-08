@@ -1,16 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {Chart as ChartJS, ChartEvent, ChartConfiguration, registerables} from 'chart.js'; 
-// import CrosshairPlugin from 'chartjs-plugin-crosshair';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { lttbDownsample } from '@/services/chart';
 import { ForceSettings } from '@/providers/Settings';
 import useCyclesDetector from '../Hooks/useCyclesDetector';
-import { ChevronDownIcon } from '@heroicons/react/24/solid';
 
 // Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
 ChartJS.register(
   ...registerables,
-  // CrosshairPlugin,
   annotationPlugin,
 );
 
@@ -461,18 +458,26 @@ const Index: React.FC<IndexProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {[...cycleData]
-                  .filter((data) => data.cycleCount !== 0)
-                  .reverse()
-                  .map((data, index) => (
-                    <tr key={index}>
-                      <td className="pl-2">{data.workLoad !== null ? data.workLoad.toFixed(1) : "-"}</td>
-                      <td className="pl-2">{data.cycleCount !== null ? data.cycleCount.toFixed(0) : "-"}</td>
-                      <td className="pl-2">{data.cycleDuration !== null ? (data.cycleDuration / 1000).toFixed(2) : "-"}</td>
-                      <td className="pl-2">{data.cycleAmplitude !== null ? data.cycleAmplitude.toFixed(2) : "-"}</td>
+                {(() => {
+                  const validData = [...cycleData]
+                    .filter((data) => data.cycleCount !== 0)
+                    .reverse();
+
+                  return validData.length > 0 ? (
+                    validData.map((data, index) => (
+                      <tr key={index}>
+                        <td className="pl-2">{data.workLoad !== null ? data.workLoad.toFixed(1) : "-"}</td>
+                        <td className="pl-2">{data.cycleCount !== null ? data.cycleCount.toFixed(0) : "-"}</td>
+                        <td className="pl-2">{data.cycleDuration !== null ? (data.cycleDuration / 1000).toFixed(2) : "-"}</td>
+                        <td className="pl-2">{data.cycleAmplitude !== null ? data.cycleAmplitude.toFixed(2) : "-"}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="pl-2 text-center" colSpan={4}>-</td>
                     </tr>
-                  ))
-                }
+                  );
+                })()}
               </tbody>
             </table>
           </div>

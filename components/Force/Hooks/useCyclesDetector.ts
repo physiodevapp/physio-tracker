@@ -31,32 +31,32 @@ export default function useCyclesDetector({
   } = settings
 
   const fatigueTipsMap: Record<string, string> = {
-    // Individuales
-    "↓ Amp": "Reduced amplitude detected.",
-    "↑ Cyc": "Cycle duration increased.",
-    "↓ F̅": "Average force decreased.",
-    "↓ V̅": "Average speed decreased.",
-    "↑ Var": "Movement variability increased.",
+    // Individual
+    "↓ Amp": "Power output is reduced.",
+    "↑ Cyc": "Movement is slower.",
+    "↓ F̅": "Power output is reduced.",
+    "↓ V̅": "Movement is slower.",
+    "↑ Var": "Movement is less stable.",
   
-    // Dobles
-    "↓ Amp,↑ Cyc": "Reduced amplitude and longer cycles.",
-    "↓ Amp,↓ V̅": "Reduced amplitude and speed.",
-    "↓ F̅,↓ V̅": "Reduced force and speed.",
-    "↑ Cyc,↑ Var": "Longer and more variable cycles.",
-    "↓ Amp,↑ Var": "Reduced amplitude and higher variability.",
-    "↓ F̅,↑ Var": "Reduced force and higher variability.",
+    // Doubles
+    "↓ Amp,↑ Cyc": "Movement is slower and less powerful.",
+    "↓ Amp,↓ V̅": "Movement is slower and less powerful.",
+    "↓ F̅,↓ V̅": "Movement is slower and less powerful.",
+    "↑ Cyc,↑ Var": "Movement is slower and less stable.",
+    "↓ Amp,↑ Var": "Movement is less stable and less powerful.",
+    "↓ F̅,↑ Var": "Movement is less stable and less powerful.",
   
     // Triples
-    "↓ Amp,↑ Cyc,↑ Var": "Amplitude, duration and variability affected.",
-    "↓ Amp,↓ V̅,↑ Var": "Amplitude, speed and variability affected.",
-    "↓ Amp,↓ F̅,↓ V̅": "Amplitude, force and speed reduced.",
-    "↑ Cyc,↓ V̅,↑ Var": "Cycle duration, speed and variability affected.",
-    "↓ F̅,↓ V̅,↑ Var": "Force, speed and variability affected.",
-    "↓ Amp,↑ Cyc,↓ V̅": "Amplitude, duration and speed reduced.",
-    "↓ Amp,↑ Cyc,↓ F̅": "Amplitude, duration and force reduced.",
-    "↓ Amp,↓ F̅,↑ Var": "Amplitude, force and variability affected.",
-    "↓ F̅,↑ Cyc,↑ Var": "Force, duration and variability affected.",
-  };  
+    "↓ Amp,↑ Cyc,↑ Var": "Fatigue is slowing and destabilizing movement.",
+    "↓ Amp,↓ V̅,↑ Var": "Fatigue is slowing and destabilizing movement.",
+    "↓ Amp,↓ F̅,↓ V̅": "Significant power loss detected.",
+    "↑ Cyc,↓ V̅,↑ Var": "Fatigue is slowing and destabilizing movement.",
+    "↓ F̅,↓ V̅,↑ Var": "Fatigue is slowing and destabilizing movement.",
+    "↓ Amp,↑ Cyc,↓ V̅": "Fatigue is slowing and weakening movement.",
+    "↓ Amp,↑ Cyc,↓ F̅": "Fatigue is slowing and weakening movement.",
+    "↓ Amp,↓ F̅,↑ Var": "Fatigue is destabilizing and weakening movement.",
+    "↓ F̅,↑ Cyc,↑ Var": "Fatigue is slowing and destabilizing movement.",
+  };    
 
   // ---------- Estados y refs para la lógica de ciclos ----------
   const [cycleCount, setCycleCount] = useState(0);
