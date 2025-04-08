@@ -31,29 +31,32 @@ export default function useCyclesDetector({
   } = settings
 
   const fatigueTipsMap: Record<string, string> = {
-    "↓ Amp": "Lower amplitude → possible fatigue.",
-    "↑ Cyc": "Slower cycles → fatigue signs.",
-    "↓ F̅": "Average force dropped.",
-    "↓ V̅": "Speed is down.",
-    "↑ Var": "Inconsistent movement.",
+    // Individuales
+    "↓ Amp": "Reduced amplitude detected.",
+    "↑ Cyc": "Cycle duration increased.",
+    "↓ F̅": "Average force decreased.",
+    "↓ V̅": "Average speed decreased.",
+    "↑ Var": "Movement variability increased.",
   
-    "↓ Amp,↑ Cyc": "Shorter and slower → clear fatigue.",
-    "↓ Amp,↓ V̅": "Weaker and slower movement.",
-    "↓ F̅,↓ V̅": "Lower force and speed.",
-    "↑ Cyc,↑ Var": "Slow and unstable rhythm.",
-    "↓ Amp,↑ Var": "Short and erratic movement.",
-    "↓ F̅,↑ Var": "Weak and inconsistent.",
-
-    "↓ Amp,↑ Cyc,↑ Var": "Short, slow and unstable.",
-    "↓ Amp,↓ V̅,↑ Var": "Weak, slow and erratic.",
-    "↓ Amp,↓ F̅,↓ V̅": "Strong drop in output metrics.",
-    "↑ Cyc,↓ V̅,↑ Var": "Sluggish and inconsistent rhythm.",
-    "↓ F̅,↓ V̅,↑ Var": "Unstable force and speed.",
-    "↓ Amp,↑ Cyc,↓ V̅": "Movement slowed and weakened.",
-    "↓ Amp,↑ Cyc,↓ F̅": "Short, slow and less forceful.",
-    "↓ Amp,↓ F̅,↑ Var": "Weak and unstable motion.",
-    "↓ F̅,↑ Cyc,↑ Var": "Less force with erratic rhythm.",
-  };
+    // Dobles
+    "↓ Amp,↑ Cyc": "Reduced amplitude and longer cycles.",
+    "↓ Amp,↓ V̅": "Reduced amplitude and speed.",
+    "↓ F̅,↓ V̅": "Reduced force and speed.",
+    "↑ Cyc,↑ Var": "Longer and more variable cycles.",
+    "↓ Amp,↑ Var": "Reduced amplitude and higher variability.",
+    "↓ F̅,↑ Var": "Reduced force and higher variability.",
+  
+    // Triples
+    "↓ Amp,↑ Cyc,↑ Var": "Amplitude, duration and variability affected.",
+    "↓ Amp,↓ V̅,↑ Var": "Amplitude, speed and variability affected.",
+    "↓ Amp,↓ F̅,↓ V̅": "Amplitude, force and speed reduced.",
+    "↑ Cyc,↓ V̅,↑ Var": "Cycle duration, speed and variability affected.",
+    "↓ F̅,↓ V̅,↑ Var": "Force, speed and variability affected.",
+    "↓ Amp,↑ Cyc,↓ V̅": "Amplitude, duration and speed reduced.",
+    "↓ Amp,↑ Cyc,↓ F̅": "Amplitude, duration and force reduced.",
+    "↓ Amp,↓ F̅,↑ Var": "Amplitude, force and variability affected.",
+    "↓ F̅,↑ Cyc,↑ Var": "Force, duration and variability affected.",
+  };  
 
   // ---------- Estados y refs para la lógica de ciclos ----------
   const [cycleCount, setCycleCount] = useState(0);
@@ -289,7 +292,7 @@ export default function useCyclesDetector({
       return fatigueTipsMap[key];
     }
   
-    return "Fatigue affects multiple metrics.";
+    return "Multiple fatigue markers detected.";
   };
 
   // Calcular la detección de fatiga (puedes mostrarla o usarla en la UI)
