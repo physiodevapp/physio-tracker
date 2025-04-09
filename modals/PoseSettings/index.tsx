@@ -101,7 +101,9 @@ const Index = ({
           <div className='flex-1 flex flex-col justify-between gap-2'>
             <label
               htmlFor='angular-history'
-              className='text-white'
+              className={`${
+                videoProcessed ? "text-white/60" : "text-white"
+              }`}
               >
               Angle<span className='align-sub uppercase text-[0.6rem]'> Smooth</span>: {angularHistorySize}
             </label>
@@ -112,6 +114,7 @@ const Index = ({
               min="5"
               max="20"
               onChange={handleAngleChange}
+              disabled={videoProcessed}
               />
           </div>
           <div className=" flex-1 flex flex-col justify-between gap-2">

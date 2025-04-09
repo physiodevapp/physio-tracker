@@ -53,7 +53,7 @@ interface IndexProps {
 const customCrosshairPlugin = (isActive: boolean = true) => ({
   id: 'customCrosshair',
   afterEvent(chart: ChartJS & { _customCrosshairX?: number }, args: { event: ChartEvent }) {
-    if (isActive) return;
+    if (!isActive) return;
 
     const { chartArea } = chart;
     const { event } = args;
@@ -72,12 +72,18 @@ const customCrosshairPlugin = (isActive: boolean = true) => ({
     }
   },
   afterDraw(chart: ChartJS & { _customCrosshairX?: number }) {
-    if (isActive) return;
-
+    if (!isActive) return;
+  
     const x = chart._customCrosshairX;
     if (!x) return;
-
-    const { ctx, chartArea } = chart;
+  
+    const { ctx, chartArea, scales } = chart;
+    const xScale = scales['x'];
+    const yScale = scales['y'];
+  
+    const xValue = xScale.getValueForPixel(x);
+  
+    // Línea vertical roja
     ctx.save();
     ctx.strokeStyle = '#F66';
     ctx.lineWidth = 1;
@@ -86,7 +92,33 @@ const customCrosshairPlugin = (isActive: boolean = true) => ({
     ctx.lineTo(x, chartArea.bottom);
     ctx.stroke();
     ctx.restore();
-  },
+  
+    // Para cada dataset
+    chart.data.datasets.forEach((dataset) => {
+      const data = dataset.data as { x: number; y: number }[];
+  
+      if (!data || !data.length) return;
+  
+      // Buscar el punto más cercano al xValue
+      const closestPoint = data.reduce((prev, curr) =>
+        Math.abs(curr.x - xValue!) < Math.abs(prev.x - xValue!) ? curr : prev
+      );
+  
+      const yPixel = yScale.getPixelForValue(closestPoint.y);
+  
+      // Dibujar línea horizontal en y = yPixel
+      ctx.save();
+      ctx.strokeStyle = dataset.borderColor as string;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(chartArea.left, yPixel);
+      ctx.lineTo(chartArea.right, yPixel);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+  
 });
 
 const Index = ({

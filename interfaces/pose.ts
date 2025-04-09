@@ -43,10 +43,10 @@ export interface JointData {
 export type JointDataMap = Partial<{ [K in CanvasKeypointName]: JointData }>;
 
 export interface UpdateJointParams {
-  ctx: CanvasRenderingContext2D;
   keypoints: poseDetection.Keypoint[];
   jointData: JointData | null;
   jointName: CanvasKeypointName;
+  ctx?: CanvasRenderingContext2D;
   invert?: boolean;
   angleHistorySize?: number;
   mirror?: boolean;

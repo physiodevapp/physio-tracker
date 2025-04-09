@@ -1,8 +1,4 @@
 import * as poseDetection from "@tensorflow-models/pose-detection";
-import { 
-  drawAngle, 
-  // drawAngularVelocity, 
-} from "./draw";
 import { JointColors, JointData, CanvasKeypointName, UpdateJointParams } from "../interfaces/pose";
 
 const calculateJointAngleDegrees = (
@@ -138,13 +134,11 @@ export const getColorsForJoint = (jointName: string | null): JointColors => {
 
 
 export const updateJoint = ({
-  ctx,
   keypoints,
   jointData,
   jointName,
   invert = false,
   angleHistorySize = 5,
-  mirror = false,
   graphAngle = null,
 }: UpdateJointParams): JointData => {
   // Buscar los keypoints de la articulación
@@ -197,7 +191,7 @@ export const updateJoint = ({
 
   // Dibujar en el canvas:
   // Siempre se dibuja el ángulo
-  drawAngle({ctx, kp: kpB, angle: smoothedAngle, mirror});
+  // drawAngle({ctx, kp: kpB, angle: smoothedAngle, mirror});
 
   return jointData;
 };

@@ -112,3 +112,4 @@ export const drawAngle = ({
   ctx.fillStyle = "yellow";
   ctx.fillText(textAngle, rectX + padding, rectY + 4);
 };
+

@@ -24,6 +24,8 @@ interface IndexProps {
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const { settings, setSelectedJoints } = useSettings();
 
+  const [anglesToDisplay, setAnglesToDisplay] = useState<string[]>([])
+
   const [isCameraReady, setIsCameraReady] = useState(false);
 
   // const isSeekingManually = useRef(false);
@@ -164,6 +166,23 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const handleJointSelection = useCallback((selectedJoints: string[]) => {
     setSelectedJoints(selectedJoints as CanvasKeypointName[]);
+
+    setAnglesToDisplay((prevAngles) => {
+      const result: string[] = [];
+
+      selectedJoints.forEach((joint) => {
+        const formatted = formatJointName(joint); // ej. "R Elbow"
+        const existing = prevAngles.find((a) => a.startsWith(formatted));
+
+        if (existing) {
+          result.push(existing); // mantener el actual
+        } else {
+          result.push(`${formatted}: - °`); // añadir por defecto
+        }
+      });
+
+      return result;
+    });
   }, []);
 
   const handleGrahpsVisibility = () => {
@@ -450,23 +469,51 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   
 
   const handleRemoveRecord = () => {
-    setIsCameraReady(false);
-    clearCanvas();
+    if (videoProcessed) {
+      setVideoProcessed(false);
 
-    setVideoUrl(null);
+      togglePlayback({action: "pause", restart: true});
 
-    setEstimatedFps(null);
+      setTimeout(() => {
+        setIsFrozen(false);
+      }, 100);
 
-    setIsFrozen(false);
+      setDisplayGraphs(false);
+    } else {
+      setIsCameraReady(false);
+      clearCanvas();
+  
+      setVideoUrl(null);
+  
+      setEstimatedFps(null);
+  
+      setIsFrozen(false);
+    }
   };
 
-  const updateMultipleJoints = ({ctx, keypoints, jointNames, jointDataRef, jointConfigMap}: {
-    ctx: CanvasRenderingContext2D,
+  const formatJointName = (jointName: string): string => {
+    const sideMap: Record<string, string> = {
+      left: "L",
+      right: "R",
+    };
+  
+    const [side, part] = jointName.split("_");
+  
+    const sideShort = sideMap[side] ?? side;
+    const capitalizedPart = part.charAt(0).toUpperCase() + part.slice(1);
+  
+    return `${sideShort} ${capitalizedPart}`;
+  };
+
+  const updateMultipleJoints = ({keypoints, jointNames, jointDataRef, jointConfigMap}: {
     keypoints: poseDetection.Keypoint[],
     jointNames: CanvasKeypointName[],
     jointDataRef: RefObject<JointDataMap>,
     jointConfigMap: JointConfigMap
   }) => {
+    const anglesToDisplay: string[] = [];
+    setAnglesToDisplay(anglesToDisplay);
+    
     if (!visibleJointsRef.current.length) return; 
 
     jointNames.forEach((jointName) => {
@@ -480,20 +527,21 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       } = isSeekingFromChartRef.current;
 
       const updatedData = updateJoint({
-        ctx,
         keypoints,
         jointData,
         jointName,
         invert: jointConfig.invert,
         angleHistorySize: jointAngleHistorySizeRef.current,
-        mirror: videoConstraintsRef.current.facingMode === "user",
         graphAngle: isSeeking 
-          ? newValue?.values.find(
-              (value) => value.label === jointName
-            )?.y 
+          ? newValue?.values.find((value) => value.label === jointName)?.y 
           : null,
       });
       jointDataRef.current[jointName] = updatedData;
+      if (updatedData && typeof updatedData.angle === "number") {
+        const label = formatJointName(jointName);
+        const angle = `${label}: ${updatedData.angle.toFixed(0)}°`;
+        anglesToDisplay.push(angle);
+      }
   
       if (videoRef.current && !videoProcessedRef.current) {
         // Almacenamos el dato actualizado en recordedPositionsRef.
@@ -507,6 +555,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         });
       }
     });
+
+    if (anglesToDisplay.length) {
+      setAnglesToDisplay(anglesToDisplay);
+    }
   };
 
   const showMyWebcam = () => {
@@ -532,6 +584,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   useEffect(() => { 
     if (videoRef.current) {
       setDisplayGraphs(false);
+
+      isSeekingFromChartRef.current = {
+        isSeeking: false,
+        newValue: null
+      };
+  
+      // jointDataRef.current = {};
+      // recordedPositionsRef.current = {};
+  
+      // setCapturedChunks([]);
       
       videoProcessedRef.current = false;
       setVideoProcessed(false);
@@ -637,15 +699,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     canvasRef.current!.width = videoElement.videoWidth;
     canvasRef.current!.height = videoElement.videoHeight;
   
+    // ---------------------------------------------------
     const scaleFactor = getCanvasScaleFactor({ 
       canvas: canvasRef.current, 
       video: videoElement 
     });
-  
-    if (referenceScaleRef.current === null) {
-      referenceScaleRef.current = scaleFactor;
-    }
+
+    referenceScaleRef.current = scaleFactor;
     const referenceScale = referenceScaleRef.current ?? 1;
+    // ---------------------------------------------------
   
     if (poses.length > 0) {
       const ctx = canvasRef.current!.getContext("2d");
@@ -673,7 +735,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         });
   
         updateMultipleJoints({
-          ctx,
           keypoints,
           jointNames: visibleJointsRef.current,
           jointDataRef,
@@ -765,9 +826,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             video: videoElement
           });
 
-          if (referenceScaleRef.current === null) {
-            referenceScaleRef.current = scaleFactor;
-          }
+          referenceScaleRef.current = scaleFactor;
           const referenceScale = referenceScaleRef.current ?? 1;
           // ---------------------------------------------------
 
@@ -799,7 +858,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 const timestampMs = videoRef.current.currentTime * 1000;
                 updateIsSeekingFromCurrentVideoTime(timestampMs);
               }
-              updateMultipleJoints({ctx, keypoints, jointNames: visibleJointsRef.current, jointDataRef, jointConfigMap});
+              updateMultipleJoints({keypoints, jointNames: visibleJointsRef.current, jointDataRef, jointConfigMap});
             }
           }
         }
@@ -982,11 +1041,13 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               )}
               {videoUrl && (
                 <TrashIcon 
-                  className="h-6 w-6 text-red-500 cursor-pointer"
+                  className={`h-6 w-6 cursor-pointer ${
+                    videoProcessed ? 'text-orange-300' : 'text-red-500'
+                  }`}
                   onClick={handleRemoveRecord}
                   />
               )}
-              {videoUrl && (
+              {(videoUrl && !videoProcessed) && (
                 <CubeTransparentIcon 
                   className={`h-6 w-6 text-white cursor-pointer ${
                     ((!isFrozen && videoProcessed) || displayGraphs) ? "opacity-40" : ""
@@ -1010,51 +1071,67 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               >
               <div 
                 className={`relative cursor-pointer ${
-                  recording ? 'opacity-40' : ''
+                  (recording || videoProcessed) ? "text-white/60" : "text-white"
                 }`}
-                onClick={() => !recording && toggleCamera()}
+                onClick={() => !recording && !videoProcessed && toggleCamera()}
                 >
                 <CameraIcon 
-                  className={`h-6 w-6 text-white cursor-pointer`}
+                  className={`h-6 w-6 cursor-pointer`}
                   />
                 <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 bg-black/80 rounded-full p-[0.1rem]"/>
               </div>
               <UserIcon 
-                className={`h-6 w-6 text-white cursor-pointer  ${
-                  recording ? 'opacity-40' : ''
+                className={`h-6 w-6 cursor-pointer ${
+                  (recording || videoProcessed) ? "text-white/60" : "text-white"
                 }`}
-                onClick={() => !recording && handlePoseModal()}
+                onClick={() => !recording && !videoProcessed && handlePoseModal()}
                 />
               <Cog6ToothIcon 
                 className={`h-6 w-6 text-white cursor-pointer ${
-                  recording ? 'opacity-40' : ''
+                  recording ? "text-white/60" : "text-white"
                 }`}
                 onClick={() => !recording && handleSettingsModal({})}
                 />
             </section>
           </>
         )}
-        {videoUrl && (
+        {videoUrl && (videoProcessed || (!videoProcessed && !videoRef.current?.paused)) ? (
+            <section 
+              data-element="non-swipeable"
+              className={`absolute bottom-2 z-10 flex gap-4 bg-black/40 rounded-full p-2 ${
+                videoProcessed || videoRef.current?.paused ? 'left-1' : ''
+              }`}
+              >
+                {videoProcessed && (
+                  <>
+                    <BackwardIcon 
+                      className="h-8 w-8 text-white cursor-pointer"
+                      onClick={rewindStep}/>
+                      <p className="flex items-center text-white">{ videoCurrentTime.toFixed(2) } s</p>
+                    <ForwardIcon 
+                      className="h-8 w-8 text-white cursor-pointer"
+                      onClick={forwardStep}/>
+                  </>
+                )}
+                {(!videoProcessed && !videoRef.current?.paused) && (
+                  <CubeTransparentIcon className="w-8 h-8 text-white animate-spin"/>
+                )}
+            </section>
+          ) : null
+        }
+        {isCameraReady && !(videoUrl && !videoProcessed) ? (
           <section 
-            data-element="non-swipeable"
-            className="absolute bottom-2 z-10 flex gap-4 bg-black/40 rounded-full p-2"
-            >
-              {videoProcessed && (
-                <>
-                  <BackwardIcon 
-                    className="h-8 w-8 text-white cursor-pointer"
-                    onClick={rewindStep}/>
-                    <p className="flex items-center text-white">{ videoCurrentTime.toFixed(2) } s</p>
-                  <ForwardIcon 
-                    className="h-8 w-8 text-white cursor-pointer"
-                    onClick={forwardStep}/>
-                </>
-              )}
-              {(!videoProcessed && !videoRef.current?.paused) && (
-                <CubeTransparentIcon className="w-8 h-8 text-white animate-spin"/>
-              )}
-          </section>
-        )}
+            className="absolute z-10 bottom-2 right-0 font-bold w-40 p-2"
+            style={{
+              background: `linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
+            }}
+            >{
+            anglesToDisplay.map((angle, index) => (
+              <p key={index}>{angle}</p>
+            ))
+          }
+          </section> ) : null
+        }
       </div> 
 
       <PoseModal 
