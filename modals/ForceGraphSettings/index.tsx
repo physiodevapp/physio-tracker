@@ -30,12 +30,16 @@ const Index: React.FC = () => {
         Set default values <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>
       <div className="space-y-2 text-white">
-        <div className="flex gap-2">
+        <div className="flex gap-4">
           <div className="flex-1">
-            <label className="block text-sm">
-              Window<span className="align-sub uppercase text-[0.6rem]"> Avg</span>{" "}: {((settings.force.movingAverageWindow ?? 0) / 1000).toFixed(1)} s
+            <label 
+              htmlFor="movingAverageWindow"
+              className="block text-sm"
+              >
+                Window<span className="align-sub uppercase text-[0.6rem]"> Avg</span>{" "}: {((settings.force.movingAverageWindow ?? 0) / 1000).toFixed(1)} s
             </label>
             <input
+              id="movingAverageWindow"
               type="range"
               min="500"
               max="5000"
@@ -46,10 +50,14 @@ const Index: React.FC = () => {
               />
           </div>
           <div className="flex-1">
-            <label className="block text-sm">
-              Hysteresis<span className="align-sub text-[0.6rem]"></span>: {settings.force.hysteresis} kg
+            <label 
+              htmlFor="hysteresis"
+              className="block text-sm"
+              >
+                Hysteresis<span className="align-sub text-[0.6rem]"></span>: {settings.force.hysteresis} kg
             </label>
             <input
+              id="hysteresis"
               type="range"
               min="0"
               max="1"
@@ -60,13 +68,17 @@ const Index: React.FC = () => {
               />
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-4">
           <div className="flex-1">
-            <label className="block text-sm">
-              Amp.<span className="align-sub uppercase text-[0.6rem]"> Avg Min</span>:{" "}
-              {settings.force.minAvgAmplitude} kg
+            <label 
+              htmlFor="minAvgAmplitude"
+              className="block text-sm"
+              >
+                Amp.<span className="align-sub uppercase text-[0.6rem]"> Avg Min</span>:{" "}
+                {settings.force.minAvgAmplitude} kg
             </label>
             <input
+              id="minAvgAmplitude"
               type="range"
               min="0.1"
               max="2"
@@ -77,10 +89,14 @@ const Index: React.FC = () => {
             />
           </div>
           <div className="flex-1">
-            <label className="block text-sm">
-              Duration <span className="align-sub uppercase text-[0.6rem]"> Var</span>: {settings.force.durationChangeThreshold} s
+            <label 
+              htmlFor="durationChangeThreshold"
+              className="block text-sm"
+              >
+                Duration <span className="align-sub uppercase text-[0.6rem]"> Var</span>: {settings.force.durationChangeThreshold} s
             </label>
             <input
+              id="durationChangeThreshold"
               type="range"
               min="0.01"
               max="0.2"
@@ -91,13 +107,17 @@ const Index: React.FC = () => {
               />
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-4">
           <div className="flex-1">
-            <label className="block text-sm">
-              <span className="overline">F</span>
-              <span className="align-sub uppercase text-[0.6rem]"> Drop</span>: {(settings.force.peakDropThreshold ?? 0) * 100}%
+            <label 
+              htmlFor="peakDropThreshold"
+              className="block text-sm"
+              >
+                <span className="overline">F</span>
+                <span className="align-sub uppercase text-[0.6rem]"> Drop</span>: {(settings.force.peakDropThreshold ?? 0) * 100}%
             </label>
             <input
+              id="peakDropThreshold"
               type="range"
               min="0.1"
               max="1.0"
@@ -108,8 +128,11 @@ const Index: React.FC = () => {
               />
           </div>
           <div className="flex-1">
-            <label htmlFor="velocityWeight" className="text-sm">
-              <span className="overline">V</span><span className="align-sub uppercase text-[0.6rem]"> drop</span>: {settings.force.velocityDropThreshold?.toFixed(2)} %
+            <label 
+              htmlFor="velocityWeight" 
+              className="block text-sm"
+              >
+                <span className="overline">V</span><span className="align-sub uppercase text-[0.6rem]"> drop</span>: {settings.force.velocityDropThreshold?.toFixed(2)} %
             </label>
             <input
               id="velocityWeight"
@@ -123,13 +146,17 @@ const Index: React.FC = () => {
               />
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-4">
           <div className="flex-1">
-            <label className="block text-sm">
-              Cycles<span className="align-sub uppercase text-[0.6rem]"> Avg</span>:{" "}
-              {settings.force.cyclesToAverage}
+            <label 
+              htmlFor="cyclesToAverage"
+              className="block text-sm"
+              >
+                Cycles<span className="align-sub uppercase text-[0.6rem]"> Avg</span>:{" "}
+                {settings.force.cyclesToAverage}
             </label>
             <input
+              id="cyclesToAverage"
               type="range"
               min="1"
               max="10"
@@ -139,8 +166,11 @@ const Index: React.FC = () => {
               />
           </div>
           <div className="flex-1">
-            <label htmlFor="velocityVariationThreshold" className="text-sm">
-             Cycle<span className="align-sub uppercase text-[0.6rem]"> var</span>: {settings.force.variabilityThreshold.toFixed(2)} %
+            <label 
+              htmlFor="velocityVariationThreshold" 
+              className="block text-sm"
+              >
+              Cycle<span className="align-sub uppercase text-[0.6rem]"> var</span>: {settings.force.variabilityThreshold.toFixed(2)} %
             </label>
             <input
               id="velocityVariationThreshold"

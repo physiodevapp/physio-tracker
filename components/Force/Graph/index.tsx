@@ -98,6 +98,7 @@ const Index: React.FC<IndexProps> = ({
     cycleCount,
     cycleDuration,
     cycleAmplitude,
+    cycleSpeedRatio,
     fatigueStatus,
     recentWindowData: {recentAverageValue: recentAverageForceValue},
     peak: maxPoint, // kg
@@ -112,7 +113,9 @@ const Index: React.FC<IndexProps> = ({
     workLoad: number | null; 
     cycleCount: number | null; 
     cycleDuration: number | null; 
-    cycleAmplitude: number | null}[]>([]);
+    cycleAmplitude: number | null;
+    cycleSpeedRatio: number | null;
+  }[]>([]);
 
   useEffect(() => {
     if (cycleCount === 0) {
@@ -120,15 +123,16 @@ const Index: React.FC<IndexProps> = ({
     };
 
     setCycleData(prevData => {
-        const newCycle = { 
-          workLoad: workLoad, 
-          cycleCount, 
-          cycleDuration, 
-          cycleAmplitude 
-        };
+      const newCycle = { 
+        workLoad: workLoad, 
+        cycleCount, 
+        cycleDuration, 
+        cycleAmplitude,
+        cycleSpeedRatio,
+      };
 
-        const updatedData = [...prevData, newCycle];
-        return updatedData;
+      const updatedData = [...prevData, newCycle];
+      return updatedData;
     });
 
 }, [cycleCount]);
@@ -180,7 +184,6 @@ const Index: React.FC<IndexProps> = ({
     () => ({
       type: "line",
       plugins: [
-        // CrosshairPlugin as ChartPlugin,
         customCrosshairPlugin(),
       ],
       data: {
@@ -217,23 +220,6 @@ const Index: React.FC<IndexProps> = ({
           legend: {
             display: false,
           },
-          // crosshair: {
-          //   line: {
-          //     color: (isRecording || sensorData.length === 0) ? 'transparent' : '#F66', 
-          //     width: 1
-          //   },
-          //   sync: {
-          //     // Habilita la sincronización con otros gráficos
-          //     enabled: true,
-          //     // Grupo de gráficos para sincronizar
-          //     group: 1,
-          //     // Suprime tooltips al mostrar un tracer sincronizado
-          //     suppressTooltips: false,
-          //   },
-          //   zoom: {
-          //     enabled: false,  
-          //   },
-          // },
           tooltip: {
             enabled: false,
             external: function (context) {
@@ -346,8 +332,7 @@ const Index: React.FC<IndexProps> = ({
               stepSize: 1000,
               callback: (value) => {
                 const numValue = Number(value);
-                if (numValue < 0) return '';
-                return (numValue / 1000).toFixed(0) + 's';
+                return numValue >= 0 ? `${(numValue / 1000).toFixed(0)}` : '';
               },
             },
             min: minTime,
@@ -438,11 +423,12 @@ const Index: React.FC<IndexProps> = ({
           }
         </section>
         <section className="mt-2 px-1 py-2 border-2 border-black dark:border-white rounded-lg">
-          <div className="grid grid-cols-4 font-semibold bg-white dark:bg-black border-b py-1 mb-2">
-            <div className="pl-2">Load (kg)</div>
-            <div className="pl-2">Rep</div>
-            <div className="pl-2">Time (s)</div>
-            <div className="pl-2">Amp (kg)</div>
+          <div className="grid grid-cols-5 font-semibold bg-white dark:bg-black border-b py-1 mb-2">
+            <div className="pl-1 pr-2">Load</div>
+            <div className="pl-1 pr-2">Rep</div>
+            <div className="pl-1 pr-2">Time</div>
+            <div className="pl-1 pr-2">Amp</div>
+            <div className="pl-1 pr-2">V/R</div>
           </div>
           <div ref={scrollContainerRef} className={`overflow-y-auto transition-[max-height] ${isRecording
             ? "max-h-[calc(100dvh-590px)]"
@@ -451,10 +437,11 @@ const Index: React.FC<IndexProps> = ({
             <table className="w-full border-collapse text-left table-fixed transition-transform">
               <thead className="hidden md:table-header-group">
                 <tr className="align-baseline">
-                  <th className="pl-2 w-1/4">Load (kg)</th>
-                  <th className="pl-2 w-1/4">Rep</th>
-                  <th className="pl-2 w-1/4">Time (s)</th>
-                  <th className="pl-2 w-1/4">Amp (kg)</th>
+                  <th className="pl-1 pr-2 w-1/5">Load</th>
+                  <th className="pl-1 pr-2 w-1/5">Rep</th>
+                  <th className="pl-1 pr-2 w-1/5">Time</th>
+                  <th className="pl-1 pr-2 w-1/5">Amp</th>
+                  <th className="pl-1 pr-2 w-1/5">V/R</th>
                 </tr>
               </thead>
               <tbody>
@@ -470,11 +457,16 @@ const Index: React.FC<IndexProps> = ({
                         <td className="pl-2">{data.cycleCount !== null ? data.cycleCount.toFixed(0) : "-"}</td>
                         <td className="pl-2">{data.cycleDuration !== null ? (data.cycleDuration / 1000).toFixed(2) : "-"}</td>
                         <td className="pl-2">{data.cycleAmplitude !== null ? data.cycleAmplitude.toFixed(2) : "-"}</td>
+                        <td className="pl-2">{data.cycleSpeedRatio !== null ? data.cycleSpeedRatio.toFixed(2) : "-"}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td className="pl-2 text-center" colSpan={4}>-</td>
+                      <td className="pl-2">-</td>
+                      <td className="pl-2">-</td>
+                      <td className="pl-2">-</td>
+                      <td className="pl-2">-</td>
+                      <td className="pl-2">-</td>
                     </tr>
                   );
                 })()}

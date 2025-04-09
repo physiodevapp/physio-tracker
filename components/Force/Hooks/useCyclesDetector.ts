@@ -28,7 +28,7 @@ export default function useCyclesDetector({
     minAvgAmplitude,
     peakDropThreshold: amplitudeDropThreshold,
     cyclesToAverage,
-  } = settings
+  } = settings;
 
   const fatigueTipsMap: Record<string, string> = {
     // Individual
@@ -62,6 +62,7 @@ export default function useCyclesDetector({
   const [cycleCount, setCycleCount] = useState(0);
   const [cycleDuration, setCycleDuration] = useState<number | null>(null);
   const [cycleAmplitude, setCycleAmplitude] = useState<number | null>(null);
+  const [cycleSpeedRatio, setCycleSpeedRatio] = useState<number | null>(null);
 
   const [cycleMetrics, setCycleMetrics] = useState<CycleMetric[]>([]);
   const cycleDurations = useRef<number[]>([]);
@@ -69,6 +70,7 @@ export default function useCyclesDetector({
   const durationChangeThreshold = 0.05;
   const velocityDropThreshold = 0.75;
   const variabilityThreshold = 0.04; 
+  const maxCyclesForAnalysis = 6;
   
   // ---------- Refs para la lógica de detección de ciclo ----------
   // Ref para guardar el extremo que inició el ciclo ("above" o "below")
@@ -188,8 +190,8 @@ export default function useCyclesDetector({
         setCycleMetrics(prev => {
           const newCycle = { amplitude, duration, timestamp: lastPoint.x };
           const updated = [...prev, newCycle];
-          // Limitar a los últimos 10 ciclos para análisis
-          return updated.slice(-10);
+          // Limitar a los últimos 6 ciclos para análisis
+          return updated.slice(-maxCyclesForAnalysis);
         });
         // Guardar la duración del nuevo ciclo en el historial para analizar tendencias de fatiga
         // Esto permite calcular la tasa de cambio del tiempo del ciclo y detectar si se está alargando progresivamente
@@ -253,6 +255,23 @@ export default function useCyclesDetector({
         ? initialVelocities.reduce((sum, v) => sum + v, 0) / initialVelocities.length 
         : avgVelocity;
     }
+    // Calcular el speed ratio
+    const isValidCycle =
+      cycleAmplitude != null &&
+      cycleDuration != null &&
+      isFinite(cycleAmplitude) &&
+      isFinite(cycleDuration) &&
+      cycleDuration !== 0;
+    const velocity = isValidCycle
+      ? (cycleAmplitude / cycleDuration) / (isWorkLoadConstant ? workLoad! : 1)
+      : null;
+    setCycleSpeedRatio(
+      initialAvgVelocity.current != null &&
+      velocity != null &&
+      isFinite(velocity)
+        ? velocity / initialAvgVelocity.current
+        : null
+    );
 
     // Calcular la variabilidad de los últimos "cyclesToAverage" ciclos
     const recentAmplitudes = cycleMetrics
@@ -303,6 +322,7 @@ export default function useCyclesDetector({
       setCycleCount(0);
       setCycleDuration(0);
       setCycleAmplitude(0);
+      setCycleSpeedRatio(0);
       setCycleMetrics([]);
       initialAvgVelocity.current = null;
     }
@@ -312,6 +332,7 @@ export default function useCyclesDetector({
     cycleCount,
     cycleDuration,
     cycleAmplitude,
+    cycleSpeedRatio,
     fatigueStatus,
     recentWindowData,
     peak,

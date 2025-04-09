@@ -37,13 +37,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [workLoad, setWorkLoad] = useState<number | null>(null);
   const [updatedWorkLoad, setUpdatedWorkLoad] = useState<number | null>(null);
   const [isEstimatingMass, setIsEstimatingMass] = useState(false);
+
+  const autoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Declaramos un estado y una ref para medir la frecuencia
   const measurementStartRef = useRef<number | null>(null);
   const sampleCount = useRef<number>(0);
-  const maxSensorDataRef = useRef<number>(815); // Valor inicial aproximado
-
-  // const [sensorData, setSensorData] = useState<DataPoint[]>([]);
+  const maxSensorDataRef = useRef<number>(815); // Valor inicial aproximado para 10 segundos
+  const timeWindow = 10_000_000; // 10 segundos en microsegundos
   
   // ------------ Referencia para almacenar las líneas del CSV ---------------
   const sensorRawDataLogRef = useRef<string[]>([]);
@@ -93,14 +94,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       sampleCount.current = sampleCount.current + 1;
     }
     
-    // Comprueba si han pasado 10 segundos (en microsegundos)
-    const timeWindow = 10_000_000;
+    // Comprueba si han pasado timeWindow segundos (en microsegundos)
+    // const timeWindow = 10_000_000;
     if (
       measurementStartRef.current &&
       (sensorTime - measurementStartRef.current) >= timeWindow
     ) {
       const samplesIn10Sec = sampleCount.current + 1; // Incluyendo el dato actual
-      console.log("Muestras en 10 segundos:", samplesIn10Sec);
+      // console.log("Muestras en 10 segundos:", samplesIn10Sec);
       // Actualiza el valor dinámico
       maxSensorDataRef.current = samplesIn10Sec;
       // Reinicia el contador y la marca de tiempo
@@ -204,9 +205,17 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       sensorRawDataLogRef.current = ["timestamp,force"];
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
       setIsRecording(true);
-    } catch (error) {
-      console.log("Error starting measurement:", error);
-    }
+
+      // ------ AUTO-STOP después de 30 segundos (30_000 ms) ------
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current);
+      }
+      autoStopTimeoutRef.current = setTimeout(() => {
+        stopMeasurement();
+      }, 30_000);
+      } catch (error) {
+        console.log("Error starting measurement:", error);
+      }
   };
 
   const stopMeasurement = async () => {
@@ -217,6 +226,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     try {
       await controlCharacteristic.writeValue(new Uint8Array([CMD_STOP_WEIGHT_MEAS]));
       setIsRecording(false);
+      // console.log('sensorRawDataLogRef ', sensorRawDataLogRef.current.length)
     } catch (error) {
       console.log("Error stopping measurement:", error);
     }
@@ -459,7 +469,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                     <div className="fixed bottom-4 left-0 right-0 px-2 flex items-center">
                       <button
                         className={`w-full bg-[#5dadec] hover:bg-[#5dadec]/80 text-white font-bold text-lg px-6 py-2 rounded-lg uppercase transition ${
-                          taringStatus !== 1 || showMassCalibration ? 'opacity-40' : ''
+                          taringStatus !== 1 ? 'opacity-40' : ''
                         }`}
                         onClick={handleStartTest}
                         >
@@ -514,8 +524,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               onClick={shutdown}
               />
             <Cog6ToothIcon 
-              className="w-6 h-6 text-white"
-              onClick={() => !isRecording && toggleSettings()}
+              className={`w-6 h-6 ${
+                (isRecording || sensorData.length) ? "text-white/60" : "text-white"
+              }`}
+              onClick={() => !isRecording && !sensorData.length && toggleSettings()}
               />
           </>
         )}
@@ -524,7 +536,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         )}
       </section>
       {(showSettings && isConnected) && (
-        <ForceSettings />
+        <ForceSettings/>
       )}
       {(showMassCalibration && isConnected) && (
          <section
