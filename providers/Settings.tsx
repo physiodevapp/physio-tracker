@@ -7,7 +7,6 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 interface PoseSettings {
   selectedJoints: CanvasKeypointName[];
   angularHistorySize: number;
-  poseTimeWindow: number;
   poseUpdateInterval: number;
   poseGraphSample: number;
   poseGraphSampleThreshold: number;
@@ -66,7 +65,6 @@ interface SettingsContextProps {
   // Setters para pose
   setSelectedJoints: (joints: CanvasKeypointName[]) => void;
   setAngularHistorySize: (size: number) => void;
-  setPoseTimeWindow: (timeInSeconds: number) => void;
   setPoseUpdateInterval: (timeInMiliseconds: number) => void;
   setPoseGraphSample: (sample: number) => void;
   setPoseGraphSampleThreshold: (sampleThreshold: number) => void;
@@ -121,10 +119,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     pose: {
       selectedJoints: [],
       angularHistorySize: 5,
-      poseTimeWindow: 10,
       poseUpdateInterval: 300,
       poseGraphSample: 100,
-      poseGraphSampleThreshold: 120,
+      poseGraphSampleThreshold: 100,
       processingSpeed: 0.4,
     },
     color: {
@@ -180,9 +177,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       setSettings(prev => ({ ...prev, pose: { ...prev.pose, angularHistorySize: size } }));
     }
   };
-  const setPoseTimeWindow = (timeInSeconds: number) => {
-    setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseTimeWindow: timeInSeconds } }));
-  };
   const setPoseUpdateInterval = (timeInMiliseconds: number) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseUpdateInterval: timeInMiliseconds } }));
   };
@@ -211,7 +205,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const resetPoseGraphSettings = () => {
     setSettings(prev => ({
       ...prev, pose: {...prev.pose,
-        poseTimeWindow: defaultConfig.pose.poseTimeWindow,
         poseUpdateInterval: defaultConfig.pose.poseUpdateInterval,
         poseGraphSample: defaultConfig.pose.poseGraphSample,
         poseGraphSampleThreshold: defaultConfig.pose.poseGraphSampleThreshold,
@@ -280,7 +273,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         settings,
         setSelectedJoints,
         setAngularHistorySize,
-        setPoseTimeWindow,
         setPoseUpdateInterval,
         setPoseGraphSample,
         setPoseGraphSampleThreshold,

@@ -132,7 +132,6 @@ const Index = ({
 }: IndexProps) => {
   const { settings } = useSettings();
   const { 
-    poseTimeWindow,
     poseUpdateInterval,
     poseGraphSample,
     poseGraphSampleThreshold,
@@ -210,7 +209,7 @@ const Index = ({
     });
 
     return result;
-  }, [chartData, joints, valueTypes, poseGraphSample, poseGraphSampleThreshold, poseTimeWindow, poseUpdateInterval]);
+  }, [chartData, joints, valueTypes, poseGraphSample, poseGraphSampleThreshold, poseUpdateInterval]);
 
   // Calculamos el rango del eje X usando el tiempo normalizado
   let normalizedMaxX;
@@ -219,14 +218,14 @@ const Index = ({
     const allXValues = Object.values(chartData)
     .flatMap(data => data.anglePoints.map(point => point.x));
     normalizedMaxX = allXValues.length > 0 
-      ? Math.min(Math.max(...allXValues), poseTimeWindow) 
+      ? Math.max(...allXValues)
       : 0;
     normalizedMinX = 0;
   } else {
     normalizedMaxX = startTimeRef.current
       ? (currentTime - startTimeRef.current) / 1000
       : currentTime / 1000;
-    normalizedMinX = normalizedMaxX - poseTimeWindow;
+    normalizedMinX = normalizedMaxX;
   }
 
   useEffect(() => {
@@ -301,7 +300,7 @@ const Index = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [getDataForJoint, joints, poseTimeWindow, poseUpdateInterval, poseGraphSample, poseGraphSampleThreshold, realTime]);
+  }, [getDataForJoint, joints, poseUpdateInterval, poseGraphSample, poseGraphSampleThreshold, realTime]);
 
   useEffect(() => {
     if (recordedPositions) {

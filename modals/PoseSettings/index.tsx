@@ -18,7 +18,6 @@ const Index = ({
   const {
     settings,
     setAngularHistorySize,
-    setPoseTimeWindow,
     setPoseUpdateInterval,
     setProcessingSpeed,
     setPoseGraphSample,
@@ -27,11 +26,9 @@ const Index = ({
   } = useSettings();
   const {
     angularHistorySize,
-    poseTimeWindow,
     poseUpdateInterval,
     processingSpeed,
     poseGraphSample,
-    poseGraphSampleThreshold,
   } = settings.pose;
 
   const handleAngleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,12 +37,6 @@ const Index = ({
     setAngularHistorySize(value);
 
     setAngularHistorySize(value);
-  };
-
-  const handleTimeWindowChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Number(event.target.value);
-
-    setPoseTimeWindow(value);
   };
 
   const handleUpdateIntervalChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,32 +54,17 @@ const Index = ({
 
   const handleSampleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
-    // Si el nuevo valor de sample supera el valor de threshold, se ajusta threshold a ese valor
-    if (value > poseGraphSampleThreshold) {
-
-      setPoseGraphSampleThreshold(value);
-    }
-
-    setPoseGraphSample(value);
-  };
-  
-  const handleSampleThresholdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Number(event.target.value);
-    // Si el nuevo valor de threshold es menor que el valor actual de sample, se ajusta sample a ese valor
-    if (value < poseGraphSample) {
-      setPoseGraphSample(value);
-    }
     
     setPoseGraphSampleThreshold(value);
-  };  
 
-  if (!isModalOpen) return null;
+    setPoseGraphSample(value);
+  }; 
 
-  return (
+  return isModalOpen ? (
     <div
       className="fixed z-40 bottom-0 left-0 w-full px-4 pt-[1rem] pb-[2rem] flex flex-col items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg"
       data-element="non-swipeable"
-    >
+      >
       <div
         className="w-full h-9 flex justify-end text-white/60 italic font-light cursor-pointer"
         onClick={resetPoseGraphSettings}
@@ -117,23 +93,23 @@ const Index = ({
               disabled={videoProcessed}
               />
           </div>
-          <div className=" flex-1 flex flex-col justify-between gap-2">
+          <div className="flex-1 flex flex-col justify-between gap-2">
             <label 
-              htmlFor="time-window" 
+              htmlFor="sample" 
               className={`${
-                !displayGraphs ? "text-white/60" : "text-white"
+                !videoProcessed || !displayGraphs ? "text-white/60" : "text-white"
               }`}
               >
-              Window: {poseTimeWindow} s
+              Sample<span className='align-sub text-[0.6rem] uppercase'> lttb</span>: {poseGraphSample}
             </label>
             <input
-              id="time-window"
+              id="sample"
               type="range"
-              value={poseTimeWindow}
-              min="5"
-              max="10"
-              onChange={handleTimeWindowChange}
-              disabled={!displayGraphs}
+              value={poseGraphSample}
+              min="50"
+              max="300"
+              onChange={handleSampleChange}
+              disabled={!videoProcessed || !displayGraphs}
               />
           </div>
         </div>          
@@ -182,49 +158,9 @@ const Index = ({
               />
           </div>
         </div>
-        <div className='flex w-full gap-6'>
-          <div className="flex-1 flex flex-col justify-between gap-2">
-            <label 
-              htmlFor="sample" 
-              className={`${
-                !videoProcessed || !displayGraphs ? "text-white/60" : "text-white"
-              }`}
-              >
-              Sample<span className='align-sub text-[0.6rem] uppercase'> lttb</span>: {poseGraphSample}
-            </label>
-            <input
-              id="sample"
-              type="range"
-              value={poseGraphSample}
-              min="50"
-              max="300"
-              onChange={handleSampleChange}
-              disabled={!videoProcessed || !displayGraphs}
-              />
-          </div>
-          <div className="flex-1 flex flex-col justify-between">
-            <label 
-              htmlFor="sample-threshold" 
-              className={`${
-                !videoProcessed || !displayGraphs ? "text-white/60" : "text-white"
-              }`}
-              >
-              Threshold<span className='align-sub text-[0.6rem] uppercase'> lttb</span>: {poseGraphSampleThreshold}
-            </label>
-            <input
-              id="sample-threshold"
-              type="range"
-              value={poseGraphSampleThreshold}
-              min="60"
-              max="320"
-              onChange={handleSampleThresholdChange}
-              disabled={!videoProcessed || !displayGraphs}
-            />
-          </div>
-        </div>
       </form>
     </div>
-  );
+  ) : null;
 };
 
 export default Index;
