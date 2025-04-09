@@ -128,7 +128,7 @@ const Index = ({
   recordedPositions = undefined,
   onVerticalLineChange,
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
-  verticalLineValue = 0,
+  // verticalLineValue = 0,
 }: IndexProps) => {
   const { settings } = useSettings();
   const { 
