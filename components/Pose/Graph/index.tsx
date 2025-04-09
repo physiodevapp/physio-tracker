@@ -5,15 +5,19 @@ import {
   ChartConfiguration,
   ChartEvent,
   registerables,
+  ActiveDataPoint,
 } from "chart.js";
 import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
 import { getColorsForJoint } from "@/services/joint";
 import { useSettings } from "@/providers/Settings";
 import { lttbDownsample } from "@/services/chart";
+import zoomPlugin from 'chartjs-plugin-zoom';
+import { ViewfinderCircleIcon } from "@heroicons/react/24/solid";
 
 // Registro de componentes de Chart.js
 ChartJS.register(
   ...registerables,
+  zoomPlugin 
 );
 
 // Definimos la interfaz para cada punto de datos
@@ -136,6 +140,8 @@ const Index = ({
     poseGraphSample,
     poseGraphSampleThreshold,
   } = settings.pose;
+
+  const [isZoomed, setIsZoomed] = useState(false);
 
   // --- Cofiguración del gráfico ----
   const chartRef = useRef<ChartJS | null>(null);
@@ -354,7 +360,7 @@ const Index = ({
         datasets: datasets,
       },
       plugins: [
-        customCrosshairPlugin(!realTime)
+        customCrosshairPlugin(!realTime),
       ],
       options: {
         responsive: true,
@@ -367,6 +373,58 @@ const Index = ({
           includeInvisible: false,
         },       
         plugins: {
+          zoom: {
+            limits: {
+              x: {min: 0, max: 10, minRange: 5},
+              y: {min: -10, max: 200, minRange: 20}
+            },
+            pan: {
+              enabled: true,
+              mode: 'xy', // o 'xy'
+              threshold: 10,
+              onPan: ({ chart }: { chart: ChartJS & { _customCrosshairX?: number } }) => {
+                setIsZoomed(true);
+
+                const x = chart._customCrosshairX;
+                if (!x) return;
+
+                const xValue = chart.scales.x.getValueForPixel(x);
+                const activeElements: ActiveDataPoint[] = [];
+
+                chart.data.datasets.forEach((dataset, datasetIndex) => {
+                  const data = dataset.data as { x: number; y: number }[];
+                  if (!data?.length) return;
+              
+                  let closestIndex = 0;
+                  let minDist = Infinity;
+              
+                  data.forEach((point, i) => {
+                    const dist = Math.abs(point.x - xValue!);
+                    if (dist < minDist) {
+                      minDist = dist;
+                      closestIndex = i;
+                    }
+                  });
+              
+                  activeElements.push({ datasetIndex, index: closestIndex });
+                });
+
+                chart.setActiveElements(activeElements);
+                chart.tooltip!.setActiveElements(activeElements, { x, y: chart.chartArea.top });
+                // chart.update();
+              },
+            },
+            zoom: {
+              wheel: {
+                enabled: true, // zoom con scroll
+              },
+              pinch: {
+                enabled: true, // zoom con gesto táctil
+              },
+              mode: 'xy', // solo horizontal (tiempo)
+              onZoom: () => setIsZoomed(true),
+            },
+          },
           legend: {
             display: true,
             position: "top",
@@ -493,6 +551,16 @@ const Index = ({
           ref={canvasRef} 
           className='bg-white px-2 pb-2'
           />
+        {isZoomed ? (
+          <ViewfinderCircleIcon 
+          className="absolute bottom-0 left-0 p-1 w-8 h-8 text-gray-400"
+          onClick={() => {
+            chartRef.current?.resetZoom();
+
+            setIsZoomed(false);
+          }}
+          /> ) : null
+        }
     </div>
   );
 };
