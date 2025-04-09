@@ -376,10 +376,10 @@ const Index = ({
           zoom: {
             limits: {
               x: {min: 0, max: 10, minRange: 5},
-              y: {min: -10, max: 200, minRange: 20}
+              y: {min: -10, max: 200, minRange: 60}
             },
             pan: {
-              enabled: true,
+              enabled: false,
               mode: 'xy', // o 'xy'
               threshold: 10,
               onPan: ({ chart }: { chart: ChartJS & { _customCrosshairX?: number } }) => {
@@ -517,7 +517,7 @@ const Index = ({
                 return "";
               })(),
             },
-            suggestedMin: 0,
+            suggestedMin: -10,
             suggestedMax: 180,
             ticks: {
               display: joints.length > 0,
