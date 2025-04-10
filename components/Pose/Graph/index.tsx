@@ -30,7 +30,6 @@ type RecordedPositions = {
   [joint in CanvasKeypointName]?: {
     timestamp: number;
     angle: number;
-    // angularVelocity: number;
     color: JointColors;
   }[];
 };
@@ -91,7 +90,10 @@ const customCrosshairPlugin = (isActive: boolean = true) => ({
     ctx.restore();
   
     // Para cada dataset
-    chart.data.datasets.forEach((dataset) => {
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      const meta = chart.getDatasetMeta(datasetIndex);
+      if (meta.hidden) return; 
+
       const data = dataset.data as { x: number; y: number }[];
   
       if (!data || !data.length) return;
@@ -123,7 +125,7 @@ const Index = ({
   recordedPositions = undefined,
   onVerticalLineChange,
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
-  // verticalLineValue = 0,
+  verticalLineValue = 0,
 }: IndexProps) => {
   const { settings } = useSettings();
   const { 
@@ -133,6 +135,7 @@ const Index = ({
   } = settings.pose;
 
   const [isZoomed, setIsZoomed] = useState(false);
+  const crosshairXValueRef = useRef<number | undefined>(undefined);
 
   // --- Cofiguración del gráfico ----
   const chartRef = useRef<ChartJS | null>(null);
@@ -345,7 +348,69 @@ const Index = ({
                 });
               },
             },
-            onClick: () => {},                       
+            // onClick: () => {},  
+            onClick: (e, legendItem, legend) => {
+              const chart = legend.chart as ChartJS & { _customCrosshairX?: number };
+              const xScale = chart.scales['x'];
+            
+              const index = legendItem.datasetIndex;
+              if (typeof index !== 'number') return;
+            
+              const meta = chart.getDatasetMeta(index);
+              const isCurrentlyHidden = meta.hidden ?? false;
+              meta.hidden = !isCurrentlyHidden;
+            
+              // Capturamos el valor actual visible antes del update
+              const activeTooltipPoint = chart.tooltip?.dataPoints?.[0];
+              const xValueBeforeUpdate = crosshairXValueRef.current ?? activeTooltipPoint?.parsed?.x;
+            
+              chart.update();
+            
+              const allHidden = chart.data.datasets.every((_, i) => {
+                const meta = chart.getDatasetMeta(i);
+                return meta.hidden === true;
+              });
+            
+              if (allHidden) {
+                chart.setActiveElements([]);
+                chart.update();
+                chart._customCrosshairX = undefined;
+                chart.draw();
+                return;
+              }
+            
+              // ✅ Solo usar xValueBeforeUpdate, NO verticalLineValue
+              if (xValueBeforeUpdate === undefined) return;
+            
+              chart._customCrosshairX = xScale.getPixelForValue(xValueBeforeUpdate);
+              crosshairXValueRef.current = xValueBeforeUpdate; 
+            
+              const activeElements: { datasetIndex: number; index: number }[] = [];
+            
+              chart.data.datasets.forEach((dataset, datasetIndex) => {
+                const meta = chart.getDatasetMeta(datasetIndex);
+                if (meta.hidden) return;
+            
+                const points = dataset.data as { x: number; y: number }[];
+            
+                let closestIndex = 0;
+                let minDiff = Infinity;
+            
+                points.forEach((point, index) => {
+                  const diff = Math.abs(point.x - xValueBeforeUpdate);
+                  if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIndex = index;
+                  }
+                });
+            
+                activeElements.push({ datasetIndex, index: closestIndex });
+              });
+            
+              chart.setActiveElements(activeElements);
+              chart.update();
+              chart.draw();
+            },                                                        
           },
           tooltip: {
             enabled: false,
@@ -369,7 +434,7 @@ const Index = ({
                     y: dp.parsed.y,
                   };
                 });
-
+                // console.log('onVerticalLineChange ', values)
                 onVerticalLineChange({ x, values });
               }
             },
@@ -434,7 +499,63 @@ const Index = ({
     };
   }, [chartConfig]);
 
+  useEffect(() => {
+    if (verticalLineValue === undefined) return;
+
+    const chart = chartRef.current as ChartJS & { _customCrosshairX?: number };
+    if (!chart || verticalLineValue === undefined) return;
   
+    const activeElements: { datasetIndex: number; index: number }[] = [];
+  
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      const points = dataset.data as DataPoint[];
+  
+      let closestIndex = 0;
+      let minDiff = Infinity;
+  
+      points.forEach((point, index) => {
+        const xVal = point?.x;
+        if (xVal === undefined) return;
+  
+        const diff = Math.abs(Number(xVal) - verticalLineValue);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestIndex = index;
+        }
+      });
+  
+      activeElements.push({ datasetIndex, index: closestIndex });
+    });
+  
+    const allIndexesAreZero = activeElements.every(el => el.index === 0);
+
+    const anyDatasetVisible = chart.data.datasets.some((_, i) => {
+      const meta = chart.getDatasetMeta(i);
+      return meta.hidden !== true;
+    });
+
+    if (activeElements.length > 0 && !allIndexesAreZero) {
+      const xScale = chart.scales['x'];
+      const pixelX = xScale.getPixelForValue(verticalLineValue);
+      chart._customCrosshairX = pixelX;
+      crosshairXValueRef.current = verticalLineValue;
+      
+      chart.setActiveElements(activeElements);
+
+      if (anyDatasetVisible) {
+        chart.update();
+        chart.draw();
+      }
+    } else {
+      // Si todos eran 0, entonces limpiar tooltip y línea
+      chart.setActiveElements([]);
+      chart._customCrosshairX = undefined;
+      crosshairXValueRef.current = undefined;
+      chart.update();
+      chart.draw();
+    }
+  }, [verticalLineValue]); 
+ 
   return (
     <div 
       data-element="non-swipeable"

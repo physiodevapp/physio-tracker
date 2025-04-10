@@ -28,7 +28,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const [isCameraReady, setIsCameraReady] = useState(false);
 
-  // const isSeekingManually = useRef(false);
   const lastXRef = useRef<number | null>(null);
   const isSeekingFromChartRef  = useRef<{
     isSeeking: boolean;
@@ -354,12 +353,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
     if (newValue.x === lastXRef.current) return; 
     lastXRef.current = newValue.x;
-    // isSeekingManually.current = true;
-
     
     if (!video.paused) {
       if (videoProcessed && videoUrl) {
-        // console.log('object')
         isSeekingFromChartRef.current = {
           isSeeking: false,
           newValue: null,
@@ -371,7 +367,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     
     video.currentTime = newValue.x;
     setVideoCurrentTime(video.currentTime);
-    // return;
     
     setTimeout(async () => {
       // console.log('newValue 1 ', newValue)
@@ -1157,7 +1152,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             valueTypes={visibleKinematics}
             recordedPositions={videoProcessed ? recordedPositionsRef.current : undefined}
             onVerticalLineChange={handleChartValueX}
-            // verticalLineValue={videoCurrentTime}
+            verticalLineValue={isFrozen ? videoCurrentTime : undefined}
             parentStyles="relative z-0 h-[50dvh]"
             />
         </div> ) : null
