@@ -9,6 +9,7 @@ import ForceSettings from "@/modals/ForceGraphSettings";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { BluetoothContext } from "@/providers/Bluetooth";
+import { DataPoint } from "./PostGraph";
 
 // ----------------- Comandos y Códigos -----------------
 const CMD_TARE_SCALE = 100;
@@ -66,6 +67,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setSensorData,
     connectToSensor,
   } = useContext(BluetoothContext);
+  const [rawSensorData, setRawSensorData] = useState<DataPoint[]>([]);
 
   const [isRecording, setIsRecording] = useState(false);
   const [isBatteryDead, setIsBatteryDead] = useState(false);
@@ -203,6 +205,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       setSensorData([]); 
       measurementStartRef.current = null;
       sensorRawDataLogRef.current = ["timestamp,force"];
+      setRawSensorData([]);
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
       setIsRecording(true);
 
@@ -226,10 +229,23 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     try {
       await controlCharacteristic.writeValue(new Uint8Array([CMD_STOP_WEIGHT_MEAS]));
       setIsRecording(false);
-      // console.log('sensorRawDataLogRef ', sensorRawDataLogRef.current.length)
+      const parsedData = transformRawData(sensorRawDataLogRef.current);
+      setRawSensorData(parsedData);
     } catch (error) {
       console.log("Error stopping measurement:", error);
     }
+  };
+
+  const transformRawData = (rawCsvLines: string[]): DataPoint[] => {
+    return rawCsvLines
+      .slice(1) // Ignora el encabezado "timestamp,force"
+      .map((line) => {
+        const [rawTime, rawForce] = line.split(",");
+        const time = Number(rawTime); // Mantener en µs 
+        const force = Number(rawForce);
+        return { time, force };
+      })
+      .filter((point) => !isNaN(point.time) && !isNaN(point.force)); // Filtrar valores inválidos
   };
 
   const startMassEstimation = async() => {
@@ -415,6 +431,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             {/* Gráfico */}
             <ForceChart 
               sensorData={sensorData}
+              rawSensorData={rawSensorData}
               displayAnnotations={isConnected}
               isEstimatingMass={showMassCalibration}
               workLoad={updatedWorkLoad}
@@ -488,7 +505,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   {sensorData.length > 0 ? (
                     <TrashIcon
                       className="h-6 w-6 text-red-500 cursor-pointer"
-                      onClick={() => setSensorData([])}
+                      onClick={() => {
+                        setSensorData([]);
+                      
+                        setRawSensorData([]);
+                      }}
                       />
                     ) : null
                   }

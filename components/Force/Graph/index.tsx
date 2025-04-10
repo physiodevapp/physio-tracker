@@ -487,7 +487,7 @@ const Index: React.FC<IndexProps> = ({
                     return (
                       <tr
                         key={index}
-                        className={isOutlierRow ? "bg-red-200 text-red-700" : ""}
+                        className={isOutlierRow ? "bg-red-100 text-red-700" : ""}
                         >
                         <td className="pl-2">{data.workLoad !== null ? data.workLoad.toFixed(1) : "-"}</td>
                         <td className="pl-2">{data.cycleCount !== null
