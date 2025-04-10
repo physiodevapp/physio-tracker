@@ -335,6 +335,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     showMassCalibrationRef.current = showMassCalibration;
   }, [showMassCalibration]);
 
+  useEffect(() => {
+    return () => {
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current);
+      }
+    }
+  }, []);
+
   const handleStartTest= async () => {
     if (showMassCalibration) return;
 

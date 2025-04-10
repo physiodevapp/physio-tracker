@@ -416,10 +416,10 @@ const Index = ({
             },
             zoom: {
               wheel: {
-                enabled: true, // zoom con scroll
+                enabled: !realTime, // zoom con scroll
               },
               pinch: {
-                enabled: true, // zoom con gesto táctil
+                enabled: !realTime, // zoom con gesto táctil
               },
               mode: 'xy', // solo horizontal (tiempo)
               onZoom: () => setIsZoomed(true),

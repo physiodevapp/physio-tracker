@@ -1055,7 +1055,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   onClick={() => ((isFrozen || !videoProcessed) && !displayGraphs) && handleProcessVideo()}
                   />
               )}
-              {((videoUrl && videoProcessed) || !videoUrl) && (
+              {((videoUrl && videoProcessed)) && (
                 <PresentationChartBarIcon 
                   data-element="non-swipeable"
                   className={`h-6 w-6 text-white cursor-pointer ${
