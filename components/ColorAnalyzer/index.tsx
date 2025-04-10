@@ -242,6 +242,10 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         const height = distance(finalPoints[0], finalPoints[3]);
         // Ratio ancho / alto
         setAspectRatio(width / height);
+        
+        // captureAndAnalyze();
+        const videoElement = webcamRef.current?.video;
+        videoElement?.click();
       }
   
       // Limpieza
@@ -347,7 +351,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       }
   
       const minVisibleArea = src.cols * src.cols;
-      if (!biggest || maxArea < 0.8 * minVisibleArea) {
+      if (!biggest || maxArea < 0.76 * minVisibleArea) {
         console.log("No se detectó un folio DIN A4 suficientemente grande.");
         gray.delete(); blurred.delete(); edges.delete();
         contours.delete(); hierarchy.delete(); src.delete();
@@ -659,6 +663,16 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           videoConstraints={videoConstraints}
           mirrored={videoConstraints.facingMode === "user"}
           onUserMedia={() => setVideoReady(true)}
+          onClick={() => {
+            if (captured) return;
+            // console.log('captureAndAnalyze')
+
+            if (previewIntervalRef.current) {
+              clearInterval(previewIntervalRef.current);
+              previewIntervalRef.current = null;
+            }
+            captureAndAnalyze();
+          }}
         />
         {/* Canvas para mostrar contornos (superpuesto al video) */}
         <canvas
@@ -667,16 +681,6 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           style={{ 
             aspectRatio: (captured && aspectRatio) ? aspectRatio.toFixed(3) : "unset",
             height: (captured && aspectRatio) ? 'unset' : 'h-dvh' 
-          }}
-          onClick={() => {
-            if (captured) return;
-
-            if (previewIntervalRef.current) {
-              clearInterval(previewIntervalRef.current);
-              previewIntervalRef.current = null;
-            }
-
-            captureAndAnalyze();
           }}
           />
         {/* Canvas para análisis y descarga*/}
