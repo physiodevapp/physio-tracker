@@ -4,6 +4,7 @@ import annotationPlugin from 'chartjs-plugin-annotation';
 import { lttbDownsample } from '@/services/chart';
 import { ForceSettings } from '@/providers/Settings';
 import useCyclesDetector from '../Hooks/useCyclesDetector';
+import FullTestForceChart from "../PostGraph";
 
 // Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
 ChartJS.register(
@@ -20,6 +21,7 @@ export interface DataPoint {
 // Ahora ampliamos las props para recibir los umbrales
 interface IndexProps {
   sensorData: DataPoint[];
+  rawSensorData: DataPoint[];
   displayAnnotations: boolean;
   isEstimatingMass: boolean;
   workLoad: number | null;
@@ -68,6 +70,7 @@ const customCrosshairPlugin = (isActive: boolean = true) => ({
 
 const Index: React.FC<IndexProps> = ({
   sensorData,
+  rawSensorData,
   displayAnnotations = true,
   isEstimatingMass = false,
   settings,
@@ -399,29 +402,37 @@ const Index: React.FC<IndexProps> = ({
         </div>
       </section>
       <div data-element="non-swipeable" className={`relative w-full transition-all duration-300 ease-in-out pb-4`}>
-        <section className='relative bg-white rounded-lg px-1 pt-6 pb-2 mt-2'>
-          <canvas 
-            ref={canvasRef} 
-            className='bg-white'
+        {(rawSensorData.length === 0 || isRecording) ? (
+          <section className='relative bg-white rounded-lg px-1 pt-6 pb-2 mt-2'>
+            <canvas 
+              ref={canvasRef} 
+              className='bg-white'
+              />
+            {sensorData.length > 0 ? (
+              <p className="flex flex-row gap-4 absolute top-1 left-2 text-gray-500 text-[0.8rem]">
+                <span>Max: <strong>{maxPoint.toFixed(2)} kg</strong></span> 
+                <span>Avg: <strong>{recentAverageForceValue.toFixed(2)} kg</strong></span>
+              </p>
+              ) : null
+            }
+            {isRecording ? (
+                <div className="absolute top-0 left-0 w-full h-full bg-red-500/0"/>
+              ) : sensorData.length > 0 ? (
+                <div
+                  ref={tooltipRef}
+                  id="custom-tooltip"
+                  className="absolute top-[0.1rem] right-2 bg-white/0 text-gray-500 px-2 py-0.5 rounded opacity-100 text-[0.8rem] pointer-events-none transition-opacity duration-200"
+                  />
+              ) : null
+            }
+          </section> ) : (
+          <FullTestForceChart 
+            rawSensorData={rawSensorData}
+            maxPoint={maxPoint}
+            displayAnnotations={true}
             />
-          {sensorData.length > 0 ? (
-            <p className="flex flex-row gap-4 absolute top-1 left-2 text-gray-500 text-[0.8rem]">
-              <span>Max: <strong>{maxPoint.toFixed(2)} kg</strong></span> 
-              <span>Avg: <strong>{recentAverageForceValue.toFixed(2)} kg</strong></span>
-            </p>
-            ) : null
-          }
-          {isRecording ? (
-              <div className="absolute top-0 left-0 w-full h-full bg-red-500/0"/>
-            ) : sensorData.length > 0 ? (
-              <div
-                ref={tooltipRef}
-                id="custom-tooltip"
-                className="absolute top-[0.1rem] right-2 bg-white/0 text-gray-500 px-2 py-0.5 rounded opacity-100 text-[0.8rem] pointer-events-none transition-opacity duration-200"
-                />
-            ) : null
-          }
-        </section>
+        )}
+        
         <section className="mt-2 px-1 py-2 border-2 border-black dark:border-white rounded-lg">
           <div className="grid grid-cols-5 font-semibold bg-white dark:bg-black border-b py-1 mb-2">
             <div className="pl-1 pr-2">Load</div>
