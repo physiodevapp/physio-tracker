@@ -1155,16 +1155,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           <PoseGraph 
             joints={settings.pose.selectedJoints}
             valueTypes={visibleKinematics}
-            getDataForJoint={(joint) => {
-              const data = jointDataRef.current[joint];
-                return data
-                  ? { 
-                      timestamp: data.lastTimestamp, 
-                      angle: data.angle, 
-                      color: data.color
-                    }
-                  : null;
-            }}
             recordedPositions={videoProcessed ? recordedPositionsRef.current : undefined}
             onVerticalLineChange={handleChartValueX}
             // verticalLineValue={videoCurrentTime}

@@ -8,7 +8,7 @@ import {
   ActiveDataPoint,
 } from "chart.js";
 import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
-import { getColorsForJoint } from "@/services/joint";
+// import { getColorsForJoint } from "@/services/joint";
 import { useSettings } from "@/providers/Settings";
 import { lttbDownsample } from "@/services/chart";
 import zoomPlugin from 'chartjs-plugin-zoom';
@@ -38,13 +38,6 @@ type RecordedPositions = {
 interface IndexProps {
   joints: CanvasKeypointName[]; // Lista de articulaciones a mostrar
   valueTypes?: Kinematics[]; // Se acepta un arreglo con uno o ambos valores
-  // Función que proporciona datos para una articulación; se espera que devuelva ambos valores.
-  getDataForJoint: (joint: CanvasKeypointName) => {
-    timestamp: number;
-    angle: number;
-    // angularVelocity: number;
-    color: JointColors;
-  } | null;
   onVerticalLineChange: (newValue: {
     x: number;
     values: { label: string; y: number }[];
@@ -122,13 +115,11 @@ const customCrosshairPlugin = (isActive: boolean = true) => ({
       ctx.restore();
     });
   }
-  
 });
 
 const Index = ({
   joints,
   valueTypes = [Kinematics.ANGLE],
-  getDataForJoint,
   recordedPositions = undefined,
   onVerticalLineChange,
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
@@ -146,9 +137,6 @@ const Index = ({
   // --- Cofiguración del gráfico ----
   const chartRef = useRef<ChartJS | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  // const chartRef = useRef<ChartJS<"line", DataPoint[], unknown>>(null);
-
-  const realTime = recordedPositions === undefined;
 
   // Estado para almacenar los datos por articulación
   // Para cada articulación se almacenan:
@@ -164,7 +152,6 @@ const Index = ({
   }>({});
 
   // Estado para el tiempo actual (en milisegundos)
-  const [currentTime, setCurrentTime] = useState(performance.now());
   // Ref para almacenar el tiempo inicial global (se fija la primera vez que se recibe un dato)
   const startTimeRef = useRef<number | null>(null);
 
@@ -205,8 +192,8 @@ const Index = ({
           borderWidth: 2,          
           tension: 0.6,
           pointRadius: 0,
-          pointHoverRadius: !realTime ? 3 : 0,
-          pointHoverBorderWidth: !realTime ? 1 : 0,
+          pointHoverRadius: 3,
+          pointHoverBorderWidth: 1,
           pointHoverBorderColor: 'red',
           pointHitRadius: 0,
           parsing: false,
@@ -218,95 +205,12 @@ const Index = ({
   }, [chartData, joints, valueTypes, poseGraphSample, poseGraphSampleThreshold, poseUpdateInterval]);
 
   // Calculamos el rango del eje X usando el tiempo normalizado
-  let normalizedMaxX;
-  let normalizedMinX;
-  if (!realTime) {
-    const allXValues = Object.values(chartData)
-    .flatMap(data => data.anglePoints.map(point => point.x));
-    normalizedMaxX = allXValues.length > 0 
-      ? Math.max(...allXValues)
-      : 0;
-    normalizedMinX = 0;
-  } else {
-    normalizedMaxX = startTimeRef.current
-      ? (currentTime - startTimeRef.current) / 1000
-      : currentTime / 1000;
-    normalizedMinX = normalizedMaxX;
-  }
-
-  useEffect(() => {
-    // Si está en modo pausa, no iniciamos el ciclo de actualización.
-    if (!realTime) return;
-
-    let lastUpdate = performance.now();
-    let animationFrameId: number;
-
-    const update = () => {
-      const now = performance.now();
-      setCurrentTime(now);
-
-      if (now - lastUpdate >= poseUpdateInterval) {
-        joints.forEach((joint) => {
-          const newData = getDataForJoint(joint);
-          if (newData) {
-            setChartData((prev) => {
-              // Extraemos la información previa para la articulación.
-              // Si no existe o no tiene la estructura esperada, usamos arrays vacíos.
-              const previousData = prev[joint] || {
-                anglePoints: [] as DataPoint[],
-                // angularVelocityPoints: [] as DataPoint[],
-                color: getColorsForJoint(null),
-              };
-  
-              // Nos aseguramos de que anglePoints y angularVelocityPoints sean arrays
-              const anglePoints = Array.isArray(previousData.anglePoints)
-                ? previousData.anglePoints
-                : [];
-  
-              // Si aún no se ha establecido el tiempo inicial global, lo fijamos
-              if (startTimeRef.current === null) {                
-                startTimeRef.current = newData.timestamp;
-              }
-  
-              // Calculamos el tiempo normalizado (en segundos) para el nuevo dato
-              const normalizedTime =
-                (newData.timestamp - (startTimeRef.current as number)) / 1000;
-  
-              // Evitamos duplicados si el tiempo normalizado no ha avanzado
-              if (
-                anglePoints.length > 0 &&
-                normalizedTime === anglePoints[anglePoints.length - 1].x
-              ) {
-                return prev;
-              }
-  
-              // Agregamos el nuevo punto a cada serie y recortamos para mantener solo los últimos poseGraphSample
-              const updatedAnglePoints = [
-                ...anglePoints,
-                { x: normalizedTime, y: newData.angle },
-              ].slice(-poseGraphSample);
-  
-              return {
-                ...prev,
-                [joint]: {
-                  anglePoints: updatedAnglePoints,
-                  color: newData.color,
-                },
-              };
-            });
-          }
-        });
-        lastUpdate = now;
-      }
-      animationFrameId = requestAnimationFrame(update);
-    };
-  
-    animationFrameId = requestAnimationFrame(update);
-
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [getDataForJoint, joints, poseUpdateInterval, poseGraphSample, poseGraphSampleThreshold, realTime]);
+  const allXValues = Object.values(chartData)
+  .flatMap(data => data.anglePoints.map(point => point.x));
+  const normalizedMaxX = allXValues.length > 0 
+    ? Math.max(...allXValues)
+    : 0;
+  const normalizedMinX = 0;
 
   useEffect(() => {
     if (recordedPositions) {
@@ -333,25 +237,14 @@ const Index = ({
         }
       });
       setChartData(newChartData);
-    }
-  }, [recordedPositions]);
-  
-  useEffect(() => {
-    if (realTime) {
-      const now = performance.now();
-      startTimeRef.current = now;
-      setCurrentTime(now);
-    } else {
-      // Suponiendo que recordedPositions es un objeto con claves correspondientes a cada articulación
-      // y que quieres usar el primer dato de la primera articulación como referencia:
+
       const joints = Object.keys(recordedPositions) as CanvasKeypointName[];
       if (joints.length > 0 && recordedPositions[joints[0]] && recordedPositions[joints[0]]!.length > 0) {
         const firstTimestamp = recordedPositions[joints[0]]![0].timestamp;
         startTimeRef.current = firstTimestamp;
-        setCurrentTime(firstTimestamp);
       }
     }
-  }, [realTime]);
+  }, [recordedPositions]);
 
   const chartConfig = useMemo<ChartConfiguration>(
     () => ({
@@ -360,7 +253,7 @@ const Index = ({
         datasets: datasets,
       },
       plugins: [
-        customCrosshairPlugin(!realTime),
+        customCrosshairPlugin(),
       ],
       options: {
         responsive: true,
@@ -416,10 +309,10 @@ const Index = ({
             },
             zoom: {
               wheel: {
-                enabled: !realTime, // zoom con scroll
+                enabled: true, // zoom con scroll
               },
               pinch: {
-                enabled: !realTime, // zoom con gesto táctil
+                enabled: true, // zoom con gesto táctil
               },
               mode: 'xy', // solo horizontal (tiempo)
               onZoom: () => setIsZoomed(true),
