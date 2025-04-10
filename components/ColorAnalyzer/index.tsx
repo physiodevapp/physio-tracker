@@ -229,7 +229,9 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           ctx.lineTo(finalPoints[i].x, finalPoints[i].y);
         }
         ctx.closePath();
-        ctx.strokeStyle = "blue";
+        ctx.fillStyle = "rgba(88, 158, 244, 0.2)";
+        ctx.fill();
+        ctx.strokeStyle = "rgb(88, 158, 244)";
         ctx.lineWidth = 2;
         ctx.stroke();
 
