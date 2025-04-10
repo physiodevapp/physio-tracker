@@ -445,31 +445,62 @@ const Index: React.FC<IndexProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {(() => {
-                  const validData = [...cycleData]
-                    .filter((data) => data.cycleCount !== 0)
-                    .reverse();
+              {(() => {
+                const validData = [...cycleData]
+                  .filter((data) => data.cycleCount !== 0)
+                  .reverse();
 
-                  return validData.length > 0 ? (
-                    validData.map((data, index) => (
-                      <tr key={index}>
+                const getStats = (array: number[]) => {
+                  const valid = array.filter(v => !isNaN(v));
+                  const mean = valid.reduce((sum, val) => sum + val, 0) / valid.length;
+                  const std = Math.sqrt(valid.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / valid.length);
+                  return { mean, std };
+                };
+
+                const isOutlier = (value: number | null, stats: { mean: number; std: number }) => {
+                  if (value === null) return false;
+                  return Math.abs(value - stats.mean) > 2 * stats.std;
+                };
+
+                const durationStats = getStats(validData.map(d => d.cycleDuration ?? NaN));
+                const amplitudeStats = getStats(validData.map(d => d.cycleAmplitude ?? NaN));
+                const ratioStats = getStats(validData.map(d => d.cycleSpeedRatio ?? NaN));
+
+                return validData.length > 0 ? (
+                  validData.map((data, index) => {
+                    const isOutlierRow =
+                      isOutlier(data.cycleDuration, durationStats) ||
+                      isOutlier(data.cycleAmplitude, amplitudeStats) ||
+                      isOutlier(data.cycleSpeedRatio, ratioStats);
+
+                    return (
+                      <tr
+                        key={index}
+                        className={isOutlierRow ? "bg-red-200 text-red-700" : ""}
+                        >
                         <td className="pl-2">{data.workLoad !== null ? data.workLoad.toFixed(1) : "-"}</td>
-                        <td className="pl-2">{data.cycleCount !== null ? data.cycleCount.toFixed(0) : "-"}</td>
+                        <td className="pl-2">{data.cycleCount !== null
+                          ? data.cycleCount < 10
+                            ? <>{'\u00A0\u00A0'}{data.cycleCount.toFixed(0)}</>
+                            : data.cycleCount.toFixed(0)
+                          : "-"}
+                        </td>
                         <td className="pl-2">{data.cycleDuration !== null ? (data.cycleDuration / 1000).toFixed(2) : "-"}</td>
                         <td className="pl-2">{data.cycleAmplitude !== null ? data.cycleAmplitude.toFixed(2) : "-"}</td>
                         <td className="pl-2">{data.cycleSpeedRatio !== null ? data.cycleSpeedRatio.toFixed(2) : "-"}</td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td className="pl-2">-</td>
-                      <td className="pl-2">-</td>
-                      <td className="pl-2">-</td>
-                      <td className="pl-2">-</td>
-                      <td className="pl-2">-</td>
-                    </tr>
-                  );
-                })()}
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td className="pl-2">-</td>
+                    <td className="pl-2">-</td>
+                    <td className="pl-2">-</td>
+                    <td className="pl-2">-</td>
+                    <td className="pl-2">-</td>
+                  </tr>
+                );
+              })()}
               </tbody>
             </table>
           </div>
