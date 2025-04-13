@@ -4,8 +4,8 @@ import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "re
 import Webcam from "react-webcam";
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { JointDataMap, JointConfigMap, CanvasKeypointName, PoseSettings, Kinematics, JointColors } from "@/interfaces/pose";
-import { drawKeypointConnections, drawKeypoints } from "@/services/draw";
-import { updateJoint } from "@/services/joint";
+import { drawKeypointConnections, drawKeypoints } from "@/utils/draw";
+import { updateJoint } from "@/utils/joint";
 import PoseGraph from "./Graph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { DetectorType, usePoseDetector } from "@/providers/PoseDetector";

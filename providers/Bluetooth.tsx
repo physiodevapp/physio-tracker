@@ -1,7 +1,7 @@
 "use client";
 
 import { DataPoint } from '@/components/Force/Graph';
-import { Cycle } from '@/components/Force/utils/adjustCyclesByZeroCrossing';
+import { Cycle } from '@/utils/force';
 import React, { createContext, useState, useRef, useCallback, useContext } from 'react';
 
 // -------------- UUIDs según la documentación de Progressor ------------

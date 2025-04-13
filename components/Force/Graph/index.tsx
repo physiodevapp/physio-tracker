@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {Chart as ChartJS, ChartEvent, ChartConfiguration, registerables} from 'chart.js'; 
 import annotationPlugin from 'chartjs-plugin-annotation';
-import { lttbDownsample } from '@/services/chart';
+import { lttbDownsample } from '@/utils/chart';
 import { ForceSettings } from '@/providers/Settings';
-import useCyclesDetector from '../Hooks/useCyclesDetector';
 import FullTestForceChart from "../PostGraph";
 import { useBluetooth } from '@/providers/Bluetooth';
+import useCyclesDetector from '@/hooks/useCyclesDetector';
 
 // Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
 ChartJS.register(
@@ -400,8 +400,12 @@ const Index: React.FC<IndexProps> = ({
             isEstimatingMass ? 'opacity-40' : ''
           }`}
           >
-          <p className='text-right'>Last Cycle: <span className='font-semibold'>{((isRecording ? cycleAmplitude : cycles[cycles.length -1]?.amplitude) ?? 0).toFixed(1)} kg</span></p>
-          <p className='text-left font-semibold'>{(((isRecording ? cycleDuration : cycles[cycles.length - 1]?.duration) ?? 0) / 1000).toFixed(1)} s</p>
+          <p className='text-right'>Last Cycle: <span className='font-semibold'>
+            {(isRecording ? (cycleAmplitude ?? 0).toFixed(1) : '-')} kg</span>
+          </p>
+          <p className='text-left font-semibold'>
+            {(isRecording ? (cycleDuration ?? 0 / 1000).toFixed(1) : '-')} s
+          </p>
         </div>
       </section>
       <div data-element="non-swipeable" className={`relative w-full transition-all duration-300 ease-in-out pb-4`}>
@@ -436,12 +440,18 @@ const Index: React.FC<IndexProps> = ({
         )}
         
         <section className="mt-2 px-1 py-2 border-2 border-gray-200 dark:border-white rounded-lg">
-          <div className="grid grid-cols-5 font-semibold bg-white dark:bg-black border-b py-1 mb-2">
+          <div className={`grid font-semibold bg-white dark:bg-black border-b py-1 mb-2 ${(!isRecording && cycles.length) 
+              ? 'grid-cols-6' : 'grid-cols-5'}`
+            }>
             <div className="pl-1 pr-2">Load</div>
             <div className="pl-1 pr-2">Rep</div>
             <div className="pl-1 pr-2">Time</div>
             <div className="pl-1 pr-2">Amp</div>
             <div className="pl-1 pr-2">V<span className='align-sub uppercase text-[0.6rem]'>rel</span></div>
+            {(!isRecording && cycles.length) ? (
+                <div className="pl-1 pr-2">V</div>
+              ) : null 
+            }
           </div>
           <div ref={scrollContainerRef} className={`overflow-y-auto transition-[max-height] ${isRecording
             ? "max-h-[calc(100dvh-590px)]"
@@ -450,11 +460,15 @@ const Index: React.FC<IndexProps> = ({
             <table className="w-full border-collapse text-left table-fixed transition-transform">
               <thead className="hidden md:table-header-group">
                 <tr className="align-baseline">
-                  <th className="pl-1 pr-2 w-1/5">Load</th>
-                  <th className="pl-1 pr-2 w-1/5">Rep</th>
-                  <th className="pl-1 pr-2 w-1/5">Time</th>
-                  <th className="pl-1 pr-2 w-1/5">Amp</th>
-                  <th className="pl-1 pr-2 w-1/5">V / R</th>
+                  <th className={`pl-1 pr-2 ${(!isRecording && cycles.length) ? 'w-1/6' : 'w-1/5'}`}>Load</th>
+                  <th className={`pl-1 pr-2 ${(!isRecording && cycles.length) ? 'w-1/6' : 'w-1/5'}`}>Rep</th>
+                  <th className={`pl-1 pr-2 ${(!isRecording && cycles.length) ? 'w-1/6' : 'w-1/5'}`}>Time</th>
+                  <th className={`pl-1 pr-2 ${(!isRecording && cycles.length) ? 'w-1/6' : 'w-1/5'}`}>Amp</th>
+                  <th className={`pl-1 pr-2 ${(!isRecording && cycles.length) ? 'w-1/6' : 'w-1/5'}`}>V / R</th>
+                  {(!isRecording && cycles.length) ? (
+                      <th className="pl-1 pr-2 w-1/6">V</th>
+                    ) : null
+                  }
                 </tr>
               </thead>
               <tbody>
@@ -536,6 +550,12 @@ const Index: React.FC<IndexProps> = ({
                           <td className={`pl-2 ${outRelativeRatio ? "font-bold text-red-700" : ""}`}>
                             {data.relativeSpeedRatio !== null ? data.relativeSpeedRatio.toFixed(2) : "-"}
                           </td>
+                          {(!isRecording && cycles.length) ? (
+                              <td className={`pl-2 ${outRatio ? "font-bold text-red-700" : ""}`}>
+                                {data.speedRatio !== null ? data.speedRatio.toFixed(2) : "-"}
+                              </td>
+                            ) : null 
+                          }
                         </tr>
                       );
                     })

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { IFilterState, IFrequencyData, IMotionData, ICOPData } from "@/interfaces/balance";
-import { butterworthLowPass_SampleGeneric, getFrequencyFeatures, calculateSTD, calculateCOP_Stats } from "@/services/balance";
+import { butterworthLowPass_SampleGeneric, getFrequencyFeatures, calculateSTD, calculateCOP_Stats } from "@/utils/balance";
 import { BalanceSettings } from "@/providers/Settings";
 
 export default function useMotionHandler({settings}: {settings: BalanceSettings}) {  

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DataPoint } from '@/services/chart';
+import { DataPoint } from '@/utils/chart';
 import { ForceSettings } from '@/providers/Settings';
 
 // Define la métrica del ciclo

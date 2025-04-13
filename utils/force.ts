@@ -13,6 +13,8 @@ export interface Cycle {
   relativeSpeedRatio: number | null;
   speedRatio: number | null;
   workLoad: number | null; 
+  minX?: number;
+  minY?: number;
 }
 
 interface BaselineCrossSegment {
@@ -43,6 +45,27 @@ function addRelativeSpeedToCycles(
     ...cycle,
     relativeSpeedRatio: baseSpeed > 0 ? cycle.speedRatio! / baseSpeed : 1
   }));
+}
+
+function findBestStableRegion(
+  data: DataPoint[],
+  fromIndex: number,
+  direction: 'backward' | 'forward',
+  baseline: number,
+  maxWindowSize = 30,
+  threshold = 0.01
+): DataPoint | null {
+  let bestPoint: DataPoint | null = null;
+
+  for (let windowSize = 5; windowSize <= maxWindowSize; windowSize += 5) {
+    const point = detectStableSlopeRegion(data, fromIndex, direction, threshold, windowSize);
+    
+    if (point && ((direction === 'backward' && point.y < baseline) || direction === 'forward')) {
+      bestPoint = point;
+    }
+  }
+
+  return bestPoint;
 }
 
 function detectStableSlopeRegion(
@@ -158,6 +181,53 @@ function mergeConsecutiveSameValleyStatus(segments: BaselineCrossSegment[]): Bas
   return merged;
 }
 
+export function detectOutlierEdges(
+  data: { x: number, y: number }[],
+  threshold: number = 0.06,
+  minStablePoints: number = 5,
+  instabilityCheckWindow: number = 10
+): { startOutlierIndex: number | null; endOutlierIndex: number | null } {
+  const ys = data.map(p => p.y);
+  const mean = ys.reduce((sum, y) => sum + y, 0) / ys.length;
+  const deviations = ys.map(y => Math.abs(y - mean));
+
+  let startOutlierIndex: number | null = null;
+  let endOutlierIndex: number | null = null;
+
+  // Buscar desde el inicio
+  for (let i = 0; i < data.length - minStablePoints; i++) {
+    const stable = deviations.slice(i, i + minStablePoints).every(dev => dev < threshold);
+
+    if (stable) {
+      // Validar que no haya inestabilidad fuerte justo antes (como hiciste con el final)
+      const instabilitySlice = deviations.slice(i + minStablePoints, i + minStablePoints + instabilityCheckWindow);
+      const hasInstability = instabilitySlice.some(dev => dev > threshold * 2);
+
+      if (!hasInstability) {
+        startOutlierIndex = i;
+        break;
+      }
+    }
+  }
+
+  // Buscar desde el final
+  for (let i = data.length - minStablePoints; i >= 0; i--) {
+    const stable = deviations.slice(i, i + minStablePoints).every(dev => dev < threshold);
+
+    if (stable) {
+      const instabilitySlice = deviations.slice(i - instabilityCheckWindow, i);
+      const hasInstability = instabilitySlice.some(dev => dev > threshold * 2);
+
+      if (!hasInstability) {
+        endOutlierIndex = i + minStablePoints - 1;
+        break;
+      }
+    }
+  }
+
+  return { startOutlierIndex, endOutlierIndex };
+}
+
 export function adjustCyclesByZeroCrossing(
   inputData: DataPoint[],
   baseline = 0,
@@ -221,35 +291,37 @@ export function adjustCyclesByZeroCrossing(
   // Extend to the beginning
   if (valleys.length > 0) {
     const firstValley = valleys[0];
-    
     const extraLeftSegment = data.filter(p => p.x < firstValley.peakX);
     if (extraLeftSegment.length > 0) {
       const minX = Math.min(...extraLeftSegment.map(p => p.x));
-      const maxY = Math.max(...extraLeftSegment.map(p => p.y));
-      const minY = Math.min(...extraLeftSegment.map(p => p.y));
-      const fromIndex = data.findIndex(p => p.y === maxY);
-      const transitionStart = detectStableSlopeRegion(data, fromIndex, 'backward', 0.01, 10);
+
+      const fromIndex = data.findIndex(p => p.y === Math.max(...extraLeftSegment.map(p => p.y)));
+      const bestStableStart = findBestStableRegion(data, fromIndex, 'backward', baseline);
       const fallbackStartX = baselineCrossSegments[0]?.startX ?? minX;
-      const transitionX = transitionStart?.x ?? fallbackStartX;
+      const actualStartX = bestStableStart?.x ?? fallbackStartX;
+
       const nextStartX = valleys[1]?.peakX ?? null;
       const safeEndX = getSafeExtendedEndX(data, firstValley.peakX, nextStartX);
 
-      const duration = firstValley.peakX - (transitionStart?.x ?? minX);
+      const cycleSegment = data.filter(p => p.x >= actualStartX && p.x <= firstValley.peakX);
+      const maxY = Math.max(...cycleSegment.map(p => p.y));
+      const minY = Math.min(...cycleSegment.map(p => p.y));
+      const duration = firstValley.peakX - actualStartX;
       const amplitude = maxY - minY;
       const speedRatio = (amplitude / (duration / 1_000)) / (workLoad ?? 1);
 
       adjustedCycles.push({
-        startX: transitionStart && transitionStart.y < baseline
-          ? transitionX
-          : fallbackStartX,
-        endX: safeEndX, //  firstValley.peakX,
+        startX: actualStartX,
+        endX: safeEndX,
         peakY: maxY,
-        peakX: data.find(p => p.y === maxY)!.x,
+        peakX: cycleSegment.find(p => p.y === maxY)!.x,
         amplitude,
         duration,
         relativeSpeedRatio: null,
         speedRatio,
         workLoad: workLoad ?? null,
+        minX: cycleSegment.find(p => p.y === minY)!.x,
+        minY,
       });
     }
   }
@@ -282,6 +354,8 @@ export function adjustCyclesByZeroCrossing(
       relativeSpeedRatio: null,
       speedRatio,
       workLoad: workLoad ?? null,
+      minX: data.find(p => p.y === minY)!.x,
+      minY,
     });
   }
 
@@ -289,33 +363,37 @@ export function adjustCyclesByZeroCrossing(
   if (valleys.length > 0) {
     const lastValley = valleys[valleys.length - 1];
     const extraRightSegment = data.filter(p => p.x > lastValley.peakX);
+
     if (extraRightSegment.length > 0) {
       const maxX = Math.max(...extraRightSegment.map(p => p.x));
-      const maxY = Math.max(...extraRightSegment.map(p => p.y));
-      const minY = Math.min(...extraRightSegment.map(p => p.y));
-      const fromIndex = data.findIndex(p => p.y === maxY);
-      const transitionEnd = detectStableSlopeRegion(data, fromIndex, 'forward', 0.01, 10);
+      const fromIndex = data.findIndex(p => p.y === Math.max(...extraRightSegment.map(p => p.y)));
+
+      const bestStableEnd = findBestStableRegion(data, fromIndex, 'forward', baseline); // <- aquí usamos la mejora
       const fallbackStartX = baselineCrossSegments[baselineCrossSegments.length - 1]?.endX ?? maxX;
-      const transitionX = transitionEnd?.x ?? fallbackStartX;
-      const previousEndX = adjustedCycles.at(-1)?.endX ?? null;
-      const safeStartX = getSafeExtendedStartX(data, lastValley.peakX, previousEndX);
-      
-      const duration = (transitionEnd?.x ?? maxX) - lastValley.peakX;
+      const actualEndX = bestStableEnd && bestStableEnd.y < baseline ? bestStableEnd.x : fallbackStartX;
+
+      const cycleSegment = data.filter(p => p.x >= lastValley.peakX && p.x <= actualEndX);
+      const maxY = Math.max(...cycleSegment.map(p => p.y));
+      const minY = Math.min(...cycleSegment.map(p => p.y));
+      const duration = actualEndX - lastValley.peakX;
       const amplitude = maxY - minY;
       const speedRatio = (amplitude / (duration / 1_000)) / (workLoad ?? 1);
 
+      const previousEndX = adjustedCycles.at(-1)?.endX ?? null;
+      const safeStartX = getSafeExtendedStartX(data, lastValley.peakX, previousEndX);
+
       adjustedCycles.push({
-        startX: safeStartX, // lastValley.peakX,
-        endX: transitionEnd && transitionEnd.y < baseline
-          ? transitionX
-          : fallbackStartX,
+        startX: safeStartX,
+        endX: actualEndX,
         peakY: maxY,
-        peakX: data.find(p => p.y === maxY)!.x,
+        peakX: cycleSegment.find(p => p.y === maxY)!.x,
         amplitude,
         duration,
         relativeSpeedRatio: null,
         speedRatio,
         workLoad: workLoad ?? null,
+        minX: cycleSegment.find(p => p.y === minY)!.x,
+        minY,
       });
     }
   }

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {Chart as ChartJS, ChartConfiguration, registerables, ActiveDataPoint, ChartEvent} from 'chart.js';
-import { lttbDownsample } from "@/services/chart";
+import { lttbDownsample } from "@/utils/chart";
 import annotationPlugin, { AnnotationOptions } from 'chartjs-plugin-annotation';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ViewfinderCircleIcon } from "@heroicons/react/24/solid";
-import { adjustCyclesByZeroCrossing } from "../utils/adjustCyclesByZeroCrossing";
+import { adjustCyclesByZeroCrossing, detectOutlierEdges } from "../../../utils/force";
 import { useBluetooth } from "@/providers/Bluetooth";
 import { useSettings } from "@/providers/Settings";
 
@@ -205,13 +205,29 @@ const Index: React.FC<IndexProps> = ({
   const minTime = downsampledData.length > 0 ? downsampledData[0].x : 0;
   const maxTime = downsampledData.length > 0 ? downsampledData[downsampledData.length - 1].x : 1000; 
 
-  const crossLineValue = (calculateMeanY(mappedData) ?? 0) * 1;
+  // let crossLineValue = calculateMeanY(mappedData) ?? 0;
+  const crossLineValueRef = useRef<number>(0);
   const topLineValue = Math.max(...downsampledData.map(p => p.y));
 
   const adjustedCycles = useMemo(() => {
-    const { adjustedCycles } = adjustCyclesByZeroCrossing(mappedData, crossLineValue, cycles, cyclesToAverage);
-    // console.log('crossLineValue ', crossLineValue)
-    // console.log('baselineCrossSegments ', baselineCrossSegments);
+    const { startOutlierIndex, endOutlierIndex } = detectOutlierEdges(mappedData);
+    console.log('endOutlierIndex ', endOutlierIndex)
+    console.log('endIndex ', mappedData[endOutlierIndex ? endOutlierIndex + 1 : mappedData.length - 1])
+    if (endOutlierIndex) {
+      const trimmedData = mappedData.slice(
+        startOutlierIndex ?? 0,
+        endOutlierIndex !== null ? endOutlierIndex + 1 : undefined
+      );
+      crossLineValueRef.current = calculateMeanY(trimmedData) ?? 0;
+    }
+    else {
+      crossLineValueRef.current = calculateMeanY(mappedData) ?? 0;
+    }
+
+    const { adjustedCycles, baselineCrossSegments } = adjustCyclesByZeroCrossing(mappedData, crossLineValueRef.current, cycles, cyclesToAverage);
+    // console.log('crossLineValueRef ', crossLineValueRef.current)
+    console.log('baselineCrossSegments ', baselineCrossSegments);
+    console.log('adjustedCycles ', adjustedCycles)
 
     return adjustedCycles;
   }, [downsampledData]);
@@ -424,12 +440,12 @@ const Index: React.FC<IndexProps> = ({
                 crossLine: {
                   type: 'line',
                   display: true,
-                  yMin: crossLineValue,
-                  yMax: crossLineValue,
+                  yMin: crossLineValueRef.current,
+                  yMax: crossLineValueRef.current,
                   borderColor: 'rgba(68, 68, 239, 0.4)',
                   borderWidth: 1,
                   label: {
-                    content: `Avg: ${crossLineValue} kg`,
+                    content: `Avg: ${crossLineValueRef.current} kg`,
                     display: false,
                     position: 'start',
                   },

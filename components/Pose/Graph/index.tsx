@@ -10,7 +10,7 @@ import {
 import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
 // import { getColorsForJoint } from "@/services/joint";
 import { useSettings } from "@/providers/Settings";
-import { lttbDownsample } from "@/services/chart";
+import { lttbDownsample } from "@/utils/chart";
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ViewfinderCircleIcon } from "@heroicons/react/24/solid";
 

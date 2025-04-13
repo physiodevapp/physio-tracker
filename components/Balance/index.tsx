@@ -1,7 +1,7 @@
 "use client";
 
 import { } from "@/interfaces/balance";
-import { } from "@/services/balance";
+import { } from "@/utils/balance";
 import {
   Bars3Icon,
   Cog6ToothIcon,
