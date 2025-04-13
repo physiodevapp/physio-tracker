@@ -23,18 +23,6 @@ interface BaselineCrossSegment {
   isValley: boolean;
 }
 
-// interface AdjustedCycle {
-//   startX: number;
-//   endX: number;
-//   peakY: number;
-//   peakX: number;
-//   amplitude: number;
-//   duration: number;
-//   relativeSpeedRatio: number;
-//   speedRatio: number;
-//   workLoad: number | null;
-// }
-
 function addRelativeSpeedToCycles(
   cycles: Cycle[],
   cyclesToAverage: number = 3
@@ -178,7 +166,7 @@ export function adjustCyclesByZeroCrossing(
   const data = inputData;
   let baselineCrossSegments: BaselineCrossSegment[] = [];
   const zeroCrossings: number[] = [];
-  const workLoad = cycles[0].workLoad;
+  const workLoad = cycles[0].workLoad ?? null;
 
   // Find zero-crossings (sign changes relative to baseline)
   for (let i = 1; i < data.length; i++) {

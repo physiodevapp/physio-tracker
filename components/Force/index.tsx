@@ -67,6 +67,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setTaringStatus,
     setSensorData,
     setRawSensorData,
+    setCycles,
     connectToSensor,
   } = useContext(BluetoothContext);
 
@@ -173,6 +174,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         dataCharacteristic.removeEventListener("characteristicvaluechanged", handleCharacteristicValueChanged);
 
         setSensorData([]);
+        sensorRawDataLogRef.current = [];
+        setRawSensorData([]);
+        setCycles([]);
       };
     }
   }, [dataCharacteristic]);
@@ -207,6 +211,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       measurementStartRef.current = null;
       sensorRawDataLogRef.current = [];
       setRawSensorData([]);
+      setCycles([]);
       setIsRecording(true);
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
 
@@ -282,9 +287,12 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const shutdown = async () => {
     setIsConnected(false);
     setDevice(null);
-    setSensorData([]);
     setControlCharacteristic(null);
     setIsDeviceAvailable(false);
+    setSensorData([]);  
+    sensorRawDataLogRef.current = [];
+    setRawSensorData([]);
+    setCycles([]);
     setTimeout(() => {
       setIsDeviceAvailable(true);
     }, 12_000);
@@ -517,6 +525,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                       
                         sensorRawDataLogRef.current = [];
                         setRawSensorData([]);
+                        
+                        setCycles([]);
                       }}
                       />
                     ) : null
