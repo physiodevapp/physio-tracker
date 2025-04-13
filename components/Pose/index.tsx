@@ -12,7 +12,7 @@ import { DetectorType, usePoseDetector } from "@/providers/PoseDetector";
 import { CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, VideoCameraIcon, TrashIcon, CubeTransparentIcon, CloudArrowDownIcon, Bars3Icon, XMarkIcon, ArrowUpTrayIcon, ArrowPathIcon } from "@heroicons/react/24/solid";
 import { BackwardIcon, ForwardIcon, PauseIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
-import PoseModal from "@/modals/Pose";
+import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
 import { motion } from "framer-motion";
 
@@ -960,7 +960,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         {videoUrl ? (
           <video 
             ref={videoRef}
-            src={videoUrl}               
+            src={videoUrl} 
+            muted              
             className={`relative object-cover h-full w-full ${videoConstraints.facingMode === "user" ? 'scale-x-[-1]' : 'scale-x-[1]'}`}
             onTimeUpdate={handleOnTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}

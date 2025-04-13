@@ -30,8 +30,8 @@ const Index: React.FC = () => {
         Set default values <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>
       <div className="space-y-2 text-white">
-        <div className="flex gap-4">
-          <div className="flex-1">
+        <div className="flex gap-6">
+          <div className="flex-1 flex flex-col gap-2">
             <label 
               htmlFor="movingAverageWindow"
               className="block text-sm"
@@ -49,7 +49,7 @@ const Index: React.FC = () => {
               className="w-full"
               />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-2">
             <label 
               htmlFor="hysteresis"
               className="block text-sm"
@@ -68,8 +68,8 @@ const Index: React.FC = () => {
               />
           </div>
         </div>
-        <div className="flex gap-4">
-          <div className="flex-1">
+        <div className="flex gap-6">
+          <div className="flex-1 flex flex-col gap-2">
             <label 
               htmlFor="minAvgAmplitude"
               className="block text-sm"
@@ -88,7 +88,7 @@ const Index: React.FC = () => {
               className="w-full"
             />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-2">
             <label 
               htmlFor="durationChangeThreshold"
               className="block text-sm"
@@ -107,8 +107,8 @@ const Index: React.FC = () => {
               />
           </div>
         </div>
-        <div className="flex gap-4">
-          <div className="flex-1">
+        <div className="flex gap-6">
+          <div className="flex-1 flex flex-col gap-2">
             <label 
               htmlFor="peakDropThreshold"
               className="block text-sm"
@@ -127,7 +127,7 @@ const Index: React.FC = () => {
               className="w-full"
               />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-2">
             <label 
               htmlFor="velocityWeight" 
               className="block text-sm"
@@ -146,8 +146,8 @@ const Index: React.FC = () => {
               />
           </div>
         </div>
-        <div className="flex gap-4">
-          <div className="flex-1">
+        <div className="flex gap-6">
+          <div className="flex-1 flex flex-col gap-2">
             <label 
               htmlFor="cyclesToAverage"
               className="block text-sm"
@@ -165,7 +165,7 @@ const Index: React.FC = () => {
               className="w-full"
               />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-2">
             <label 
               htmlFor="velocityVariationThreshold" 
               className="block text-sm"
