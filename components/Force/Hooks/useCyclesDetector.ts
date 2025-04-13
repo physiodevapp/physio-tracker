@@ -68,8 +68,8 @@ export default function useCyclesDetector({
   const [cycleCount, setCycleCount] = useState(0);
   const [cycleDuration, setCycleDuration] = useState<number | null>(null);
   const [cycleAmplitude, setCycleAmplitude] = useState<number | null>(null);
-  const [cycleSpeedRatio, setCycleSpeedRatio] = useState<number | null>(null);
-  const [cycleBoundaries, setCycleBoundaries] = useState<{ startX: number; endX: number, minY: number, maxY: number, isForced: boolean }>();
+  const [cycleRelativeSpeedRatio, setCycleRelativeSpeedRatio] = useState<number | null>(null);
+  const [cycleBoundaries, setCycleBoundaries] = useState<{ startX: number; endX: number, minY: number, maxY: number }>();
 
   const [cycleMetrics, setCycleMetrics] = useState<CycleMetric[]>([]);
   const cycleDurations = useRef<number[]>([]);
@@ -208,7 +208,6 @@ export default function useCyclesDetector({
             endX,
             minY,
             maxY,
-            isForced: false,
           });
 
           duration = endX - startX;
@@ -236,49 +235,7 @@ export default function useCyclesDetector({
         currentCycleExtremesRef.current = null;
       }
     }
-  }, [downsampledData, recentWindowData]);
-  
-  // useEffect(() => {
-  //   if (!isRecording && cycleStartRef.current !== null && currentCycleExtremesRef.current) {
-  //     const lastX = downsampledData[downsampledData.length - 1]?.x;
-  
-  //     const amplitude = currentCycleExtremesRef.current.max - currentCycleExtremesRef.current.min;
-  //     const duration = lastX - (cycleStartTimeRef.current ?? lastX);
-
-  //     const startX = cycleStartTimeRef.current ?? lastX;
-  //     const endX = lastX;
-
-  //     const pointsInCycle = downsampledData.filter(p => p.x >= startX && p.x <= endX);
-
-  //     const maxY = Math.max(...pointsInCycle.map(p => p.y));
-  //     const minY = Math.min(...pointsInCycle.map(p => p.y));
-  
-  //     setCycleAmplitude(amplitude);
-  //     setCycleDuration(duration);
-  //     setCycleCount(prev => prev + 1);
-  //     setCycleBoundaries({
-  //       startX,
-  //       endX,
-  //       minY,
-  //       maxY,
-  //       isForced: true,
-  //     });
-  
-  //     setCycleMetrics(prev => {
-  //       const newCycle = { amplitude, duration, timestamp: lastX };
-  //       const updated = [...prev, newCycle];
-  //       return updated.slice(-maxCyclesForAnalysis);
-  //     });
-  
-  //     updateCycleDurations(duration);
-  
-  //     // Reset refs
-  //     cycleStartRef.current = null;
-  //     cycleStartTimeRef.current = null;
-  //     currentCycleExtremesRef.current = null;
-  //   }
-  // }, [isRecording]);
-  
+  }, [downsampledData, recentWindowData]);  
 
   // --- Agrupación de métricas de ciclos para detectar fatiga ---
   // Por ejemplo, usando los últimos "cyclesToAverage" ciclos
@@ -341,7 +298,7 @@ export default function useCyclesDetector({
     const velocity = isValidCycle
       ? (cycleAmplitude / cycleDuration) / (isWorkLoadConstant ? workLoad! : 1)
       : null;
-    setCycleSpeedRatio(
+    setCycleRelativeSpeedRatio(
       initialAvgVelocity.current != null &&
       velocity != null &&
       isFinite(velocity)
@@ -398,7 +355,7 @@ export default function useCyclesDetector({
       setCycleCount(0);
       setCycleDuration(null);
       setCycleAmplitude(null);
-      setCycleSpeedRatio(null);
+      setCycleRelativeSpeedRatio(null);
       setCycleBoundaries(undefined);
       setCycleMetrics([]);
       cycleDurations.current = [];
@@ -414,7 +371,7 @@ export default function useCyclesDetector({
     cycleCount,
     cycleDuration,
     cycleAmplitude,
-    cycleSpeedRatio,
+    cycleRelativeSpeedRatio,
     cycleBoundaries,
     fatigueStatus,
     recentWindowData,

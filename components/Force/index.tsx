@@ -323,11 +323,12 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setShowSettings(visibility === undefined ? !showSettings : visibility);
   }
 
-  const toggleMassCalibration = (visibility?: boolean) => {
+  const toggleMassCalibration = async (visibility?: boolean) => {
     if (taringStatus !== 1) return;
     if (visibility === undefined && showSettings) {
       setShowSettings(false);
     }
+    await stopMassEstimation();
     setShowMassCalibration(visibility === undefined ? !showMassCalibration : visibility);
   }
 
@@ -335,7 +336,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     await stopMassEstimation();
     handleMainMenu(false);
     toggleSettings(false);
-    toggleMassCalibration(false);
+    await toggleMassCalibration(false);
   }
 
   const handleUpdateWorkLoad = async () => {

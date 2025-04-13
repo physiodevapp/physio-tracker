@@ -108,7 +108,7 @@ const Index: React.FC<IndexProps> = ({
     cycleCount,
     cycleDuration,
     cycleAmplitude,
-    cycleSpeedRatio,
+    cycleRelativeSpeedRatio,
     cycleBoundaries,
     fatigueStatus,
     recentWindowData: {recentAverageValue: recentAverageForceValue},
@@ -117,8 +117,6 @@ const Index: React.FC<IndexProps> = ({
     downsampledData,
     settings,
     workLoad,
-    // mappedData, // solo para calcular el "peak"
-    // isRecording,
   });
 
   useEffect(() => {
@@ -128,12 +126,12 @@ const Index: React.FC<IndexProps> = ({
           workLoad: workLoad, 
           duration: cycleDuration, 
           amplitude: cycleAmplitude,
-          speedRatio: cycleSpeedRatio,
+          speedRatio: null,
           startX: cycleBoundaries?.startX ?? null,
           endX: cycleBoundaries?.endX ?? null,
           peakX:  null,
           peakY: null,
-          isForced: cycleBoundaries?.isForced ?? false,
+          relativeSpeedRatio: cycleRelativeSpeedRatio,
         };
   
         if (newCycle.duration === null) return prevData;
@@ -504,18 +502,21 @@ const Index: React.FC<IndexProps> = ({
 
                   const durationStats = getStats(validData.map(d => d.duration ?? NaN));
                   const amplitudeStats = getStats(validData.map(d => d.amplitude ?? NaN));
+                  const relativeRatioStats = getStats(validData.map(d => d.relativeSpeedRatio ?? NaN));
                   const ratioStats = getStats(validData.map(d => d.speedRatio ?? NaN));
 
                   const durationIQR = getIQRStats(validData.map(d => d.duration ?? NaN));
                   const amplitudeIQR = getIQRStats(validData.map(d => d.amplitude ?? NaN));
+                  const relativeRatioIQR = getIQRStats(validData.map(d => d.relativeSpeedRatio ?? NaN));
                   const ratioIQR = getIQRStats(validData.map(d => d.speedRatio ?? NaN));
 
                   return validData.length > 0 ? (
                     validData.map((data, index: number) => {
                       const outDuration = isOutlier(data.duration, durationStats, durationIQR);
                       const outAmplitude = isOutlier(data.amplitude, amplitudeStats, amplitudeIQR);
+                      const outRelativeRatio = isOutlier(data.relativeSpeedRatio, relativeRatioStats, relativeRatioIQR);
                       const outRatio = isOutlier(data.speedRatio, ratioStats, ratioIQR);
-                      const isOutlierRow = outDuration || outAmplitude || outRatio;
+                      const isOutlierRow = outDuration || outAmplitude || outRelativeRatio || (!isRecording && outRatio);
                       const cycleNumber = (validData.length - index);
 
                       return (
@@ -535,8 +536,8 @@ const Index: React.FC<IndexProps> = ({
                           <td className={`pl-2 ${outAmplitude ? "font-bold text-red-700" : ""}`}>
                             {data.amplitude !== null ? data.amplitude.toFixed(2) : "-"}
                           </td>
-                          <td className={`pl-2 ${outRatio ? "font-bold text-red-700" : ""}`}>
-                            {data.speedRatio !== null ? data.speedRatio.toFixed(2) : "-"}
+                          <td className={`pl-2 ${outRelativeRatio ? "font-bold text-red-700" : ""}`}>
+                            {data.relativeSpeedRatio !== null ? data.relativeSpeedRatio.toFixed(2) : "-"}
                           </td>
                         </tr>
                       );

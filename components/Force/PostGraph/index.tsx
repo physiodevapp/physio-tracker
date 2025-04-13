@@ -208,11 +208,11 @@ const Index: React.FC<IndexProps> = ({
   const topLineValue = Math.max(...downsampledData.map(p => p.y));
 
   const adjustedCycles = useMemo(() => {
-    const { baselineCrossSegments, groupedCycles } = adjustCyclesByZeroCrossing(mappedData, crossLineValue, cycles);
-    console.log('crossLineValue ', crossLineValue)
-    console.log('baselineCrossSegments ', baselineCrossSegments);
+    const { adjustedCycles } = adjustCyclesByZeroCrossing(mappedData, crossLineValue, cycles);
+    // console.log('crossLineValue ', crossLineValue)
+    // console.log('baselineCrossSegments ', baselineCrossSegments);
 
-    return groupedCycles.map((item, index) => ({...item, isForced: cycles[index]?.isForced ?? false}));
+    return adjustedCycles;
   }, [downsampledData]);
 
   const cycleAnnotations: Record<string, AnnotationOptions> = useMemo(() => {
@@ -230,16 +230,11 @@ const Index: React.FC<IndexProps> = ({
   
     return validCycles.reduce((acc, cycle, index) => {
       const isEven = index % 2 === 0;
-      const isForced = cycle.isForced;
 
-      const backgroundColor = isForced
-        ? 'rgba(255, 138, 128, 0.2)'   // rojo suave para forzados
-        : isEven
+      const backgroundColor = isEven
           ? 'rgba(93, 173, 236, 0.4)'  // azul A
           : 'rgba(0, 200, 83, 0.2)'; //'rgba(144, 202, 249, 0.4)';// azul B
-      const borderColor = isForced
-        ? 'rgba(255, 138, 128, 0.2)'   // rojo suave para forzados
-        : isEven
+      const borderColor = isEven
           ? 'rgba(93, 173, 236, 0)'  // azul A
           : 'rgba(144, 202, 249, 0)';// azul B
 
@@ -257,7 +252,7 @@ const Index: React.FC<IndexProps> = ({
           position: {x: 'center', y: 'start'},
           yAdjust: -5.6,
           content: `# ${index + 1}`,
-          color: isForced ? '#b71c1c' : '#1565c0',
+          color: '#1565c0',
           font: {
             size: 12,
             weight: 'bold',
@@ -430,7 +425,7 @@ const Index: React.FC<IndexProps> = ({
                   display: true,
                   yMin: crossLineValue,
                   yMax: crossLineValue,
-                  borderColor: 'rgba(68, 68, 239, 1.0)',
+                  borderColor: 'rgba(68, 68, 239, 0.4)',
                   borderWidth: 1,
                   label: {
                     content: `Avg: ${crossLineValue} kg`,
@@ -486,6 +481,7 @@ const Index: React.FC<IndexProps> = ({
                   return numValue.toFixed(1);
                 },
               },
+              max: Math.min(1.2 * topLineValue, 2),
             },
           },
         },
@@ -515,7 +511,7 @@ const Index: React.FC<IndexProps> = ({
         return cycle.startX! < array[index + 1].endX!;
       });
   
-    console.log('validCycles ', validCycles)
+    // console.log('validCycles ', validCycles)
     setCycles(validCycles);
   }, [adjustedCycles]);
 

@@ -4,15 +4,15 @@ interface DataPoint {
 }
 
 export interface Cycle { 
-  workLoad: number | null; 
-  duration: number | null; 
-  amplitude: number | null;
-  speedRatio: number | null;
   startX: number | null;
   endX: number | null;
   peakX: number | null;
   peakY: number | null;
-  isForced: boolean;
+  duration: number | null; 
+  amplitude: number | null;
+  relativeSpeedRatio: number | null;
+  speedRatio: number | null;
+  workLoad: number | null; 
 }
 
 interface BaselineCrossSegment {
@@ -23,16 +23,38 @@ interface BaselineCrossSegment {
   isValley: boolean;
 }
 
-interface GroupedCycleWithMetrics {
-  startX: number;
-  endX: number;
-  peakY: number;
-  peakX: number;
-  amplitude: number;
-  duration: number;
-  speedRatio: number;
-  isForced: boolean;
-  workLoad: number | null;
+// interface AdjustedCycle {
+//   startX: number;
+//   endX: number;
+//   peakY: number;
+//   peakX: number;
+//   amplitude: number;
+//   duration: number;
+//   relativeSpeedRatio: number;
+//   speedRatio: number;
+//   workLoad: number | null;
+// }
+
+function addRelativeSpeedToCycles(
+  cycles: Cycle[],
+  cyclesToAverage: number = 3
+): Cycle[] {
+  const baseVelocities = cycles
+    .slice(1, cyclesToAverage)
+    .map(cycle =>
+      (cycle.amplitude! / (cycle.duration! / 1000)) / (cycle.workLoad ?? 1)
+    )
+    .filter(v => !isNaN(v) && isFinite(v));
+
+  const baseSpeed =
+    baseVelocities.length > 0
+      ? baseVelocities.reduce((sum, v) => sum + v, 0) / baseVelocities.length
+      : 1;
+
+  return cycles.map(cycle => ({
+    ...cycle,
+    relativeSpeedRatio: baseSpeed > 0 ? cycle.speedRatio! / baseSpeed : 1
+  }));
 }
 
 function detectStableSlopeRegion(
@@ -152,10 +174,11 @@ export function adjustCyclesByZeroCrossing(
   inputData: DataPoint[],
   baseline = 0,
   cycles: Cycle[],
-): { baselineCrossSegments: BaselineCrossSegment[]; groupedCycles: GroupedCycleWithMetrics[] } {
+): { baselineCrossSegments: BaselineCrossSegment[]; adjustedCycles: Cycle[] } {
   const data = inputData;
   let baselineCrossSegments: BaselineCrossSegment[] = [];
   const zeroCrossings: number[] = [];
+  const workLoad = cycles[0].workLoad;
 
   // Find zero-crossings (sign changes relative to baseline)
   for (let i = 1; i < data.length; i++) {
@@ -189,7 +212,7 @@ export function adjustCyclesByZeroCrossing(
     
     // ------ Filter out short segments ------
     if (Math.abs(endX - startX) < 100) continue; // valor en ms
-    if (Math.abs(peakPoint.y - baseline) < 0.06) continue;
+    if (Math.abs(peakPoint.y - baseline) < 0.06) continue; // valor en kg
 
     baselineCrossSegments.push({
       startX,
@@ -204,7 +227,7 @@ export function adjustCyclesByZeroCrossing(
   }
 
   // Group cycles from valley to valley with optional first/last peak exception
-  const groupedCycles: GroupedCycleWithMetrics[] = [];
+  let adjustedCycles: Cycle[] = [];
   const valleys = baselineCrossSegments.filter(c => c.isValley);
 
   // Extend to the beginning
@@ -225,9 +248,9 @@ export function adjustCyclesByZeroCrossing(
 
       const duration = firstValley.peakX - (transitionStart?.x ?? minX);
       const amplitude = maxY - minY;
-      const speedRatio = amplitude / (duration / 1_000);
+      const speedRatio = (amplitude / (duration / 1_000)) / (workLoad ?? 1);
 
-      groupedCycles.push({
+      adjustedCycles.push({
         startX: transitionStart && transitionStart.y < baseline
           ? transitionX
           : fallbackStartX,
@@ -236,9 +259,9 @@ export function adjustCyclesByZeroCrossing(
         peakX: data.find(p => p.y === maxY)!.x,
         amplitude,
         duration,
+        relativeSpeedRatio: null,
         speedRatio,
-        workLoad: cycles[0]?.workLoad ?? null,
-        isForced: cycles[0]?.isForced ?? false,
+        workLoad: workLoad ?? null,
       });
     }
   }
@@ -249,7 +272,7 @@ export function adjustCyclesByZeroCrossing(
     const end = valleys[i + 1];
 
     // Optionally extend a bit left and right for start and end if gradient changes drastically
-    const previousCycleEndX = groupedCycles[groupedCycles.length - 1]?.endX ?? null;
+    const previousCycleEndX = adjustedCycles[adjustedCycles.length - 1]?.endX ?? null;
     const extendedStartX = getSafeExtendedStartX(data, start.peakX, previousCycleEndX);
     const nextCycleStartX = valleys[i + 2]?.peakX ?? null;
     const extendedEndX = getSafeExtendedEndX(data, end.peakX, nextCycleStartX);
@@ -259,18 +282,18 @@ export function adjustCyclesByZeroCrossing(
     const minY = Math.min(start.peakY, end.peakY);
     const duration = extendedEndX - extendedStartX;
     const amplitude = maxY - minY;
-    const speedRatio = amplitude / (duration / 1_000);
+    const speedRatio = (amplitude / (duration / 1_000)) / (workLoad ?? 1);
 
-    groupedCycles.push({
+    adjustedCycles.push({
       startX: extendedStartX, // start.peakX,
       endX: extendedEndX, // end.peakX,
       peakY: maxY,
       peakX: data.find(p => p.y === maxY)!.x,
       amplitude,
       duration,
+      relativeSpeedRatio: null,
       speedRatio,
-      workLoad: cycles[0]?.workLoad ?? null,
-      isForced: cycles[i + 1]?.isForced ?? false,
+      workLoad: workLoad ?? null,
     });
   }
 
@@ -286,14 +309,14 @@ export function adjustCyclesByZeroCrossing(
       const transitionEnd = detectStableSlopeRegion(data, fromIndex, 'forward', 0.01, 10);
       const fallbackStartX = baselineCrossSegments[baselineCrossSegments.length - 1]?.endX ?? maxX;
       const transitionX = transitionEnd?.x ?? fallbackStartX;
-      const previousEndX = groupedCycles.at(-1)?.endX ?? null;
+      const previousEndX = adjustedCycles.at(-1)?.endX ?? null;
       const safeStartX = getSafeExtendedStartX(data, lastValley.peakX, previousEndX);
       
       const duration = (transitionEnd?.x ?? maxX) - lastValley.peakX;
       const amplitude = maxY - minY;
-      const speedRatio = amplitude / (duration / 1_000);
+      const speedRatio = (amplitude / (duration / 1_000)) / (workLoad ?? 1);
 
-      groupedCycles.push({
+      adjustedCycles.push({
         startX: safeStartX, // lastValley.peakX,
         endX: transitionEnd && transitionEnd.y < baseline
           ? transitionX
@@ -302,12 +325,14 @@ export function adjustCyclesByZeroCrossing(
         peakX: data.find(p => p.y === maxY)!.x,
         amplitude,
         duration,
+        relativeSpeedRatio: null,
         speedRatio,
-        workLoad: cycles[0]?.workLoad ?? null,
-        isForced: cycles[cycles.length - 1]?.isForced ?? false,
+        workLoad: workLoad ?? null,
       });
     }
   }
 
-  return { baselineCrossSegments, groupedCycles };
+  adjustedCycles = addRelativeSpeedToCycles(adjustedCycles);
+
+  return { baselineCrossSegments, adjustedCycles };
 }
