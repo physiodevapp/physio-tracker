@@ -142,7 +142,7 @@ const Index: React.FC<IndexProps> = ({
   return (
     <div 
       data-element="non-swipeable"
-      className="w-full h-auto max-w-screen bg-white rounded-lg py-2 pr-1">
+      className="w-full h-auto max-w-screen bg-white border-gray-200 border-2 dark:border-none rounded-lg py-2 pr-1">
       <canvas id={canvasId} ref={canvasRef} className="bg-white"/>
     </div>
   );

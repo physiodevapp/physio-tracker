@@ -643,7 +643,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         initial={{ y: 0, opacity: 1 }}
         animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 100, damping: 15 }}
-        className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-black/40 
+        className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-[#5dadec]/60 dark:bg-black/40 
         rounded-full py-2 px-4 font-bold mt-2 whitespace-nowrap"
       >
         BodyChart
@@ -705,7 +705,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       </div>
       <section 
         data-element="non-swipeable"
-        className="absolute top-1 left-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
+        className="absolute top-1 left-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec]/60 dark:bg-black/40 rounded-full"
         >
         <>
           {isMainMenuOpen ?
@@ -738,7 +738,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       </section>
       <section
         data-element="non-swipeable"
-        className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
+        className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec]/60 dark:bg-black/40 rounded-full"
         >
         <>
           <div 
@@ -746,7 +746,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
             onClick={() => toggleCamera()}
             >
               <CameraIcon className="h-6 w-6 text-white cursor-pointer"/>
-              <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 bg-black/80 rounded-full p-[0.1rem]"/>
+              <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 text-white bg-[#5d91ec] dark:bg-black/80 rounded-full p-[0.1rem]"/>
           </div>
           <Cog6ToothIcon 
             className="w-6 h-6 text-white"

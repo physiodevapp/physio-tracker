@@ -59,15 +59,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     isDeviceAvailable,
     taringStatus,
     sensorData,
+    rawSensorData,
     setDevice,
     setControlCharacteristic,
     setIsConnected,
     setIsDeviceAvailable,
     setTaringStatus,
     setSensorData,
+    setRawSensorData,
     connectToSensor,
   } = useContext(BluetoothContext);
-  const [rawSensorData, setRawSensorData] = useState<DataPoint[]>([]);
 
   const [isRecording, setIsRecording] = useState(false);
   const [isBatteryDead, setIsBatteryDead] = useState(false);
@@ -184,7 +185,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
     try {
       setTaringStatus(0);
-      await stopMeasurement();
+      // await stopMeasurement();
       await controlCharacteristic.writeValue(new Uint8Array([CMD_TARE_SCALE]));
       console.log('Tared');
       setTaringStatus(1);
@@ -204,10 +205,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       previousFilteredForceRef.current = null;     
       setSensorData([]); 
       measurementStartRef.current = null;
-      sensorRawDataLogRef.current = ["timestamp,force"];
+      sensorRawDataLogRef.current = [];
       setRawSensorData([]);
-      await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
       setIsRecording(true);
+      await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
 
       // ------ AUTO-STOP después de 30 segundos (30_000 ms) ------
       if (autoStopTimeoutRef.current) {
@@ -227,10 +228,13 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       return;
     }
     try {
-      await controlCharacteristic.writeValue(new Uint8Array([CMD_STOP_WEIGHT_MEAS]));
       setIsRecording(false);
       const parsedData = transformRawData(sensorRawDataLogRef.current);
       setRawSensorData(parsedData);
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current);
+      }
+      await controlCharacteristic.writeValue(new Uint8Array([CMD_STOP_WEIGHT_MEAS]));
     } catch (error) {
       console.log("Error stopping measurement:", error);
     }
@@ -298,7 +302,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   // Generar el archivo CSV y disparar la descarga
   const downloadRawData = () => {
-    const csvContent = sensorRawDataLogRef.current.join("\n");
+    const header = "timestamp,force";
+    const linesWithHeader = [header, ...sensorRawDataLogRef.current];
+    const csvContent = linesWithHeader.join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -375,7 +381,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         initial={{ y: 0, opacity: 1 }}
         animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 100, damping: 15 }}
-        className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-black/40 
+        className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-[#5dadec]/60 dark:bg-black/40 
         rounded-full py-2 px-4 font-bold mt-2 whitespace-nowrap"
       >
         Force Tracker
@@ -406,7 +412,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   showMassCalibration ? 'opacity-40' : ''
                 }`}
                 >
-                Now: {sensorData.length > 0 
+                Now: {(sensorData.length > 0 && isRecording) 
                 ? <span className={isRecording ? 'animate-pulse' : ''}>{sensorData[sensorData.length - 1].force.toFixed(1)} kg</span> 
                 : "0.0 kg"}
               </p>
@@ -443,7 +449,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       </div>
       <section 
         data-element="non-swipeable"
-        className="absolute top-1 left-1 p-2 z-10 flex flex-col justify-between gap-6 bg-black/40 rounded-full"
+        className="absolute top-1 left-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec]/60 dark:bg-black/40 rounded-full"
         >
         <>
           {isMainMenuOpen ?
@@ -508,6 +514,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                       onClick={() => {
                         setSensorData([]);
                       
+                        sensorRawDataLogRef.current = [];
                         setRawSensorData([]);
                       }}
                       />
@@ -538,7 +545,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       </section>
       <section 
         data-element="non-swipeable"
-        className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between items-center gap-6 bg-black/40 rounded-full"
+        className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between items-center gap-6 bg-[#5dadec]/60 dark:bg-black/40 rounded-full"
         >
         {((isDeviceAvailable && !device)) && (
           <LinkIcon 

@@ -1,6 +1,7 @@
 "use client";
 
 import { DataPoint } from '@/components/Force/Graph';
+import { Cycle } from '@/components/Force/utils/adjustCyclesByZeroCrossing';
 import React, { createContext, useState, useRef, useCallback } from 'react';
 
 // -------------- UUIDs según la documentación de Progressor ------------
@@ -16,6 +17,8 @@ interface IBluetoothContext {
   isDeviceAvailable: boolean;
   taringStatus: number | null;
   sensorData: DataPoint[];
+  rawSensorData: DataPoint[];
+  cycles: Cycle[];
   setDevice: React.Dispatch<React.SetStateAction<BluetoothDevice | null>>;
   setControlCharacteristic: React.Dispatch<React.SetStateAction<BluetoothRemoteGATTCharacteristic | null>>;
   setDataCharacteristic: React.Dispatch<React.SetStateAction<BluetoothRemoteGATTCharacteristic | null>>;
@@ -23,6 +26,8 @@ interface IBluetoothContext {
   setIsDeviceAvailable: React.Dispatch<React.SetStateAction<boolean>>;
   setTaringStatus: React.Dispatch<React.SetStateAction<0 | 1 | null>>;
   setSensorData: React.Dispatch<React.SetStateAction<DataPoint[]>>;
+  setRawSensorData: React.Dispatch<React.SetStateAction<DataPoint[]>>;
+  setCycles: React.Dispatch<React.SetStateAction<Cycle[]>>;
   connectToSensor: () => Promise<void>;
 }
 
@@ -34,6 +39,8 @@ export const BluetoothContext = createContext<IBluetoothContext>({
   isDeviceAvailable: true,
   taringStatus: null,
   sensorData: [],
+  rawSensorData: [],
+  cycles: [],
   setDevice: () => {},
   setControlCharacteristic: () => {},
   setDataCharacteristic: () => {},
@@ -41,6 +48,8 @@ export const BluetoothContext = createContext<IBluetoothContext>({
   setIsDeviceAvailable: () => {},
   setTaringStatus: () => {},
   setSensorData: () => {},
+  setRawSensorData: () => {},
+  setCycles: () => {},
   connectToSensor: async () => {
     throw new Error("connectToSensor no está implementado");
   },
@@ -58,7 +67,9 @@ export const BluetoothProvider: React.FC<BluettothProviderProps> = ({ children }
   const [isDeviceAvailable, setIsDeviceAvailable] = useState(true);
   const [taringStatus, setTaringStatus] = useState<0 | 1 | null>(null);
   const [sensorData, setSensorData] = useState<DataPoint[]>([]);
-
+  const [rawSensorData, setRawSensorData] = useState<DataPoint[]>([]);
+  const [cycles, setCycles] = useState<Cycle[]>([]);
+  
   const bluetoothServerRef = useRef(null);
 
   const connectToSensor = useCallback(async () => {
@@ -98,6 +109,8 @@ export const BluetoothProvider: React.FC<BluettothProviderProps> = ({ children }
     isDeviceAvailable,
     taringStatus,
     sensorData,
+    rawSensorData,
+    cycles,
     setDevice,
     setIsConnected,
     setControlCharacteristic,
@@ -105,6 +118,8 @@ export const BluetoothProvider: React.FC<BluettothProviderProps> = ({ children }
     setIsDeviceAvailable,
     setTaringStatus,
     setSensorData,
+    setRawSensorData,
+    setCycles,
     connectToSensor,
   };
 

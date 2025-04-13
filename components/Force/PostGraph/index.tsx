@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import {Chart as ChartJS, ChartConfiguration, registerables, ActiveDataPoint, ChartEvent} from 'chart.js';
 import { lttbDownsample } from "@/services/chart";
-import annotationPlugin from 'chartjs-plugin-annotation';
+import annotationPlugin, { AnnotationOptions } from 'chartjs-plugin-annotation';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ViewfinderCircleIcon } from "@heroicons/react/24/solid";
+import { adjustCyclesByZeroCrossing } from "../utils/adjustCyclesByZeroCrossing";
+import { BluetoothContext } from "@/providers/Bluetooth";
 
 // Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
 ChartJS.register(
@@ -20,110 +22,177 @@ export interface DataPoint {
 
 interface IndexProps {
   rawSensorData: DataPoint[];
-  maxPoint: number;
   displayAnnotations: boolean;
 }
 
-const customCrosshairPlugin = (isActive: boolean = true) => ({
-  id: 'customCrosshair',
-  afterEvent(chart: ChartJS & { _customCrosshairX?: number }, args: { event: ChartEvent }) {
-    if (!isActive) return;
+function customCrosshairPlugin(isActive: boolean = true) { 
+  return {
+    id: 'customCrosshair',
+    afterEvent(chart: ChartJS & { _customCrosshairX?: number }, args: { event: ChartEvent }) {
+      if (!isActive) return;
 
-    const { chartArea } = chart;
-    const { event } = args;
+      const { chartArea } = chart;
+      const { event } = args;
 
-    if (!event || event.x == null || event.y == null) return;
+      if (!event || event.x == null || event.y == null) return;
 
-    if (
-      event.x >= chartArea.left &&
-      event.x <= chartArea.right &&
-      event.y >= chartArea.top &&
-      event.y <= chartArea.bottom
-    ) {
-      chart._customCrosshairX = event.x;
-    } else {
-      chart._customCrosshairX = undefined;
-    }
-  },
-  afterDraw(chart: ChartJS & { _customCrosshairX?: number }) {
-    if (!isActive) return;
+      if (
+        event.x >= chartArea.left &&
+        event.x <= chartArea.right &&
+        event.y >= chartArea.top &&
+        event.y <= chartArea.bottom
+      ) {
+        chart._customCrosshairX = event.x;
+      } else {
+        chart._customCrosshairX = undefined;
+      }
+    },
+    afterDraw(chart: ChartJS & { _customCrosshairX?: number }) {
+      if (!isActive) return;
 
-    const x = chart._customCrosshairX;
-    if (!x) return;
+      const x = chart._customCrosshairX;
+      if (!x) return;
 
-    const { ctx, chartArea, scales } = chart;
-    const xScale = scales['x'];
-    const yScale = scales['y'];
-  
-    const xValue = xScale.getValueForPixel(x);
-  
-    // Línea vertical roja
-    ctx.save();
-    ctx.strokeStyle = '#F66';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x, chartArea.top);
-    ctx.lineTo(x, chartArea.bottom);
-    ctx.stroke();
-    ctx.restore();
-
-    // Para cada dataset
-    chart.data.datasets.forEach((dataset) => {
-      const data = dataset.data as { x: number; y: number }[];
-      
-      if (!data || !data.length) return;
-  
-      // Buscar el punto más cercano al xValue
-      const closestPoint = data.reduce((prev, curr) =>
-        Math.abs(curr.x - xValue!) < Math.abs(prev.x - xValue!) ? curr : prev
-      );
-  
-      const yPixel = yScale.getPixelForValue(closestPoint.y);
-
-      // Dibujar línea horizontal en y = yPixel
+      const { ctx, chartArea, scales } = chart;
+      const xScale = scales['x'];
+      const yScale = scales['y'];
+    
+      const xValue = xScale.getValueForPixel(x);
+    
+      // Línea vertical roja
       ctx.save();
-      ctx.strokeStyle = "rgb(75, 192, 192)";
+      ctx.strokeStyle = '#F66';
       ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
       ctx.beginPath();
-      ctx.moveTo(chartArea.left, yPixel);
-      ctx.lineTo(chartArea.right, yPixel);
+      ctx.moveTo(x, chartArea.top);
+      ctx.lineTo(x, chartArea.bottom);
       ctx.stroke();
       ctx.restore();
-    });
-  },
-});
+
+      // Para cada dataset
+      chart.data.datasets.forEach((dataset) => {
+        const data = dataset.data as { x: number; y: number }[];
+        
+        if (!data || !data.length) return;
+    
+        // Buscar el punto más cercano al xValue
+        const closestPoint = data.reduce((prev, curr) =>
+          Math.abs(curr.x - xValue!) < Math.abs(prev.x - xValue!) ? curr : prev
+        );
+    
+        const yPixel = yScale.getPixelForValue(closestPoint.y);
+
+        // Dibujar línea horizontal en y = yPixel
+        ctx.save();
+        ctx.strokeStyle = "rgb(75, 192, 192)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(chartArea.left, yPixel);
+        ctx.lineTo(chartArea.right, yPixel);
+        ctx.stroke();
+        ctx.restore();
+      });
+    },
+  }
+};
+
+function calculateMeanY(data: { x: number; y: number }[]): number | null {
+  if (!data.length) return null;
+
+  const total = data.reduce((sum, point) => sum + point.y, 0);
+  return total / data.length;
+}
 
 const Index: React.FC<IndexProps> = ({
   rawSensorData,
-  maxPoint,
-  displayAnnotations = true,  
+  displayAnnotations = true,
 }) => {
+  const {
+    cycles,
+    setCycles,
+  } = useContext(BluetoothContext);
+
   const [isZoomed, setIsZoomed] = useState(false);
 
   // --- Cofiguración del gráfico ----
   const chartRef = useRef<ChartJS | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
-
+  
   // Mapeamos los datos para adaptarlos a la función lttbDownsample
-  // Convertimos "time" a "x" y de microsegundos a milisegundos
   const mappedData = useMemo(() => {
-    // Calcular la media y desviación estándar de la fuerza
-    const values = rawSensorData.map(p => p.force);
-    const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
-    const std = Math.sqrt(values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length);
+    if (rawSensorData.length === 0) return [];
 
-    // Filtrar outliers (por ejemplo, fuera de 2 desviaciones estándar)
-    const cleaned = rawSensorData.filter(p => {
-      return Math.abs(p.force - mean) <= 2 * std;
-    });
-
-    // Mapear a datos de Chart.js
-    return cleaned.map(point => ({
-      x: point.time / 1000, // ms
+    return rawSensorData.map(point => ({
+      x: point.time / 1_000, // ms
       y: point.force,       // kg
-    }));   
+    }));
+  
+    const sigma = 1.5;
+    const iqrMultiplier = 1.5;
+    const minForceThreshold = 0.1;
+    const minSlope = 0.016;
+  
+    // Detectar el inicio real (cuando la fuerza empieza a subir)
+    const findStartIndex = (data: typeof rawSensorData, threshold: number, minSlope: number) => {
+      for (let i = 0; i < data.length - 1; i++) {
+        const slope = data[i + 1].force - data[i].force;
+        if (data[i].force >= threshold && slope > minSlope) {
+          return i;
+        }
+      }
+      return 0;
+    };
+  
+    // Detectar el final real (cuando termina de bajar)
+    const findEndIndex = (data: typeof rawSensorData, threshold: number, minSlope: number) => {
+      for (let i = data.length - 2; i >= 0; i--) {
+        const slope = data[i + 1].force - data[i].force;
+        if (data[i].force >= threshold && slope < -minSlope) {
+          return i + 1;
+        }
+      }
+      return data.length - 1;
+    };
+  
+    const startIdx = findStartIndex(rawSensorData, minForceThreshold, minSlope);
+    const endIdx = findEndIndex(rawSensorData, minForceThreshold, minSlope);
+  
+    // Si no hay un rango válido, devuelve vacío
+    if (startIdx >= endIdx) return [];
+  
+    const trimmedData = rawSensorData.slice(startIdx, endIdx + 1);
+  
+    const startCut = 1_000_000; // μs
+    const endCut = 1_000_000;
+    const totalDuration = trimmedData[trimmedData.length - 1].time;
+  
+    const filteredForStats = trimmedData.filter(p =>
+      p.time > startCut && p.time < totalDuration - endCut
+    );
+  
+    const values = filteredForStats.map(p => p.force);
+    const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+    const std = Math.sqrt(values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length);
+  
+    const sorted = [...values].sort((a, b) => a - b);
+    const q1 = sorted[Math.floor(sorted.length * 0.25)];
+    const q3 = sorted[Math.floor(sorted.length * 0.75)];
+    const iqr = q3 - q1;
+    const lowerBound = q1 - iqrMultiplier * iqr;
+    const upperBound = q3 + iqrMultiplier * iqr;
+  
+    const cleaned = trimmedData.filter(p => {
+      const outlierBySigma = Math.abs(p.force - mean) > sigma * std;
+      const outlierByIQR = p.force < lowerBound || p.force > upperBound;
+      return !outlierBySigma && !outlierByIQR;
+    });
+  
+    return cleaned.map(point => ({
+      x: point.time / 1_000, // en milisegundos
+      y: point.force,
+    }));
   }, [rawSensorData]);
   
   // Aplicamos la función de downsampling usando useMemo para optimizar
@@ -133,210 +202,295 @@ const Index: React.FC<IndexProps> = ({
   }, [JSON.stringify(mappedData), decimationThreshold]);
 
   const minTime = downsampledData.length > 0 ? downsampledData[0].x : 0;
-  const maxTime = downsampledData.length > 0 ? downsampledData[downsampledData.length - 1].x : 1000;
+  const maxTime = downsampledData.length > 0 ? downsampledData[downsampledData.length - 1].x : 1000; 
+
+  const crossLineValue = (calculateMeanY(mappedData) ?? 0) * 1;
+  const topLineValue = Math.max(...downsampledData.map(p => p.y));
+
+  const adjustedCycles = useMemo(() => {
+    const { baselineCrossSegments, groupedCycles } = adjustCyclesByZeroCrossing(mappedData, crossLineValue, cycles);
+    console.log('crossLineValue ', crossLineValue)
+    console.log('baselineCrossSegments ', baselineCrossSegments);
+
+    return groupedCycles.map((item, index) => ({...item, isForced: cycles[index]?.isForced ?? false}));
+  }, [downsampledData]);
+
+  const cycleAnnotations: Record<string, AnnotationOptions> = useMemo(() => {
+    if (!adjustedCycles?.length) return {};
+
+    const validCycles = [...adjustedCycles]
+    .filter(cycle => cycle.startX! < cycle.endX!) // filtro base
+    .filter((cycle, index, array) => {
+      // Si es el último, no tiene siguiente → se acepta
+      if (index === array.length - 1) return true;
+
+      // Verifica que no se solape hacia adelante
+      return cycle.startX! < array[index + 1].endX!;
+    });
+  
+    return validCycles.reduce((acc, cycle, index) => {
+      const isEven = index % 2 === 0;
+      const isForced = cycle.isForced;
+
+      const backgroundColor = isForced
+        ? 'rgba(255, 138, 128, 0.2)'   // rojo suave para forzados
+        : isEven
+          ? 'rgba(93, 173, 236, 0.4)'  // azul A
+          : 'rgba(0, 200, 83, 0.2)'; //'rgba(144, 202, 249, 0.4)';// azul B
+      const borderColor = isForced
+        ? 'rgba(255, 138, 128, 0.2)'   // rojo suave para forzados
+        : isEven
+          ? 'rgba(93, 173, 236, 0)'  // azul A
+          : 'rgba(144, 202, 249, 0)';// azul B
+
+      acc[`cycleBox${index}`] = {
+        type: 'box',
+        xMin: cycle.startX!,
+        xMax: cycle.endX!,
+        yMin: 'min',
+        yMax: 'max',
+        backgroundColor: backgroundColor,
+        borderColor: borderColor,
+        borderWidth: 1,
+        label: {
+          display: true,
+          position: {x: 'center', y: 'start'},
+          yAdjust: -5.6,
+          content: `# ${index + 1}`,
+          color: isForced ? '#b71c1c' : '#1565c0',
+          font: {
+            size: 12,
+            weight: 'bold',
+            style: 'italic'
+          },
+        }
+      };
+      return acc;
+    }, {} as Record<string, AnnotationOptions>);
+  }, [adjustedCycles]); 
 
   const chartConfig = useMemo<ChartConfiguration>(
-    () => ({
-      type: "line",
-      plugins: [
-        customCrosshairPlugin(),
-      ],
-      data: {
-        // labels: downsampledData.map(point => point.x),
-        datasets: [
-          {
-            label: 'Force (kg)',
-            // data: downsampledData.map(point => point.y),
-            data: downsampledData.map(point => ({
-              x: point.x, // segundos
-              y: point.y, // fuerza en kg
-            })),
-            parsing: false,
-            fill: false,
-            borderWidth: 2,
-            borderColor: 'rgb(75, 192, 192)',
-            tension: 0.1,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            pointHoverBorderWidth: 1,
-            pointHoverBorderColor: 'red',
-            pointHitRadius: 0,
-          },
+    () => {
+      return {
+        type: "line",
+        plugins: [
+          customCrosshairPlugin(),
         ],
-      },
-      options: {
-        responsive: true,
-        animation: false,
-        interaction: {
-          mode: "nearest",
-          axis: "x",
-          intersect: false,
-        },
-        plugins: {
-          title: {
-            display: false,
-            text: 'Force vs Time',
-          },
-          legend: {
-            display: false,
-          },
-          tooltip: {
-            enabled: false,
-            external: function (context) {
-              if (!tooltipRef.current) return; 
-
-              const tooltipModel = context.tooltip;
-              if (tooltipModel.opacity === 0) {
-                tooltipRef.current.style.opacity = "0";
-                return;
-              }
-
-              // ✅ Obtener el contenido del tooltip
-              const label = tooltipModel.body?.[0]?.lines?.[0] || "";
-              tooltipRef.current.innerHTML = `Current: <strong>${label}</strong>`;
-
-              tooltipRef.current.style.opacity = "1";
+        data: {
+          // labels: downsampledData.map(point => point.x),
+          datasets: [
+            {
+              label: 'Force (kg)',
+              data: downsampledData.map(point => ({
+                x: point.x, // milisegundos
+                y: point.y, // fuerza en kg
+              })),
+              parsing: false,
+              fill: false,
+              borderWidth: 2,
+              borderColor: 'rgb(75, 192, 192)',
+              tension: 0.1,
+              pointRadius: 0,
+              pointHoverRadius: 4,
+              pointHoverBorderWidth: 1,
+              pointHoverBorderColor: 'red',
+              pointHitRadius: 0,
             },
+          ],
+        },
+        options: {
+          responsive: true,
+          animation: false,
+          interaction: {
+            mode: "nearest",
+            axis: "x",
             intersect: false,
-            callbacks: {
-              title: function (context) {
-                if (!context.length) return ""; // Evitar errores si no hay datos
+          },
+          plugins: {
+            title: {
+              display: false,
+              text: 'Force vs Time',
+            },
+            legend: {
+              display: false,
+            },
+            tooltip: {
+              enabled: false,
+              external: function (context) {
+                if (!tooltipRef.current) return; 
 
-                const firstPoint = context[0]; // Tomamos el primer punto del tooltip
-                const timeValue = parseFloat(firstPoint.label as string); // Convertir `label` a número
-
-                if (isNaN(timeValue)) return "Unknown time"; // Manejo de errores
-
-                return `Time: ${(timeValue / 1000).toFixed(2)} s`;
-              },
-              label: function (context) {
-                const raw = context.raw as { x: number; y: number };
-                const value = raw.y; // fuerza en kg
-                const datasetLabel = context.dataset.label || "";
-
-                if (datasetLabel.includes("Force")) {
-                  return ` ${value.toFixed(2)} kg`;
+                const tooltipModel = context.tooltip;
+                if (tooltipModel.opacity === 0) {
+                  tooltipRef.current.style.opacity = "0";
+                  return;
                 }
 
-                return `${datasetLabel}: ${value}`;
-              }
-            }
-          },  
-          zoom: {
-            limits: {
-              x: {
-                min: 0,
-                max: 30_000,
-                minRange: 4_000, 
-              },
-              y: {
-                min: 'original',
-                max: maxPoint,
-                minRange: 1,
-              },
-            },
-            pan: {
-              enabled: false,
-              mode: 'xy', // o 'xy'
-              threshold: 10,
-              onPan: ({ chart }: { chart: ChartJS & { _customCrosshairX?: number } }) => {
-                setIsZoomed(true);
+                // ✅ Obtener el contenido del tooltip
+                const labelY = tooltipModel.body?.[0]?.lines?.[0] || "";
+                const rawLabelX = tooltipModel.dataPoints?.[0]?.parsed?.x;
+                const labelX =
+                  rawLabelX !== undefined
+                    ? (Number(rawLabelX) / 1000).toFixed(2)
+                    : "";
+                tooltipRef.current.innerHTML = `Current: <strong>${labelY}</strong> at ${labelX} s`;
 
-                const x = chart._customCrosshairX;
-                if (!x) return;
-
-                const xValue = chart.scales.x.getValueForPixel(x);
-                const activeElements: ActiveDataPoint[] = [];
-
-                chart.data.datasets.forEach((dataset, datasetIndex) => {
-                  const data = dataset.data as { x: number; y: number }[];
-                  if (!data?.length) return;
-              
-                  let closestIndex = 0;
-                  let minDist = Infinity;
-              
-                  data.forEach((point, i) => {
-                    const dist = Math.abs(point.x - xValue!);
-                    if (dist < minDist) {
-                      minDist = dist;
-                      closestIndex = i;
-                    }
-                  });
-              
-                  activeElements.push({ datasetIndex, index: closestIndex });
-                });
-
-                chart.setActiveElements(activeElements);
-                chart.tooltip!.setActiveElements(activeElements, { x, y: chart.chartArea.top });
-                // chart.update();
+                tooltipRef.current.style.opacity = "1";
               },
-            },
-            zoom: {
-              wheel: {
-                enabled: true, // zoom con scroll
-              },
-              pinch: {
-                enabled: true, // zoom con gesto táctil
-              },
-              mode: 'xy', // solo horizontal (tiempo)
-              onZoom: () => setIsZoomed(true),
-            },
-          },        
-          // Configuración de anotaciones
-          annotation: {
-            annotations: {
-              topLine: {
-                type: 'line',
-                display: Boolean(displayAnnotations && mappedData.length),
-                yMin: maxPoint ?? 0,
-                yMax: maxPoint ?? 0,
-                borderColor: 'rgba(239, 68, 239, 0.60',
-                borderWidth: 2,
-                borderDash: [6, 4],
-                label: {
-                  content: `Max: ${(maxPoint ?? 0).toFixed(2)} kg`,
-                  display: false,
-                  position: 'start',
+              intersect: false,
+              callbacks: {
+                title: function (context) {
+                  if (!context.length) return ""; // Evitar errores si no hay datos
+
+                  const firstPoint = context[0]; // Tomamos el primer punto del tooltip
+                  const timeValue = parseFloat(firstPoint.label as string); // Convertir `label` a número
+
+                  if (isNaN(timeValue)) return "Unknown time"; // Manejo de errores
+
+                  return `Time: ${(timeValue / 1000).toFixed(2)} s`;
                 },
+                label: function (context) {
+                  const raw = context.raw as { x: number; y: number };
+                  const value = raw.y; // fuerza en kg
+                  const datasetLabel = context.dataset.label || "";
+
+                  if (datasetLabel.includes("Force")) {
+                    return ` ${value.toFixed(2)} kg`;
+                  }
+
+                  return `${datasetLabel}: ${value}`;
+                }
               }
-            }
-          },
-        },
-        scales: {
-          x: {
-            type: 'linear',
-            position: 'bottom',
-            title: {
-              display: false,
-              text: 'Time (ms)',
+            },  
+            zoom: {
+              limits: {
+                x: {
+                  min: 1_000,
+                  max: 30_000,
+                  minRange: 4_000, 
+                },
+                y: {
+                  min: 'original',
+                  max: topLineValue,
+                  minRange: 0.8,
+                },
+              },
+              pan: {
+                enabled: false,
+                mode: 'xy', // o 'xy'
+                threshold: 10,
+                onPan: ({ chart }: { chart: ChartJS & { _customCrosshairX?: number } }) => {
+                  setIsZoomed(true);
+
+                  const x = chart._customCrosshairX;
+                  if (!x) return;
+
+                  const xValue = chart.scales.x.getValueForPixel(x);
+                  const activeElements: ActiveDataPoint[] = [];
+
+                  chart.data.datasets.forEach((dataset, datasetIndex) => {
+                    const data = dataset.data as { x: number; y: number }[];
+                    if (!data?.length) return;
+                
+                    let closestIndex = 0;
+                    let minDist = Infinity;
+                
+                    data.forEach((point, i) => {
+                      const dist = Math.abs(point.x - xValue!);
+                      if (dist < minDist) {
+                        minDist = dist;
+                        closestIndex = i;
+                      }
+                    });
+                
+                    activeElements.push({ datasetIndex, index: closestIndex });
+                  });
+
+                  chart.setActiveElements(activeElements);
+                  chart.tooltip!.setActiveElements(activeElements, { x, y: chart.chartArea.top });
+                  // chart.update();
+                },
+              },
+              zoom: {
+                wheel: {
+                  enabled: true, // zoom con scroll
+                },
+                pinch: {
+                  enabled: true, // zoom con gesto táctil
+                },
+                mode: 'xy', // solo horizontal (tiempo)
+                onZoom: () => setIsZoomed(true),
+              },
+            },        
+            // Configuración de anotaciones
+            annotation: {
+              annotations: {
+                ...cycleAnnotations,
+                crossLine: {
+                  type: 'line',
+                  display: true,
+                  yMin: crossLineValue,
+                  yMax: crossLineValue,
+                  borderColor: 'rgba(68, 68, 239, 1.0)',
+                  borderWidth: 1,
+                  label: {
+                    content: `Avg: ${crossLineValue} kg`,
+                    display: false,
+                    position: 'start',
+                  },
+                },
+                topLine: {
+                  type: 'line',
+                  display: Boolean(displayAnnotations && mappedData.length),
+                  yMin: topLineValue ?? 0,
+                  yMax: topLineValue ?? 0,
+                  borderColor: 'rgba(239, 68, 239, 0.60',
+                  borderWidth: 2,
+                  borderDash: [6, 4],
+                  label: {
+                    content: `Max: ${(topLineValue ?? 0).toFixed(2)} kg`,
+                    display: false,
+                    position: 'start',
+                  },
+                }
+              }
             },
-            ticks: {
-              stepSize: 1000,
-              callback: (value) => {
-                const numValue = Number(value);
-                return numValue >= 0 ? `${(numValue / 1000).toFixed(0)}` : '';
+          },
+          scales: {
+            x: {
+              type: 'linear',
+              position: 'bottom',
+              title: {
+                display: false,
+                text: 'Time (ms)',
+              },
+              ticks: {
+                stepSize: 1000,
+                callback: (value) => {
+                  const numValue = Number(value);
+                  return numValue >= 0 ? `${(numValue / 1000).toFixed(0)}` : '';
+                },
+              },
+              min: minTime,
+              max: maxTime,
+            },
+            y: {
+              title: {
+                display: false,
+                text: 'Force (kg)',
+              },
+              ticks: {
+                // stepSize: 0.1,
+                callback: (value) => {
+                  const numValue = Number(value);
+                  if (numValue < 0) return '';
+                  return numValue.toFixed(1);
+                },
               },
             },
-            min: minTime,
-            max: maxTime,
-          },
-          y: {
-            title: {
-              display: false,
-              text: 'Force (kg)',
-            },
-            ticks: {
-              // stepSize: 0.1,
-              callback: (value) => {
-                const numValue = Number(value);
-                if (numValue < 0) return '';
-                return numValue.toFixed(1);
-              },
-            },
           },
         },
-      },
-    }), [downsampledData]);
+      }
+  }, [downsampledData, adjustedCycles]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -351,8 +505,22 @@ const Index: React.FC<IndexProps> = ({
     };
   }, [chartConfig]);
 
+  useEffect(() => {
+    if (!adjustedCycles?.length) return;
+  
+    const validCycles = [...adjustedCycles]
+      .filter(cycle => cycle.startX! < cycle.endX!)
+      .filter((cycle, index, array) => {
+        if (index === array.length - 1) return true;
+        return cycle.startX! < array[index + 1].endX!;
+      });
+  
+    console.log('validCycles ', validCycles)
+    setCycles(validCycles);
+  }, [adjustedCycles]);
+
   return (
-    <section className='relative bg-white rounded-lg pl-2 pr-1 pt-6 pb-2 mt-2'>
+    <section className='relative border-gray-200 border-2 dark:border-none bg-white rounded-lg pl-2 pr-1 pt-6 pb-2 mt-2'>
       <canvas 
         ref={canvasRef} 
         className='bg-white'
@@ -369,7 +537,7 @@ const Index: React.FC<IndexProps> = ({
       }
       {rawSensorData.length > 0 ? (
         <p className="flex flex-row gap-4 absolute top-1 left-2 text-gray-500 text-[0.8rem]">
-          <span>Max: <strong>{maxPoint.toFixed(2)} kg</strong></span> 
+          <span>Max: <strong>{topLineValue.toFixed(2)} kg</strong></span> 
         </p>
         ) : null
       }

@@ -10,17 +10,19 @@ interface CycleMetric {
 }
 
 interface CyclesDetectorProps {
-  mappedData: {x: number, y: number}[];
   downsampledData: DataPoint[];
   settings: ForceSettings;
   workLoad: number | null;
+  // mappedData: {x: number, y: number}[];
+  // isRecording: boolean;
 }
 
 export default function useCyclesDetector({
-  mappedData, 
   downsampledData,
   settings,  
   workLoad = null,
+  // mappedData, 
+  // isRecording = false
 }: CyclesDetectorProps) {
   const {
     hysteresis,
@@ -28,7 +30,11 @@ export default function useCyclesDetector({
     minAvgAmplitude,
     peakDropThreshold: amplitudeDropThreshold,
     cyclesToAverage,
+    durationChangeThreshold,
+    velocityDropThreshold,
+    variabilityThreshold,
   } = settings;
+  const maxCyclesForAnalysis = 6; // revisar
 
   const fatigueTipsMap: Record<string, string> = {
     // Individual
@@ -63,14 +69,11 @@ export default function useCyclesDetector({
   const [cycleDuration, setCycleDuration] = useState<number | null>(null);
   const [cycleAmplitude, setCycleAmplitude] = useState<number | null>(null);
   const [cycleSpeedRatio, setCycleSpeedRatio] = useState<number | null>(null);
+  const [cycleBoundaries, setCycleBoundaries] = useState<{ startX: number; endX: number, minY: number, maxY: number, isForced: boolean }>();
 
   const [cycleMetrics, setCycleMetrics] = useState<CycleMetric[]>([]);
   const cycleDurations = useRef<number[]>([]);
   const initialAvgVelocity = useRef<number | null>(null);
-  const durationChangeThreshold = 0.05;
-  const velocityDropThreshold = 0.75;
-  const variabilityThreshold = 0.04; 
-  const maxCyclesForAnalysis = 6;
   
   // ---------- Refs para la lógica de detección de ciclo ----------
   // Ref para guardar el extremo que inició el ciclo ("above" o "below")
@@ -83,10 +86,14 @@ export default function useCyclesDetector({
   const currentCycleExtremesRef = useRef<{ min: number; max: number } | null>(null);
 
   // Cálculo del valor máximo de fuerza
+  // const peak = useMemo(() => {
+  //   if (mappedData.length === 0) return 0;
+  //   return Math.max(...mappedData.map(point => point.y));
+  // }, [mappedData]);
   const peak = useMemo(() => {
-    if (mappedData.length === 0) return 0;
-    return Math.max(...mappedData.map(point => point.y));
-  }, [mappedData]);
+    if (downsampledData.length === 0) return 0;
+    return Math.max(...downsampledData.map(point => point.y));
+  }, [downsampledData]);
 
   // Cálculo del promedio de la fuerza solo para los datos recientes
   const recentWindowData: { recentAverageValue: number; recentPeak: number } = useMemo(() => {
@@ -128,7 +135,7 @@ export default function useCyclesDetector({
     }
   };
 
-  // Detectar el ciclo
+  // ----- Detectar el ciclo -----
   useEffect(() => {
     if (!downsampledData.length) return;
 
@@ -172,25 +179,51 @@ export default function useCyclesDetector({
       // Si el extremo actual es igual al que inició el ciclo, se completó un ciclo
       if (currentExtreme === cycleStartRef.current) {
         // Calcular la amplitud: diferencia entre el valor máximo y mínimo registrados en el ciclo (en kg)
-        let amplitude = 0;
-        if (currentCycleExtremesRef.current) {
-          amplitude =
-            currentCycleExtremesRef.current.max - currentCycleExtremesRef.current.min;
-          setCycleAmplitude(amplitude);
-        }
+        // let amplitude = 0;
+        // if (currentCycleExtremesRef.current) {
+        //   amplitude =
+        //     currentCycleExtremesRef.current.max - currentCycleExtremesRef.current.min;
+        //   setCycleAmplitude(amplitude);
+        // }
         // Calcular la duración del ciclo (en milisegundos)
+        // let duration = 0;
+        // if (cycleStartTimeRef.current !== null) {
+        //   duration = lastPoint.x - cycleStartTimeRef.current;
+        //   setCycleDuration(duration);
+        // }   
+        // Se marcan los "limites" del ciclo
+        let amplitude = 0;
         let duration = 0;
-        if (cycleStartTimeRef.current !== null) {
-          duration = lastPoint.x - cycleStartTimeRef.current;
+        if (cycleStartTimeRef.current !== null && currentCycleExtremesRef.current) {
+          const startX = cycleStartTimeRef.current;
+          const endX = lastPoint.x;
+
+          const pointsInCycle = downsampledData.filter(p => p.x >= startX && p.x <= endX);
+
+          const maxY = Math.max(...pointsInCycle.map(p => p.y));
+          const minY = Math.min(...pointsInCycle.map(p => p.y));
+
+          setCycleBoundaries({ 
+            startX, 
+            endX,
+            minY,
+            maxY,
+            isForced: false,
+          });
+
+          duration = endX - startX;
           setCycleDuration(duration);
-        }        
+
+          amplitude = maxY - minY;
+          setCycleAmplitude(amplitude)
+        }  
         // Se incrementa el contador de ciclos
         setCycleCount(prev => prev + 1);
         // Almacenar las métricas del ciclo en el array (manteniendo, por ejemplo, los últimos 10 ciclos)
         setCycleMetrics(prev => {
           const newCycle = { amplitude, duration, timestamp: lastPoint.x };
           const updated = [...prev, newCycle];
-          // Limitar a los últimos 6 ciclos para análisis
+          // Limitar a los últimos "maxCyclesForAnalysis" ciclos para análisis
           return updated.slice(-maxCyclesForAnalysis);
         });
         // Guardar la duración del nuevo ciclo en el historial para analizar tendencias de fatiga
@@ -204,9 +237,52 @@ export default function useCyclesDetector({
       }
     }
   }, [downsampledData, recentWindowData]);
+  
+  // useEffect(() => {
+  //   if (!isRecording && cycleStartRef.current !== null && currentCycleExtremesRef.current) {
+  //     const lastX = downsampledData[downsampledData.length - 1]?.x;
+  
+  //     const amplitude = currentCycleExtremesRef.current.max - currentCycleExtremesRef.current.min;
+  //     const duration = lastX - (cycleStartTimeRef.current ?? lastX);
+
+  //     const startX = cycleStartTimeRef.current ?? lastX;
+  //     const endX = lastX;
+
+  //     const pointsInCycle = downsampledData.filter(p => p.x >= startX && p.x <= endX);
+
+  //     const maxY = Math.max(...pointsInCycle.map(p => p.y));
+  //     const minY = Math.min(...pointsInCycle.map(p => p.y));
+  
+  //     setCycleAmplitude(amplitude);
+  //     setCycleDuration(duration);
+  //     setCycleCount(prev => prev + 1);
+  //     setCycleBoundaries({
+  //       startX,
+  //       endX,
+  //       minY,
+  //       maxY,
+  //       isForced: true,
+  //     });
+  
+  //     setCycleMetrics(prev => {
+  //       const newCycle = { amplitude, duration, timestamp: lastX };
+  //       const updated = [...prev, newCycle];
+  //       return updated.slice(-maxCyclesForAnalysis);
+  //     });
+  
+  //     updateCycleDurations(duration);
+  
+  //     // Reset refs
+  //     cycleStartRef.current = null;
+  //     cycleStartTimeRef.current = null;
+  //     currentCycleExtremesRef.current = null;
+  //   }
+  // }, [isRecording]);
+  
 
   // --- Agrupación de métricas de ciclos para detectar fatiga ---
   // Por ejemplo, usando los últimos "cyclesToAverage" ciclos
+  
   const aggregatedCycleMetrics = useMemo(() => {
     if (cycleMetrics.length === 0) return null;
     const recentCycles = cycleMetrics.slice(-cyclesToAverage);
@@ -318,21 +394,28 @@ export default function useCyclesDetector({
   const fatigueStatus = useMemo(() => detectFatigue(), [aggregatedCycleMetrics, recentWindowData, peak]);
 
   useEffect(() => {
-    if (mappedData.length === 0) {
+    if (downsampledData.length === 0) {
       setCycleCount(0);
-      setCycleDuration(0);
-      setCycleAmplitude(0);
-      setCycleSpeedRatio(0);
+      setCycleDuration(null);
+      setCycleAmplitude(null);
+      setCycleSpeedRatio(null);
+      setCycleBoundaries(undefined);
       setCycleMetrics([]);
+      cycleDurations.current = [];
       initialAvgVelocity.current = null;
+      cycleStartRef.current = null;
+      lastExtremeRef.current = null;
+      cycleStartTimeRef.current = null;
+      currentCycleExtremesRef.current = null;
     }
-  }, [mappedData]);
+  }, [downsampledData]);
 
   return {
     cycleCount,
     cycleDuration,
     cycleAmplitude,
     cycleSpeedRatio,
+    cycleBoundaries,
     fatigueStatus,
     recentWindowData,
     peak,

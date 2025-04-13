@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {Chart as ChartJS, ChartEvent, ChartConfiguration, registerables} from 'chart.js'; 
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { lttbDownsample } from '@/services/chart';
 import { ForceSettings } from '@/providers/Settings';
 import useCyclesDetector from '../Hooks/useCyclesDetector';
 import FullTestForceChart from "../PostGraph";
+import { BluetoothContext } from '@/providers/Bluetooth';
 
 // Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
 ChartJS.register(
@@ -20,8 +21,8 @@ export interface DataPoint {
 
 // Ahora ampliamos las props para recibir los umbrales
 interface IndexProps {
-  sensorData: DataPoint[];
-  rawSensorData: DataPoint[];
+  sensorData: DataPoint[]; // datos de los ultimos 10 segundos de la prueba
+  rawSensorData: DataPoint[]; // todos los datos durante el tiempo de la prueba
   displayAnnotations: boolean;
   isEstimatingMass: boolean;
   workLoad: number | null;
@@ -80,19 +81,25 @@ const Index: React.FC<IndexProps> = ({
   const {
     movingAverageWindow,
     hysteresis,
-  } = settings
+  } = settings;
+
+  const { 
+    cycles,
+    setCycles,
+  } = useContext(BluetoothContext);
   
   // Mapeamos los datos para adaptarlos a la función lttbDownsample
   //  Convertimos "time" a "x" y de microsegundos a milisegundos
   const mappedData = useMemo(() => {
     return sensorData.map(point => ({
-      x: point.time / 1000, // ms
+      x: point.time / 1_000, // ms
       y: point.force,       // kg
     }));    
   }, [sensorData]);
   
-  // Aplicamos la función de downsampling usando useMemo para optimizar
-  const decimationThreshold = 200;
+  // Aplicamos la función de downsampling usando useMemo para optimización
+  const decimationThreshold = 600;
+  // Usamos downsampledData para el grafico y deteccion de ciclos en tiempo real
   const downsampledData = useMemo(() => {
     return lttbDownsample(mappedData, decimationThreshold);
   }, [JSON.stringify(mappedData), decimationThreshold]);
@@ -102,43 +109,43 @@ const Index: React.FC<IndexProps> = ({
     cycleDuration,
     cycleAmplitude,
     cycleSpeedRatio,
+    cycleBoundaries,
     fatigueStatus,
     recentWindowData: {recentAverageValue: recentAverageForceValue},
     peak: maxPoint, // kg
   } = useCyclesDetector({
-    mappedData,
     downsampledData,
     settings,
     workLoad,
+    // mappedData, // solo para calcular el "peak"
+    // isRecording,
   });
 
-  const [cycleData, setCycleData] = useState<{ 
-    workLoad: number | null; 
-    cycleCount: number | null; 
-    cycleDuration: number | null; 
-    cycleAmplitude: number | null;
-    cycleSpeedRatio: number | null;
-  }[]>([]);
-
   useEffect(() => {
-    if (cycleCount === 0) {
-      setCycleData([]);
-    };
+    if (isRecording) {  
+      setCycles(prevData => {
+        const newCycle = { 
+          workLoad: workLoad, 
+          duration: cycleDuration, 
+          amplitude: cycleAmplitude,
+          speedRatio: cycleSpeedRatio,
+          startX: cycleBoundaries?.startX ?? null,
+          endX: cycleBoundaries?.endX ?? null,
+          peakX:  null,
+          peakY: null,
+          isForced: cycleBoundaries?.isForced ?? false,
+        };
+  
+        if (newCycle.duration === null) return prevData;
 
-    setCycleData(prevData => {
-      const newCycle = { 
-        workLoad: workLoad, 
-        cycleCount, 
-        cycleDuration, 
-        cycleAmplitude,
-        cycleSpeedRatio,
-      };
-
-      const updatedData = [...prevData, newCycle];
-      return updatedData;
-    });
-
-}, [cycleCount]);
+        const updatedData = [...prevData, newCycle];
+        return updatedData;
+      });
+    }
+    else if (!isRecording && !rawSensorData.length) {
+      setCycles([]);
+    }
+  }, [isRecording, cycleCount, rawSensorData]);
 
   // ---- Comporbar si hay mas datos que mostrar (scroll) ----
   const [showScrollHint, setShowScrollHint] = useState(false);
@@ -170,7 +177,7 @@ const Index: React.FC<IndexProps> = ({
         divElement.removeEventListener("scroll", checkScroll);
       }
     };
-  }, [cycleData]);
+  }, [cycles]);
 
   // ---- Ventana de tiempo de 10 segundos ----
   const timeWindow = 10_000; // 10 segundos en ms
@@ -377,18 +384,19 @@ const Index: React.FC<IndexProps> = ({
       >
       <section className='relative w-full text-lg'>
         <div className={`absolute w-full flex flex-col justify-center items-center text-center font-base text-2xl left-1/2 -translate-x-1/2 transition-[top] duration-300 ease-in-out px-8 ${
-            fatigueStatus.isFatigued
+            (fatigueStatus.isFatigued && isRecording)
               ? 'text-red-500 animate-pulse -top-12' 
               : '-top-10'
           } ${
             isEstimatingMass ? 'opacity-40' : ''
           }`}
-        >
+          >
           <p className={`flex flex-row justify-center items-center gap-1 font-bold`}
           >
-            {cycleCount ?? 0} {cycleCount === 1 ? 'rep.' : 'reps.'}
+            {(isRecording ? cycleCount : cycles.length) ?? 0} 
+            {(isRecording ? cycleCount : cycles.length) === 1 ? ' rep.' : ' reps.'}
           </p>
-          {fatigueStatus.isFatigued ? (
+          {(fatigueStatus.isFatigued && isRecording) ? (
             <p className='text-[1rem] leading-[1]'>{fatigueStatus.interpretation}</p> 
             ) : null
           }
@@ -397,16 +405,16 @@ const Index: React.FC<IndexProps> = ({
             isEstimatingMass ? 'opacity-40' : ''
           }`}
           >
-          <p className='text-right'>Last Cycle: <span className='font-semibold'>{(cycleAmplitude ?? 0).toFixed(1)} kg</span></p>
-          <p className='text-left font-semibold'>{((cycleDuration ?? 0) / 1000).toFixed(1)} s</p>
+          <p className='text-right'>Last Cycle: <span className='font-semibold'>{((isRecording ? cycleAmplitude : cycles[cycles.length -1]?.amplitude) ?? 0).toFixed(1)} kg</span></p>
+          <p className='text-left font-semibold'>{(((isRecording ? cycleDuration : cycles[cycles.length - 1]?.duration) ?? 0) / 1000).toFixed(1)} s</p>
         </div>
       </section>
       <div data-element="non-swipeable" className={`relative w-full transition-all duration-300 ease-in-out pb-4`}>
         {(rawSensorData.length === 0 || isRecording) ? (
-          <section className='relative bg-white rounded-lg px-1 pt-6 pb-2 mt-2'>
+          <section className='relative bg-white border-gray-200 border-2 dark:border-none rounded-lg px-1 pt-6 pb-2 mt-2'>
             <canvas 
               ref={canvasRef} 
-              className='bg-white'
+              className='bg-white '
               />
             {sensorData.length > 0 ? (
               <p className="flex flex-row gap-4 absolute top-1 left-2 text-gray-500 text-[0.8rem]">
@@ -427,19 +435,18 @@ const Index: React.FC<IndexProps> = ({
             }
           </section> ) : (
           <FullTestForceChart 
-            rawSensorData={rawSensorData}
-            maxPoint={maxPoint}
+            rawSensorData={rawSensorData} // para las curvas
             displayAnnotations={true}
             />
         )}
         
-        <section className="mt-2 px-1 py-2 border-2 border-black dark:border-white rounded-lg">
+        <section className="mt-2 px-1 py-2 border-2 border-gray-200 dark:border-white rounded-lg">
           <div className="grid grid-cols-5 font-semibold bg-white dark:bg-black border-b py-1 mb-2">
             <div className="pl-1 pr-2">Load</div>
             <div className="pl-1 pr-2">Rep</div>
             <div className="pl-1 pr-2">Time</div>
             <div className="pl-1 pr-2">Amp</div>
-            <div className="pl-1 pr-2">V/R</div>
+            <div className="pl-1 pr-2">V<span className='align-sub uppercase text-[0.6rem]'>rel</span></div>
           </div>
           <div ref={scrollContainerRef} className={`overflow-y-auto transition-[max-height] ${isRecording
             ? "max-h-[calc(100dvh-590px)]"
@@ -452,66 +459,98 @@ const Index: React.FC<IndexProps> = ({
                   <th className="pl-1 pr-2 w-1/5">Rep</th>
                   <th className="pl-1 pr-2 w-1/5">Time</th>
                   <th className="pl-1 pr-2 w-1/5">Amp</th>
-                  <th className="pl-1 pr-2 w-1/5">V/R</th>
+                  <th className="pl-1 pr-2 w-1/5">V / R</th>
                 </tr>
               </thead>
               <tbody>
-              {(() => {
-                const validData = [...cycleData]
-                  .filter((data) => data.cycleCount !== 0)
-                  .reverse();
+                {(() => {
+                  const validData = [...cycles]
+                    // .filter((data, index) => index !== 0) // revisar
+                    .reverse();
 
-                const getStats = (array: number[]) => {
-                  const valid = array.filter(v => !isNaN(v));
-                  const mean = valid.reduce((sum, val) => sum + val, 0) / valid.length;
-                  const std = Math.sqrt(valid.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / valid.length);
-                  return { mean, std };
-                };
+                  const sigma = 2;
+                  const iqrMultiplier = 2;
 
-                const isOutlier = (value: number | null, stats: { mean: number; std: number }) => {
-                  if (value === null) return false;
-                  return Math.abs(value - stats.mean) > 2 * stats.std;
-                };
+                  const getStats = (array: number[]) => {
+                    const valid = array.filter(v => !isNaN(v));
+                    const mean = valid.reduce((sum, val) => sum + val, 0) / valid.length;
+                    const std = Math.sqrt(valid.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / valid.length);
+                    return { mean, std };
+                  };
 
-                const durationStats = getStats(validData.map(d => d.cycleDuration ?? NaN));
-                const amplitudeStats = getStats(validData.map(d => d.cycleAmplitude ?? NaN));
-                const ratioStats = getStats(validData.map(d => d.cycleSpeedRatio ?? NaN));
+                  const getIQRStats = (array: number[]) => {
+                    const sorted = array.filter(v => !isNaN(v)).sort((a, b) => a - b);
+                    const q1 = sorted[Math.floor((sorted.length / 4))];
+                    const q3 = sorted[Math.floor((sorted.length * 3) / 4)];
+                    const iqr = q3 - q1;
+                    return {
+                      q1,
+                      q3,
+                      lowerBound: q1 - iqrMultiplier * iqr,
+                      upperBound: q3 + iqrMultiplier * iqr,
+                    };
+                  };
 
-                return validData.length > 0 ? (
-                  validData.map((data, index) => {
-                    const isOutlierRow =
-                      isOutlier(data.cycleDuration, durationStats) ||
-                      isOutlier(data.cycleAmplitude, amplitudeStats) ||
-                      isOutlier(data.cycleSpeedRatio, ratioStats);
+                  const isOutlier = (
+                    value: number | null,
+                    stats: { mean: number; std: number },
+                    iqrStats: { lowerBound: number; upperBound: number }
+                  ) => {
+                    if (value === null) return false;
+                    const outlierBySigma = Math.abs(value - stats.mean) > sigma * stats.std;
+                    const outlierByIQR = value < iqrStats.lowerBound || value > iqrStats.upperBound;
+                    return outlierBySigma || outlierByIQR;
+                  };
 
-                    return (
-                      <tr
-                        key={index}
-                        className={isOutlierRow ? "bg-red-100 text-red-700" : ""}
-                        >
-                        <td className="pl-2">{data.workLoad !== null ? data.workLoad.toFixed(1) : "-"}</td>
-                        <td className="pl-2">{data.cycleCount !== null
-                          ? data.cycleCount < 10
-                            ? <>{'\u00A0\u00A0'}{data.cycleCount.toFixed(0)}</>
-                            : data.cycleCount.toFixed(0)
-                          : "-"}
-                        </td>
-                        <td className="pl-2">{data.cycleDuration !== null ? (data.cycleDuration / 1000).toFixed(2) : "-"}</td>
-                        <td className="pl-2">{data.cycleAmplitude !== null ? data.cycleAmplitude.toFixed(2) : "-"}</td>
-                        <td className="pl-2">{data.cycleSpeedRatio !== null ? data.cycleSpeedRatio.toFixed(2) : "-"}</td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td className="pl-2">-</td>
-                    <td className="pl-2">-</td>
-                    <td className="pl-2">-</td>
-                    <td className="pl-2">-</td>
-                    <td className="pl-2">-</td>
-                  </tr>
-                );
-              })()}
+                  const durationStats = getStats(validData.map(d => d.duration ?? NaN));
+                  const amplitudeStats = getStats(validData.map(d => d.amplitude ?? NaN));
+                  const ratioStats = getStats(validData.map(d => d.speedRatio ?? NaN));
+
+                  const durationIQR = getIQRStats(validData.map(d => d.duration ?? NaN));
+                  const amplitudeIQR = getIQRStats(validData.map(d => d.amplitude ?? NaN));
+                  const ratioIQR = getIQRStats(validData.map(d => d.speedRatio ?? NaN));
+
+                  return validData.length > 0 ? (
+                    validData.map((data, index: number) => {
+                      const outDuration = isOutlier(data.duration, durationStats, durationIQR);
+                      const outAmplitude = isOutlier(data.amplitude, amplitudeStats, amplitudeIQR);
+                      const outRatio = isOutlier(data.speedRatio, ratioStats, ratioIQR);
+                      const isOutlierRow = outDuration || outAmplitude || outRatio;
+                      const cycleNumber = (validData.length - index);
+
+                      return (
+                        <tr
+                          key={index}
+                          className={isOutlierRow ? "bg-gray-200 dark:bg-gray-800" : ""}
+                          >
+                          <td className="pl-2">{data.workLoad !== null ? data.workLoad.toFixed(1) : "-"}</td>
+                          <td className="pl-2">{cycleNumber < 10
+                              ? <>{'\u00A0\u00A0'}{cycleNumber}</>
+                              : cycleNumber
+                            }
+                          </td>
+                          <td className={`pl-2 ${outDuration ? "font-bold text-red-700" : ""}`}>
+                            {data.duration !== null ? (data.duration / 1000).toFixed(2) : "-"}
+                          </td>
+                          <td className={`pl-2 ${outAmplitude ? "font-bold text-red-700" : ""}`}>
+                            {data.amplitude !== null ? data.amplitude.toFixed(2) : "-"}
+                          </td>
+                          <td className={`pl-2 ${outRatio ? "font-bold text-red-700" : ""}`}>
+                            {data.speedRatio !== null ? data.speedRatio.toFixed(2) : "-"}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td className="pl-2">-</td>
+                      <td className="pl-2">-</td>
+                      <td className="pl-2">-</td>
+                      <td className="pl-2">-</td>
+                      <td className="pl-2">-</td>
+                    </tr>
+                  );
+                })()}
               </tbody>
             </table>
           </div>
