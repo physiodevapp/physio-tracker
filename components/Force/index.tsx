@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useContext } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, Cog6ToothIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon, TrashIcon, XMarkIcon, Bars3Icon, BookmarkIcon as BookmarkIconSolid } from "@heroicons/react/24/solid";
 import { BookmarkIcon, DocumentArrowDownIcon } from "@heroicons/react/24/outline";
 import ForceChart from "./Graph";
@@ -8,7 +8,7 @@ import { useSettings } from "@/providers/Settings";
 import ForceSettings from "@/modals/ForceGraphSettings";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { BluetoothContext } from "@/providers/Bluetooth";
+import { useBluetooth } from "@/providers/Bluetooth";
 import { DataPoint } from "./PostGraph";
 
 // ----------------- Comandos y Códigos -----------------
@@ -69,7 +69,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setRawSensorData,
     setCycles,
     connectToSensor,
-  } = useContext(BluetoothContext);
+  } = useBluetooth(); // useContext(BluetoothContext);
 
   const [isRecording, setIsRecording] = useState(false);
   const [isBatteryDead, setIsBatteryDead] = useState(false);

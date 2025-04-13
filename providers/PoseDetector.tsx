@@ -52,5 +52,8 @@ export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTf
 // Hook para usar el detector en cualquier componente
 export const usePoseDetector = (): DetectorType => {
   const context = useContext(PoseDetectorContext);
+  if (!context) {
+    throw new Error('usePoseDetector must be used within a PoseDetectorProvider');
+  }
   return context;
 };

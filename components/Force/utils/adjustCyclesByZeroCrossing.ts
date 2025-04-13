@@ -162,6 +162,7 @@ export function adjustCyclesByZeroCrossing(
   inputData: DataPoint[],
   baseline = 0,
   cycles: Cycle[],
+  cyclesToAverage = 3,
 ): { baselineCrossSegments: BaselineCrossSegment[]; adjustedCycles: Cycle[] } {
   const data = inputData;
   let baselineCrossSegments: BaselineCrossSegment[] = [];
@@ -211,7 +212,6 @@ export function adjustCyclesByZeroCrossing(
     });
     // 🔄 Limpiar segmentos repetidos por tipo
     baselineCrossSegments = mergeConsecutiveSameValleyStatus(baselineCrossSegments);
-
   }
 
   // Group cycles from valley to valley with optional first/last peak exception
@@ -320,7 +320,7 @@ export function adjustCyclesByZeroCrossing(
     }
   }
 
-  adjustedCycles = addRelativeSpeedToCycles(adjustedCycles);
+  adjustedCycles = addRelativeSpeedToCycles(adjustedCycles, cyclesToAverage);
 
   return { baselineCrossSegments, adjustedCycles };
 }

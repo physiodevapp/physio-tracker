@@ -1,11 +1,11 @@
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {Chart as ChartJS, ChartEvent, ChartConfiguration, registerables} from 'chart.js'; 
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { lttbDownsample } from '@/services/chart';
 import { ForceSettings } from '@/providers/Settings';
 import useCyclesDetector from '../Hooks/useCyclesDetector';
 import FullTestForceChart from "../PostGraph";
-import { BluetoothContext } from '@/providers/Bluetooth';
+import { useBluetooth } from '@/providers/Bluetooth';
 
 // Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
 ChartJS.register(
@@ -83,10 +83,7 @@ const Index: React.FC<IndexProps> = ({
     hysteresis,
   } = settings;
 
-  const { 
-    cycles,
-    setCycles,
-  } = useContext(BluetoothContext);
+  const { cycles, setCycles } = useBluetooth(); // useContext(BluetoothContext);
   
   // Mapeamos los datos para adaptarlos a la función lttbDownsample
   //  Convertimos "time" a "x" y de microsegundos a milisegundos

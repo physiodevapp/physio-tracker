@@ -2,7 +2,7 @@
 
 import { DataPoint } from '@/components/Force/Graph';
 import { Cycle } from '@/components/Force/utils/adjustCyclesByZeroCrossing';
-import React, { createContext, useState, useRef, useCallback } from 'react';
+import React, { createContext, useState, useRef, useCallback, useContext } from 'react';
 
 // -------------- UUIDs según la documentación de Progressor ------------
 const PROGRESSOR_SERVICE_UUID = "7e4e1701-1ea6-40c9-9dcc-13d34ffead57";
@@ -55,11 +55,11 @@ export const BluetoothContext = createContext<IBluetoothContext>({
   },
 });
 
-interface BluettothProviderProps {
+interface BluetoothProviderProps {
   children: React.ReactNode;
 }
 
-export const BluetoothProvider: React.FC<BluettothProviderProps> = ({ children }) => {
+export const BluetoothProvider: React.FC<BluetoothProviderProps> = ({ children }) => {
   const [device, setDevice] = useState<BluetoothDevice | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [controlCharacteristic, setControlCharacteristic] = useState<BluetoothRemoteGATTCharacteristic | null>(null);
@@ -128,4 +128,13 @@ export const BluetoothProvider: React.FC<BluettothProviderProps> = ({ children }
       {children}
     </BluetoothContext.Provider>
   );
+};
+
+// Hook para usar el detector en cualquier componente
+export const useBluetooth = (): IBluetoothContext => {
+  const context = useContext(BluetoothContext);
+  if (!context) {
+    throw new Error('usePoseDetector must be used within a BluetoothProvider');
+  }
+  return context;
 };

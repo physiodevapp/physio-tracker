@@ -1,11 +1,12 @@
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {Chart as ChartJS, ChartConfiguration, registerables, ActiveDataPoint, ChartEvent} from 'chart.js';
 import { lttbDownsample } from "@/services/chart";
 import annotationPlugin, { AnnotationOptions } from 'chartjs-plugin-annotation';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ViewfinderCircleIcon } from "@heroicons/react/24/solid";
 import { adjustCyclesByZeroCrossing } from "../utils/adjustCyclesByZeroCrossing";
-import { BluetoothContext } from "@/providers/Bluetooth";
+import { useBluetooth } from "@/providers/Bluetooth";
+import { useSettings } from "@/providers/Settings";
 
 // Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
 ChartJS.register(
@@ -108,10 +109,10 @@ const Index: React.FC<IndexProps> = ({
   rawSensorData,
   displayAnnotations = true,
 }) => {
-  const {
-    cycles,
-    setCycles,
-  } = useContext(BluetoothContext);
+  const { cycles, setCycles } = useBluetooth(); // useContext(BluetoothContext);
+
+  const { settings } = useSettings();
+  const { cyclesToAverage } = settings.force;
 
   const [isZoomed, setIsZoomed] = useState(false);
 
@@ -208,7 +209,7 @@ const Index: React.FC<IndexProps> = ({
   const topLineValue = Math.max(...downsampledData.map(p => p.y));
 
   const adjustedCycles = useMemo(() => {
-    const { adjustedCycles } = adjustCyclesByZeroCrossing(mappedData, crossLineValue, cycles);
+    const { adjustedCycles } = adjustCyclesByZeroCrossing(mappedData, crossLineValue, cycles, cyclesToAverage);
     // console.log('crossLineValue ', crossLineValue)
     // console.log('baselineCrossSegments ', baselineCrossSegments);
 
@@ -359,7 +360,7 @@ const Index: React.FC<IndexProps> = ({
             zoom: {
               limits: {
                 x: {
-                  min: 1_000,
+                  min: 0,
                   max: 30_000,
                   minRange: 4_000, 
                 },
@@ -510,6 +511,13 @@ const Index: React.FC<IndexProps> = ({
         if (index === array.length - 1) return true;
         return cycle.startX! < array[index + 1].endX!;
       });
+
+    if (chartRef.current) {
+      chartRef.current.zoomScale('x', {
+        min: validCycles[0].startX ?? 0,
+        max: validCycles[validCycles.length - 1].endX ?? downsampledData[downsampledData.length -1].x,
+      });
+    }
   
     // console.log('validCycles ', validCycles)
     setCycles(validCycles);
