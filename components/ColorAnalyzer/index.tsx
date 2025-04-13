@@ -36,6 +36,11 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
     facingMode: "environment",
   });
 
+  const [infoMessage, setInfoMessage] = useState({
+    show: false,
+    message:""
+  })
+
   const [videoReady, setVideoReady] = useState(false);
   
   const [showSettings, setShowSettings] = useState(false);
@@ -270,11 +275,20 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
 
   const captureAndAnalyze = () => {
     if (loading) {
-      alert("OpenCV se está cargando");
+      // alert("OpenCV se está cargando");
+      setInfoMessage({
+        show: true,
+        message: "OpenCV is loading..."
+      });
+
       return;
     }
     if (error || !cvInstance) {
-      alert("Error al cargar OpenCV");
+      // alert("Error al cargar OpenCV");
+      setInfoMessage({
+        show: true,
+        message: "Error loading OpenCV"
+      });
       return;
     }
   
@@ -798,6 +812,24 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           </div>
         </section>
       )}
+      {infoMessage.show ? (
+          <div 
+            data-element="non-swipeable"
+            className="absolute top-0 h-dvh w-full z-40 flex items-center justify-center"
+            onClick={() => setInfoMessage({show: false, message: ""})}
+            >
+            <div className="dark:bg-gray-800 rounded-lg px-10 py-6 flex flex-col gap-2">
+              <p className="text-lg">{infoMessage.message}</p>
+              <button 
+                className="bg-[#5dadec] hover:bg-gray-600 text-white font-bold rounded-lg p-2"
+                onClick={() => setInfoMessage({show: false, message: ""})}
+                >
+                  Got it!
+                </button>
+            </div>
+          </div>
+        ) : null
+      }
     </>
   );
 };

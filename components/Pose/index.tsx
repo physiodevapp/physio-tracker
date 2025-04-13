@@ -43,7 +43,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [infoMessage, setInfoMessage] = useState({
     show: false,
     message:""
-  })
+  });
 
   const [videoConstraints, setVideoConstraints] = useState<VideoConstraints>({
     facingMode: "user",
