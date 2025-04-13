@@ -205,15 +205,12 @@ const Index: React.FC<IndexProps> = ({
   const minTime = downsampledData.length > 0 ? downsampledData[0].x : 0;
   const maxTime = downsampledData.length > 0 ? downsampledData[downsampledData.length - 1].x : 1000; 
 
-  // let crossLineValue = calculateMeanY(mappedData) ?? 0;
   const crossLineValueRef = useRef<number>(0);
   const topLineValue = Math.max(...downsampledData.map(p => p.y));
 
   const adjustedCycles = useMemo(() => {
     const { startOutlierIndex, endOutlierIndex } = detectOutlierEdges(mappedData);
-    console.log('endOutlierIndex ', endOutlierIndex)
-    console.log('endIndex ', mappedData[endOutlierIndex ? endOutlierIndex + 1 : mappedData.length - 1])
-    if (endOutlierIndex) {
+    if (startOutlierIndex || endOutlierIndex) {
       const trimmedData = mappedData.slice(
         startOutlierIndex ?? 0,
         endOutlierIndex !== null ? endOutlierIndex + 1 : undefined
@@ -223,11 +220,9 @@ const Index: React.FC<IndexProps> = ({
     else {
       crossLineValueRef.current = calculateMeanY(mappedData) ?? 0;
     }
-
-    const { adjustedCycles, baselineCrossSegments } = adjustCyclesByZeroCrossing(mappedData, crossLineValueRef.current, cycles, cyclesToAverage);
-    // console.log('crossLineValueRef ', crossLineValueRef.current)
-    console.log('baselineCrossSegments ', baselineCrossSegments);
-    console.log('adjustedCycles ', adjustedCycles)
+    
+    const { adjustedCycles } = adjustCyclesByZeroCrossing(mappedData, crossLineValueRef.current, cycles, cyclesToAverage);
+    // console.log('adjustedCycles ', adjustedCycles)
 
     return adjustedCycles;
   }, [downsampledData]);
