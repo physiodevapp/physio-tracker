@@ -5,8 +5,65 @@ const calculateJointAngleDegrees = (
   A: poseDetection.Keypoint,
   B: poseDetection.Keypoint,
   C: poseDetection.Keypoint,
-  invert = false
+  invert = false,
+  orthogonalReference?: 'vertical' | 'horizontal',
 ) => {
+  // ----- 🔍 Solo usar referencia vertical para shoulder o hip -----
+  const isShoulder = B.name?.includes('shoulder');
+  const isHip = B.name?.includes('hip');
+
+  // Solo aplicamos lógica ortogonal si es shoulder o hip
+  if ((orthogonalReference === 'vertical' || orthogonalReference === 'horizontal') && (isShoulder || isHip)) {
+    const targetName = isShoulder ? 'elbow' : 'knee';
+
+    const referencePoint =
+      A.name?.includes(targetName) ? A :
+      C.name?.includes(targetName) ? C :
+      null;
+
+    if (!referencePoint) return 0;
+
+    const jointVector = {
+      x: referencePoint.x - B.x,
+      y: referencePoint.y - B.y,
+    };
+
+    let referenceVector: { x: number; y: number };
+
+    if (orthogonalReference === 'vertical') {
+      referenceVector = { x: 0, y: 1 }; // línea vertical hacia abajo
+
+      // Ángulo sin signo (como antes)
+      const dot = referenceVector.x * jointVector.x + referenceVector.y * jointVector.y;
+      const magJoint = Math.hypot(jointVector.x, jointVector.y);
+      if (magJoint === 0) return 0;
+
+      const angleDeg = Math.acos(dot / magJoint) * (180 / Math.PI);
+      return invert ? 180 - angleDeg : angleDeg;
+
+    } else if (orthogonalReference === 'horizontal') {
+      // Línea horizontal hacia el mismo lado que el punto de referencia
+      const isRight = referencePoint.x > B.x;
+      referenceVector = { x: isRight ? 1 : -1, y: 0 };
+
+      // Ángulo con signo según eje Y
+      const angleRad = Math.atan2(referenceVector.y, referenceVector.x) - Math.atan2(jointVector.y, jointVector.x);
+      let angleDeg = angleRad * (180 / Math.PI);
+
+      // Normalizar al rango [-180, 180]
+      if (angleDeg > 180) angleDeg -= 360;
+      if (angleDeg < -180) angleDeg += 360;
+
+      // 👉 Invertir signo si es lado derecho
+      if (referenceVector.x < 0) {
+        angleDeg = -angleDeg;
+      }
+
+      return invert ? -angleDeg : angleDeg;
+    }
+  }
+
+  // ----- 🧮 Lógica estándar: ángulo entre A-B-C -----
   // Vectores BA y BC
   const BA = { x: A.x - B.x, y: A.y - B.y };
   const BC = { x: C.x - B.x, y: C.y - B.y };
@@ -140,6 +197,7 @@ export const updateJoint = ({
   invert = false,
   angleHistorySize = 5,
   graphAngle = null,
+  orthogonalReference,
 }: UpdateJointParams): JointData => {
   // Buscar los keypoints de la articulación
   const jointKeypoints = getJointKeypoints(jointName, keypoints);
@@ -157,7 +215,7 @@ export const updateJoint = ({
 
   const [kpA, kpB, kpC] = jointKeypoints;
   // console.log('graphAngle ', graphAngle)
-  const angleNow = graphAngle ?? calculateJointAngleDegrees(kpA, kpB, kpC, invert);
+  const angleNow = graphAngle ?? calculateJointAngleDegrees(kpA, kpB, kpC, invert, orthogonalReference);
   let smoothedAngle = angleNow;
   const timeNow = performance.now();
 

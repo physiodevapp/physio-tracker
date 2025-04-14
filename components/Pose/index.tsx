@@ -9,7 +9,7 @@ import { updateJoint } from "@/utils/joint";
 import PoseGraph from "./Graph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { DetectorType, usePoseDetector } from "@/providers/PoseDetector";
-import { CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, VideoCameraIcon, TrashIcon, CubeTransparentIcon, CloudArrowDownIcon, Bars3Icon, XMarkIcon, ArrowUpTrayIcon, ArrowPathIcon } from "@heroicons/react/24/solid";
+import { CameraIcon, PresentationChartBarIcon, UserIcon, Cog6ToothIcon, VideoCameraIcon, TrashIcon, CubeTransparentIcon, CloudArrowDownIcon, Bars3Icon, XMarkIcon, ArrowUpTrayIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/solid";
 import { BackwardIcon, ForwardIcon, PauseIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Poses";
@@ -24,7 +24,11 @@ interface IndexProps {
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const { settings, setSelectedJoints } = useSettings();
 
-  const [anglesToDisplay, setAnglesToDisplay] = useState<string[]>([])
+  const [showOrthogonalOption, setShowOrthogonalOption] = useState(false);
+  const [orthogonalReference, setOrthogonalReference] = useState<'vertical' | 'horizontal' | undefined>(undefined);
+  const orthogonalReferenceRef = useRef(orthogonalReference);
+
+  const [anglesToDisplay, setAnglesToDisplay] = useState<string[]>([]);
 
   const [isCameraReady, setIsCameraReady] = useState(false);
 
@@ -141,7 +145,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     { label: "Left Knee", value: CanvasKeypointName.LEFT_KNEE },
   ], []);
 
-  const handleClickOnCanvas = () => {    
+  const handleClickOnCanvas = () => { 
+    console.log('handleClickOnCanvas')
+
     if (isPoseSettingsModalOpen || isMainMenuOpen) {
       setIsPoseSettingsModalOpen(false);
   
@@ -165,6 +171,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const handleJointSelection = useCallback((selectedJoints: string[]) => {
     setSelectedJoints(selectedJoints as CanvasKeypointName[]);
+
+    setShowOrthogonalOption(selectedJoints.some(joint =>
+      joint.includes('shoulder') || joint.includes('hip')
+    ));
 
     setAnglesToDisplay((prevAngles) => {
       const result: string[] = [];
@@ -530,6 +540,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         graphAngle: isSeeking 
           ? newValue?.values.find((value) => value.label === jointName)?.y 
           : null,
+        orthogonalReference: orthogonalReferenceRef.current,
       });
       jointDataRef.current[jointName] = updatedData;
       if (updatedData && typeof updatedData.angle === "number") {
@@ -575,6 +586,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       handlePreview({});
     }
   }, [capturedChunks, recording]);
+
+  useEffect(() => {
+    orthogonalReferenceRef.current = orthogonalReference;
+  }, [orthogonalReference])
 
   useEffect(() => { 
     if (videoRef.current) {
@@ -1182,6 +1197,21 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           </div>
         ) : null
       }
+      <ArrowTopRightOnSquareIcon 
+        className={`absolute bottom-2 left-1 z-30 w-8 h-8 text-white transition-transform ${(!showOrthogonalOption || orthogonalReference === undefined)
+          ? '-rotate-0 opacity-50'
+          : orthogonalReference === 'horizontal'
+          ? 'rotate-45'
+          : '-rotate-45'
+        }`}
+        onClick={() => {           
+          setOrthogonalReference(prev => {
+            if (prev === 'vertical') return 'horizontal';
+            if (prev === 'horizontal') return undefined;
+            return 'vertical';
+          })
+        }}
+        />
     </>
   );
 };
