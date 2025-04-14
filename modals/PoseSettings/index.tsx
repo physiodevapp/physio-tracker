@@ -62,11 +62,12 @@ const Index = ({
 
   return isModalOpen ? (
     <div
-      className="fixed z-40 bottom-0 left-0 w-full px-4 pt-[1rem] pb-[2rem] flex flex-col items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg"
       data-element="non-swipeable"
+      className="fixed z-40 bottom-0 left-0 w-full px-4 pt-[1rem] pb-[2rem] flex flex-col items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg"
+      style={{boxShadow: '0 0 3px rgba(0, 0, 0, 1)'}}
       >
       <div
-        className="w-full h-9 flex justify-end text-white/60 italic font-light cursor-pointer"
+        className="w-full h-9 flex justify-end text-white italic font-bold cursor-pointer"
         onClick={resetPoseGraphSettings}
         >
         Set default values{" "}

@@ -33,9 +33,10 @@ const Index: React.FC = () => {
     <section
       data-element="non-swipeable"
       className="absolute bottom-0 w-full px-4 pt-[1rem] pb-[2rem] bg-gradient-to-b from-black/40 to-black rounded-t-lg p-4"
+      style={{boxShadow: '0 0 3px rgba(0, 0, 0, 1)'}}
       >
       <div
-        className="w-full h-9 flex justify-end text-white/60 italic font-light cursor-pointer"
+        className="w-full h-9 flex justify-end text-white italic font-bold cursor-pointer"
         onClick={resetColorSettings}
         >
         Set default values{" "}
@@ -58,7 +59,7 @@ const Index: React.FC = () => {
                 onChange={(e) =>
                   setRedHueLower1(parseInt(e.target.value, 10))
                 }
-                className="w-full"
+                className="w-full slider-color"
               />
             </div>
             <div className="flex-1">
@@ -73,7 +74,7 @@ const Index: React.FC = () => {
                 onChange={(e) =>
                   setRedHueUpper1(parseInt(e.target.value, 10))
                 }
-                className="w-full"
+                className="w-full slider-color"
               />
             </div>
           </div>
@@ -90,7 +91,7 @@ const Index: React.FC = () => {
                 onChange={(e) =>
                   setRedHueLower2(parseInt(e.target.value, 10))
                 }
-                className="w-full"
+                className="w-full slider-color"
               />
             </div>
             <div className="flex-1">
@@ -105,7 +106,7 @@ const Index: React.FC = () => {
                 onChange={(e) =>
                   setRedHueUpper2(parseInt(e.target.value, 10))
                 }
-                className="w-full"
+                className="w-full slider-color"
               />
             </div>
           </div>
@@ -124,7 +125,7 @@ const Index: React.FC = () => {
               onChange={(e) =>
                 setGreenHueLower(parseInt(e.target.value, 10))
               }
-              className="w-full"
+              className="w-full slider-color"
             />
           </div>
           <div className="flex-1">
@@ -139,7 +140,7 @@ const Index: React.FC = () => {
               onChange={(e) =>
                 setGreenHueUpper(parseInt(e.target.value, 10))
               }
-              className="w-full"
+              className="w-full slider-color"
             />
           </div>
         </div>
@@ -157,7 +158,7 @@ const Index: React.FC = () => {
               onChange={(e) =>
                 setBlueHueLower(parseInt(e.target.value, 10))
               }
-              className="w-full"
+              className="w-full slider-color"
             />
           </div>
           <div className="flex-1">
@@ -172,7 +173,7 @@ const Index: React.FC = () => {
               onChange={(e) =>
                 setBlueHueUpper(parseInt(e.target.value, 10))
               }
-              className="w-full"
+              className="w-full slider-color"
             />
           </div>
         </div>
