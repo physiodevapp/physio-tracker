@@ -63,8 +63,7 @@ const Index = ({
   return isModalOpen ? (
     <div
       data-element="non-swipeable"
-      className="fixed z-40 bottom-0 left-0 w-full px-4 pt-[1rem] pb-[2rem] flex flex-col items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg"
-      style={{boxShadow: '0 0 3px rgba(0, 0, 0, 1)'}}
+      className="fixed z-40 bottom-0 left-0 w-full px-4 pt-[1rem] pb-[2rem] flex flex-col items-center bg-gradient-to-b from-black/40 to-black rounded-t-lg shadow-[0_0_3px_rgba(0,0,0,0.2)] dark:shadow-[0_0_3px_rgba(0,0,0,0.46)]"
       >
       <div
         className="w-full h-9 flex justify-end text-white italic font-bold cursor-pointer"

@@ -29,6 +29,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [showSettings, setShowSettings] = useState(false);
   const { settings, setSensorHeight } = useSettings();
 
+  const [isInfoLogVisible, setIsInfoLogVisible] = useState(true);
+
   const [isRecording, setIsRecording] = useState<boolean | null>(null);
   const [isCancellationRequested, setIsCancellationRequested] = useState<boolean | null>(null);
 
@@ -73,6 +75,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     else {
       setIsCancellationRequested(false);
       stopMotion();
+
+      setIsInfoLogVisible(true);
     }
   }, [isRecording]);
 
@@ -97,7 +101,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         initial={{ y: 0, opacity: 1 }}
         animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 100, damping: 15 }}
-        className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-[#5dadec]/60 dark:bg-black/40 
+        className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-[#5dadec] dark:bg-black/40 
         rounded-full py-2 px-4 font-bold mt-2 whitespace-nowrap"
         >
         Balance
@@ -150,111 +154,123 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             className={`relative w-full h-dvh flex flex-col items-center overflow-auto pt-[7rem]`}
             onClick={handleMainLayer}
             >
-            {!isDefaultState && (
-              <>
-                {!hasValidTestResults && (
-                  <p className="px-4 py-2">{log}</p>
-                )}
-                {hasValidTestResults && (  
-                  <>
-                    <p className="absolute -translate-y-10 text-lg">Metrics analyzed</p>
-                    <section className="flex flex-row flex-wrap w-full px-1 gap-y-4">
-                      <div className="flex-1 basis-full py-2 border-2 border-black dark:border-white rounded-lg">
-                        <table className="w-full border-collapse text-left">
-                          <thead>
-                            <tr>
-                              <th className="pr-2 w-16 py-2"></th>
-                              <th className="pl-2">ML (Y)</th>
-                              <th className="pl-2">AP (Z)</th>
-                              <th className="pl-2">Global</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td className="pr-2 w-16 font-bold text-right ">Z<sub> fr</sub></td>
-                              <td className="pl-2">{COPData.zeroFrequency.ML_Y} Hz</td>
-                              <td className="pl-2">{COPData.zeroFrequency.AP_Z} Hz</td>
-                              <td className="pl-2">-</td>
-                            </tr>
-                            <tr>
-                              <td className="pr-2 w-16 font-bold text-right ">Z<sub> STD</sub></td>
-                              <td className="pl-2">{COPData.zeroSTD.ML_Y} m/s²</td>
-                              <td className="pl-2">{COPData.zeroSTD.AP_Z} m/s²</td>
-                              <td className="pl-2">-</td>
-                            </tr>
-                            <tr>
-                              <td className="pr-2 w-16 font-bold text-right ">Main<sub> fr</sub></td>
-                              <td className="pl-2">{COPData.mainFrequency.ML_Y} Hz</td>
-                              <td className="pl-2">{COPData.mainFrequency.AP_Z} Hz</td>
-                              <td className="pl-2">-</td>
-                            </tr>
-                            <tr>
-                              <td className="pr-2 w-16 font-bold text-right ">RMS</td>
-                              <td className="pl-2">{COPData.RMS.ML_Y} cm</td>
-                              <td className="pl-2">{COPData.RMS.AP_Z} cm</td>
-                              <td className="pl-2">-</td>
-                            </tr>
-                            <tr>
-                              <td className="pr-2 w-16 font-bold text-right ">Var</td>
-                              <td className="pl-2">{COPData.Variance.ML_Y} cm²</td>
-                              <td className="pl-2">{COPData.Variance.AP_Z} cm²</td>
-                              <td className="pl-2">{COPData.Variance.Global} cm²</td>
-                            </tr>
-                            <tr>
-                              <td className="pr-2 w-16 font-bold text-right ">Jerk</td>
-                              <td className="pl-2">{COPData.jerk?.ML_Y ?? "-"} m/s³</td>
-                              <td className="pl-2">{COPData.jerk?.AP_Z ?? "-"} m/s³</td>
-                              <td className="pl-2">-</td>
-                            </tr>
-                            <tr>
-                              <td className="pr-2 w-16 font-bold text-right ">Area</td>
-                              <td className="pl-2">-</td>
-                              <td className="pl-2">-</td>
-                              <td className="pl-2">{COPData.copArea?.value ?? "-"} cm²</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      <div className="flex-1 basis-full">
-                        <SpectrumChart 
-                          spectrumParamsY={{
-                            frequencies: frequencyData.frequencies_y,
-                            amplitudes: frequencyData.amplitudes_y
-                          }}
-                          spectrumParamsZ={{
-                            frequencies: frequencyData.frequencies_z,
-                            amplitudes: frequencyData.amplitudes_z
-                          }}
-                          options={{                
-                            canvasId: "spectrum",
-                            maxFreq: 10
-                          }}
+            {/**!isDefaultState */}
+            {true ? (
+                <>
+                  {(!hasValidTestResults && isInfoLogVisible) ? (
+                      <div className="flex flex-row items-center pl-4 pr-1 py-1 bg-[#5dadec] dark:bg-gray-800 rounded-lg">
+                        <p className="pr-4 text-white">{log}fds</p>
+                        <XMarkIcon 
+                          className="w-4 h-4 m-2 text-white"
+                          onClick={() => setIsInfoLogVisible(false)}
                           />
-                      </div> 
-                      <div className="flex-1 basis-full">
-                        <COPChart 
-                          areaParams={{
-                            copAreaPoints: COPData.copArea?.boundaryPoints ?? [{x: 0, y: 0}]
-                          }}
-                          ellipseParams={{
-                            copPoints: COPData.copPoints ?? [{ml: 0, ap: 0}],
-                            semiMajor: COPData.ellipse?.semiMajor ?? 0,
-                            semiMinor: COPData.ellipse?.semiMinor ?? 0,
-                            orientation: COPData.ellipse?.orientation ?? 0,
-                            centerX: COPData.ellipse?.centerX ?? 0,
-                            centerY: COPData.ellipse?.centerY ?? 0
-                          }}
-                          options={{
-                            canvasId: "cop"
-                          }}
-                          />     
-                      </div>  
-                    </section> 
-                  </>
-                )}
-              </>
-            )}
-            {(isDefaultState || !hasValidTestResults) ? (
+                      </div>
+                    ) : null
+                  }
+                  {/**hasValidTestResults */}
+                  {true ? (  
+                      <>
+                        <p className="absolute -translate-y-10 text-lg">Metrics analyzed</p>
+                        <section className="flex flex-row flex-wrap w-full px-2 gap-y-4">
+                          <div className="flex-1 basis-full py-2 border-2 border-gray-400  dark:border-white rounded-lg">
+                            <table className="w-full border-collapse text-left">
+                              <thead>
+                                <tr>
+                                  <th className="pr-2 w-16 py-2"></th>
+                                  <th className="pl-2">ML (Y)</th>
+                                  <th className="pl-2">AP (Z)</th>
+                                  <th className="pl-2">Global</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td className="pr-2 w-16 font-bold text-right ">Z<sub> fr</sub></td>
+                                  <td className="pl-2">{COPData.zeroFrequency.ML_Y} Hz</td>
+                                  <td className="pl-2">{COPData.zeroFrequency.AP_Z} Hz</td>
+                                  <td className="pl-2">-</td>
+                                </tr>
+                                <tr>
+                                  <td className="pr-2 w-16 font-bold text-right ">Z<sub> STD</sub></td>
+                                  <td className="pl-2">{COPData.zeroSTD.ML_Y} m/s²</td>
+                                  <td className="pl-2">{COPData.zeroSTD.AP_Z} m/s²</td>
+                                  <td className="pl-2">-</td>
+                                </tr>
+                                <tr>
+                                  <td className="pr-2 w-16 font-bold text-right ">Main<sub> fr</sub></td>
+                                  <td className="pl-2">{COPData.mainFrequency.ML_Y} Hz</td>
+                                  <td className="pl-2">{COPData.mainFrequency.AP_Z} Hz</td>
+                                  <td className="pl-2">-</td>
+                                </tr>
+                                <tr>
+                                  <td className="pr-2 w-16 font-bold text-right ">RMS</td>
+                                  <td className="pl-2">{COPData.RMS.ML_Y} cm</td>
+                                  <td className="pl-2">{COPData.RMS.AP_Z} cm</td>
+                                  <td className="pl-2">-</td>
+                                </tr>
+                                <tr>
+                                  <td className="pr-2 w-16 font-bold text-right ">Var</td>
+                                  <td className="pl-2">{COPData.Variance.ML_Y} cm²</td>
+                                  <td className="pl-2">{COPData.Variance.AP_Z} cm²</td>
+                                  <td className="pl-2">{COPData.Variance.Global} cm²</td>
+                                </tr>
+                                <tr>
+                                  <td className="pr-2 w-16 font-bold text-right ">Jerk</td>
+                                  <td className="pl-2">{COPData.jerk?.ML_Y ?? "-"} m/s³</td>
+                                  <td className="pl-2">{COPData.jerk?.AP_Z ?? "-"} m/s³</td>
+                                  <td className="pl-2">-</td>
+                                </tr>
+                                <tr>
+                                  <td className="pr-2 w-16 font-bold text-right ">Area</td>
+                                  <td className="pl-2">-</td>
+                                  <td className="pl-2">-</td>
+                                  <td className="pl-2">{COPData.copArea?.value ?? "-"} cm²</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="flex-1 basis-full">
+                            <SpectrumChart 
+                              spectrumParamsY={{
+                                frequencies: frequencyData.frequencies_y,
+                                amplitudes: frequencyData.amplitudes_y
+                              }}
+                              spectrumParamsZ={{
+                                frequencies: frequencyData.frequencies_z,
+                                amplitudes: frequencyData.amplitudes_z
+                              }}
+                              options={{                
+                                canvasId: "spectrum",
+                                maxFreq: 10
+                              }}
+                              />
+                          </div> 
+                          <div className="flex-1 basis-full">
+                            <COPChart 
+                              areaParams={{
+                                copAreaPoints: COPData.copArea?.boundaryPoints ?? [{x: 0, y: 0}]
+                              }}
+                              ellipseParams={{
+                                copPoints: COPData.copPoints ?? [{ml: 0, ap: 0}],
+                                semiMajor: COPData.ellipse?.semiMajor ?? 0,
+                                semiMinor: COPData.ellipse?.semiMinor ?? 0,
+                                orientation: COPData.ellipse?.orientation ?? 0,
+                                centerX: COPData.ellipse?.centerX ?? 0,
+                                centerY: COPData.ellipse?.centerY ?? 0
+                              }}
+                              options={{
+                                canvasId: "cop"
+                              }}
+                              />     
+                          </div>  
+                        </section> 
+                      </>
+                    ) : null
+                  }
+                </>
+              ) : null
+            }
+            {/**(isDefaultState || !hasValidTestResults) */}
+            {false ? (
                 <>
                   <Image 
                     src="/silhouette_transparent.png" 
@@ -319,7 +335,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       }
       <section 
         data-element="non-swipeable"
-        className="absolute top-1 left-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec]/60 dark:bg-black/40 rounded-full"
+        className="absolute top-1 left-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full"
         >
         <>
           {isMainMenuOpen ?
@@ -343,7 +359,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       </section>
       <section
         data-element="non-swipeable"
-        className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec]/60 dark:bg-black/40 rounded-full"
+        className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full"
         >
         <>
           <Cog6ToothIcon 

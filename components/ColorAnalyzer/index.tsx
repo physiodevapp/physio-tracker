@@ -665,7 +665,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         initial={{ y: 0, opacity: 1 }}
         animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 100, damping: 15 }}
-        className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-[#5dadec]/60 dark:bg-black/40 
+        className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-[#5dadec] dark:bg-black/40 
         rounded-full py-2 px-4 font-bold mt-2 whitespace-nowrap"
       >
         BodyChart
@@ -727,7 +727,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       </div>
       <section 
         data-element="non-swipeable"
-        className="absolute top-1 left-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec]/60 dark:bg-black/40 rounded-full"
+        className="absolute top-1 left-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full"
         >
         <>
           {isMainMenuOpen ?
@@ -760,7 +760,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       </section>
       <section
         data-element="non-swipeable"
-        className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec]/60 dark:bg-black/40 rounded-full"
+        className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full"
         >
         <>
           <div 

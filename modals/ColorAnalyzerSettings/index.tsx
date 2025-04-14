@@ -32,8 +32,7 @@ const Index: React.FC = () => {
   return (
     <section
       data-element="non-swipeable"
-      className="absolute bottom-0 w-full px-4 pt-[1rem] pb-[2rem] bg-gradient-to-b from-black/40 to-black rounded-t-lg p-4"
-      style={{boxShadow: '0 0 3px rgba(0, 0, 0, 1)'}}
+      className="absolute bottom-0 w-full px-4 pt-[1rem] pb-[2rem] bg-gradient-to-b from-black/40 to-black rounded-t-lg p-4 shadow-[0_0_3px_rgba(0,0,0,0.2)] dark:shadow-[0_0_3px_rgba(0,0,0,0.46)]"
       >
       <div
         className="w-full h-9 flex justify-end text-white italic font-bold cursor-pointer"

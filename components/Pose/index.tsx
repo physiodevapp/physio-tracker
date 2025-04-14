@@ -947,7 +947,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           initial={{ y: 0, opacity: 1 }}
           animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 100, damping: 15 }}
-          className={`absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-[#5dadec]/60 dark:bg-black/40 
+          className={`absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-[#5dadec] dark:bg-black/40 
           rounded-full py-2 pl-4 font-bold mt-2 whitespace-nowrap transition-[padding] ${
             isFrozen ? "pr-8" : "pr-4"
           }`}>
@@ -988,7 +988,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           <>
             <section 
               data-element="non-swipeable"
-              className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-[#5dadec]/60 dark:bg-black/40 rounded-full">
+              className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full">
               {isMainMenuOpen ?
                 <XMarkIcon 
                   className="w-6 h-6 text-white"
@@ -1014,7 +1014,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                     <VideoCameraIcon 
                       className={`h-6 w-6 cursor-pointer ${recording ? 'text-green-500 animate-pulse ' : 'text-white'}`}
                       />
-                    <p className="absolute top-[60%] -right-1 bg-[#5dadec] dark:bg-black/80 rounded-[0.2rem] px-[0.2rem] py-0 text-white text-xs text-center">
+                    <p className="absolute top-[60%] -right-1 bg-white/80 dark:bg-black/80 rounded-[0.2rem] px-[0.2rem] py-0 text-[#5dadec] text-xs text-center">
                       {(recording ? estimatedFps : undefined) ?? "FPS"}
                     </p>
                   </div>
@@ -1063,7 +1063,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             </section>
             <section 
               data-element="non-swipeable"
-              className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec]/60 dark:bg-black/40 rounded-full"
+              className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full"
               >
               <div 
                 className={`relative cursor-pointer ${
@@ -1074,7 +1074,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 <CameraIcon 
                   className={`h-6 w-6 cursor-pointer`}
                   />
-                <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 text-white bg-[#5dadec] dark:bg-black/80 rounded-full p-[0.1rem]"/>
+                <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 text-[#5dadec] bg-white/80 dark:bg-black/80 rounded-full p-[0.1rem]"/>
               </div>
               <UserIcon 
                 className={`h-6 w-6 cursor-pointer ${
@@ -1094,7 +1094,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         {videoUrl && (videoProcessed || (!videoProcessed && !videoRef.current?.paused)) ? (
             <section 
               data-element="non-swipeable"
-              className={`absolute bottom-2 z-10 flex gap-4 bg-[#5dadec]/60 dark:bg-black/40 rounded-full p-2 ${
+              className={`absolute bottom-2 z-10 flex gap-4 bg-[#5dadec] dark:bg-black/40 rounded-full p-2 ${
                 videoProcessed || videoRef.current?.paused ? 'left-1' : ''
               }`}
               >
