@@ -191,6 +191,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       setTaringStatus(0);
       // await stopMeasurement();
       await controlCharacteristic.writeValue(new Uint8Array([CMD_TARE_SCALE]));
+      await controlCharacteristic.writeValue(new Uint8Array([CMD_TARE_SCALE]));
+      await controlCharacteristic.writeValue(new Uint8Array([CMD_TARE_SCALE]));
       console.log('Tared');
       setTaringStatus(1);
     } catch (error) {
@@ -396,6 +398,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         Force Tracker
       </motion.h1>
       <div
+        data-element={isRecording ? 'non-swipeable' : ''}
         className={`relative h-dvh pb-5 px-2 transition-all duration-300 ease-in-out ${
           isMainMenuOpen ? "pt-16" : "pt-16"
         }`}
@@ -591,7 +594,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
          className="absolute bottom-0 w-full h-[12vh] flex justify-center items-center gap-8 bg-gradient-to-b from-black/60 to-black rounded-t-lg p-4 text-white"
          >
           <p className="flex-1 text-right text-4xl font-semibold">{(workLoad ?? 0).toFixed(1)} kg</p>
-          <div className="flex-1 flex justify-start gap-4">
+          <div 
+            className="flex-1 flex justify-start gap-4"
+            style={{boxShadow: '0 0 3px rgba(0, 0, 0, 1)'}}
+            >
             {isEstimatingMass ? 
               <StopIcon 
                 className="w-14 h-14 text-green-500 animate-pulse"

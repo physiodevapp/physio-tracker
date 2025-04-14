@@ -211,7 +211,7 @@ const Index: React.FC = () => {
               htmlFor="outlierSensitivity"
               className="block text-sm"
               >
-                Outlier<span className="align-sub uppercase text-[0.6rem]"> Sensitivity (σ)</span>:{" "}
+                Outlier<span className="align-sub uppercase text-[0.6rem]"> Sensitivity (<span className="lowercase text-[0.8rem]">σ</span>)</span>:{" "}
                 {settings.force.outlierSensitivity.toFixed(1)}
             </label>
             <input

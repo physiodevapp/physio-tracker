@@ -170,9 +170,7 @@ const Index: React.FC<IndexProps> = ({
       cyclesToAverage
     );
     setAdjustedCycles(adjustedCycles);
-  }, [downsampledData, mappedData, cycles, cyclesToAverage]);
-
-  // ------
+  }, [downsampledData, mappedData]);
 
   const cycleAnnotations: Record<string, AnnotationOptions> = useMemo(() => {
     if (!adjustedCycles?.length) return {};
@@ -221,7 +219,7 @@ const Index: React.FC<IndexProps> = ({
       };
       return acc;
     }, {} as Record<string, AnnotationOptions>);
-  }, [adjustedCycles]); 
+  }, [downsampledData, adjustedCycles]); 
 
   const chartConfig = useMemo<ChartConfiguration>(
     () => {
