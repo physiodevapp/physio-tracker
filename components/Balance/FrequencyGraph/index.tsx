@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { Chart, ChartConfiguration, registerables } from "chart.js";
+import { Chart, ChartConfiguration, ChartEvent, registerables } from "chart.js";
 
 Chart.register(...registerables);
 
@@ -18,6 +18,79 @@ interface IndexProps {
     maxFreq?: number;
   }
 }
+
+const customCrosshairPlugin = (isActive: boolean = true) => ({
+  id: 'customCrosshair',
+  afterEvent(chart: Chart & { _customCrosshairX?: number }, args: { event: ChartEvent }) {
+    if (!isActive) return;
+
+    const { chartArea } = chart;
+    const { event } = args;
+
+    if (!event || event.x == null || event.y == null) return;
+
+    if (
+      event.x >= chartArea.left &&
+      event.x <= chartArea.right &&
+      event.y >= chartArea.top &&
+      event.y <= chartArea.bottom
+    ) {
+      chart._customCrosshairX = event.x;
+    } else {
+      chart._customCrosshairX = undefined;
+    }
+  },
+  afterDraw(chart: Chart & { _customCrosshairX?: number }) {
+    if (!isActive) return;
+  
+    const x = chart._customCrosshairX;
+    if (!x) return;
+  
+    const { ctx, chartArea, scales } = chart;
+    const xScale = scales['x'];
+    const yScale = scales['y'];
+  
+    const xValue = xScale.getValueForPixel(x);
+  
+    // Línea vertical roja
+    ctx.save();
+    ctx.strokeStyle = '#F66';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, chartArea.top);
+    ctx.lineTo(x, chartArea.bottom);
+    ctx.stroke();
+    ctx.restore();
+  
+    // Para cada dataset
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      const meta = chart.getDatasetMeta(datasetIndex);
+      if (meta.hidden) return; 
+
+      const data = dataset.data as { x: number; y: number }[];
+  
+      if (!data || !data.length) return;
+  
+      // Buscar el punto más cercano al xValue
+      const closestPoint = data.reduce((prev, curr) =>
+        Math.abs(curr.x - xValue!) < Math.abs(prev.x - xValue!) ? curr : prev
+      );
+  
+      const yPixel = yScale.getPixelForValue(closestPoint.y);
+  
+      // Dibujar línea horizontal en y = yPixel
+      ctx.save();
+      ctx.strokeStyle = dataset.borderColor as string;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(chartArea.left, yPixel);
+      ctx.lineTo(chartArea.right, yPixel);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+});
 
 const Index: React.FC<IndexProps> = ({
   spectrumParamsY,
@@ -78,6 +151,9 @@ const Index: React.FC<IndexProps> = ({
           },
         ],
       },
+      plugins: [
+        customCrosshairPlugin(),
+      ],
       options: {
         responsive: true,
         animation: false,
@@ -86,6 +162,7 @@ const Index: React.FC<IndexProps> = ({
         plugins: {
           legend: { display: true, labels: { usePointStyle: true } },
           tooltip: {
+            boxPadding: 6,
             callbacks: {
               label: function (context) {
                 return `${context.dataset.label}: ${context.parsed.y.toFixed(2)} m/s²`;

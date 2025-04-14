@@ -214,13 +214,13 @@ const Index: React.FC = () => {
           <div className="flex-1">
             <label className="block text-sm">
               Visible Area<span className="align-sub uppercase text-[0.6rem]"> Factor</span>:{" "}
-              {minVisibleAreaFactor.toFixed(1)}
+              {minVisibleAreaFactor.toFixed(2)}
             </label>
             <input
               type="range"
               min="0.6"
               max="1.0"
-              step="0.1"
+              step="0.01"
               value={minVisibleAreaFactor}
               onChange={(e) =>
                 setMinVisibleAreaFactor(parseFloat(e.target.value))

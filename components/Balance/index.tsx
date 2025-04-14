@@ -155,11 +155,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             onClick={handleMainLayer}
             >
             {/**!isDefaultState */}
-            {true ? (
+            {!isDefaultState ? (
                 <>
-                  {(!hasValidTestResults && isInfoLogVisible) ? (
+                  {(!hasValidTestResults && isInfoLogVisible && log.length) ? (
                       <div className="flex flex-row items-center pl-4 pr-1 py-1 bg-[#5dadec] dark:bg-gray-800 rounded-lg">
-                        <p className="pr-4 text-white">{log}fds</p>
+                        <p className="pr-4 text-white">{log}</p>
                         <XMarkIcon 
                           className="w-4 h-4 m-2 text-white"
                           onClick={() => setIsInfoLogVisible(false)}
@@ -168,7 +168,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                     ) : null
                   }
                   {/**hasValidTestResults */}
-                  {true ? (  
+                  {hasValidTestResults ? (  
                       <>
                         <p className="absolute -translate-y-10 text-lg">Metrics analyzed</p>
                         <section className="flex flex-row flex-wrap w-full px-2 gap-y-4">
@@ -270,7 +270,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               ) : null
             }
             {/**(isDefaultState || !hasValidTestResults) */}
-            {false ? (
+            {(isDefaultState || !hasValidTestResults) ? (
                 <>
                   <Image 
                     src="/silhouette_transparent.png" 
@@ -319,7 +319,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                         <button 
                           className="absolute top-1/2 -translate-y-1/2 px-6 rotate-90 rounded-lg p-2 bg-green-500 font-bold uppercase text-2xl animate-pulse"
                           onClick={() => settings?.balance && setIsRecording(true)}
-                        >Test</button>
+                        >Start</button>
                       </>
                     ) : null
                   }

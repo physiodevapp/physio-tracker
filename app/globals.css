@@ -31,7 +31,7 @@ body {
   }
 
   input[type="range"]::-webkit-slider-thumb {
-    @apply appearance-none bg-blue-500 -mt-[5.4px] w-8 h-5 rounded-lg;
+    @apply appearance-none bg-[#5dadec] -mt-[5.4px] w-8 h-5 rounded-lg;
     border: 2px solid #1f2937;
   }
   input[type="range"]:disabled::-webkit-slider-thumb {
@@ -48,7 +48,7 @@ body {
   }
 
   input[type="range"]::-moz-range-thumb {
-    @apply bg-blue-500 border-none -mt-[5.4px] w-8 h-5 rounded-lg;
+    @apply bg-[#5dadec] border-none -mt-[5.4px] w-8 h-5 rounded-lg;
     border: 2px solid #1f2937;
   }
   input[type="range"]:disabled::-moz-range-thumb {
