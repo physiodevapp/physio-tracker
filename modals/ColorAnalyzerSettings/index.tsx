@@ -42,7 +42,7 @@ const Index: React.FC = () => {
         <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>
       {/* Sliders para ajustar parámetros de detección */}
-      <div className="mt-2 space-y-2 text-white">
+      <div className="flex flex-col gap-2 mt-2 text-white">
         {/* Parámetros para Rojo */}
         <div className="bg-red-400/60 p-2 rounded-md">
           <div className="flex justify-around gap-6">
@@ -178,7 +178,7 @@ const Index: React.FC = () => {
         </div>
         {/* Umbrales comunes */}
         <div className="flex justify-around gap-6 p-2">
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm">
               Min Sat: {minSaturation}
             </label>
@@ -193,7 +193,7 @@ const Index: React.FC = () => {
               className="w-full"
             />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm">
               Min Value: {minValue}
             </label>
@@ -211,7 +211,7 @@ const Index: React.FC = () => {
         </div>
         {/* Deteccion de imagen */}
         <div className="flex justify-around gap-6 p-2">
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm">
               Visible Area<span className="align-sub uppercase text-[0.6rem]"> Factor</span>:{" "}
               {minVisibleAreaFactor.toFixed(2)}

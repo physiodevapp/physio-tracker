@@ -28,9 +28,9 @@ const Index = () => {
         Set default values{" "}
         <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>
-      <form className='w-full flex flex-col justify-center mt-2 space-y-2 text-white'>
+      <form className='w-full flex flex-col justify-center gap-4 mt-2 text-white'>
         <div className="flex justify-around gap-6">
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm mb-1">
               Duration: {settings.balance.testDuration} seg
             </label>
@@ -46,7 +46,7 @@ const Index = () => {
                 className="w-full"
               />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm mb-1">
               Freq<sub className='align-sub text-[0.6rem] uppercase'> cut-off</sub>: {settings.balance.cutoffFrequency.toFixed(1)} Hz
             </label>
@@ -64,7 +64,7 @@ const Index = () => {
           </div>
         </div>
         <div className="flex justify-around gap-6">
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm mb-1">
               Freq<sub className='align-sub text-[0.6rem] uppercase'> dom</sub>: {settings.balance.calibrationDomFreqThreshold.toFixed(1)} Hz
             </label>
@@ -80,7 +80,7 @@ const Index = () => {
                 className="w-full"
               />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm mb-1">
               STD: {settings.balance.calibrationStdThreshold.toFixed(1)} m/s²
             </label>
@@ -98,7 +98,7 @@ const Index = () => {
           </div>
         </div>
         <div className="flex justify-around gap-6">
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm mb-1">
               Hold: {(settings.balance.calibrationDelay / 1000)} seg
             </label>
@@ -114,7 +114,7 @@ const Index = () => {
                 className="w-full"
               />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm mb-1">
               Gravity<sub className='align-sub text-[0.6rem] uppercase'> factor</sub>: {settings.balance.gravityFactor.toFixed(2)}
             </label>
@@ -129,6 +129,11 @@ const Index = () => {
                 }
                 className="w-full"
               />
+          </div>
+        </div>
+        <div className="flex justify-around gap-6">
+          <div className="flex-1">
+            
           </div>
         </div>
       </form>      

@@ -31,7 +31,7 @@ const Index: React.FC = () => {
         >
         Set default values <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>
-      <div className="flex flex-col gap-4 text-white">
+      <div className="flex flex-col gap-4 mt-2 text-white">
         <div className="flex gap-6">
           <div className="flex-1 flex flex-col gap-2">
             <label 

@@ -72,7 +72,7 @@ const Index = ({
         Set default values{" "}
         <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>
-      <form className="w-full flex flex-col justify-center gap-4">
+      <form className="w-full flex flex-col justify-center gap-4 mt-2">
         <div className='flex w-full gap-6'> 
           <div className='flex-1 flex flex-col justify-between gap-2'>
             <label
