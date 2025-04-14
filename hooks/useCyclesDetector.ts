@@ -21,8 +21,6 @@ export default function useCyclesDetector({
   downsampledData,
   settings,  
   workLoad = null,
-  // mappedData, 
-  // isRecording = false
 }: CyclesDetectorProps) {
   const {
     hysteresis,
@@ -30,11 +28,11 @@ export default function useCyclesDetector({
     minAvgAmplitude,
     peakDropThreshold: amplitudeDropThreshold,
     cyclesToAverage,
+    cyclesForAnalysis,
     durationChangeThreshold,
     velocityDropThreshold,
     variabilityThreshold,
   } = settings;
-  const maxCyclesForAnalysis = 6; // revisar
 
   const fatigueTipsMap: Record<string, string> = {
     // Individual
@@ -223,7 +221,7 @@ export default function useCyclesDetector({
           const newCycle = { amplitude, duration, timestamp: lastPoint.x };
           const updated = [...prev, newCycle];
           // Limitar a los últimos "maxCyclesForAnalysis" ciclos para análisis
-          return updated.slice(-maxCyclesForAnalysis);
+          return updated.slice(-cyclesForAnalysis);
         });
         // Guardar la duración del nuevo ciclo en el historial para analizar tendencias de fatiga
         // Esto permite calcular la tasa de cambio del tiempo del ciclo y detectar si se está alargando progresivamente

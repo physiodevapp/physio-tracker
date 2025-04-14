@@ -17,8 +17,17 @@ const Index: React.FC = () => {
     setBlueHueUpper,
     setMinSaturation,
     setMinValue,
+    setMinVisibleAreaFactor,
     resetColorSettings,
   } = useSettings();
+  const {
+    redHueLower1, redHueLower2,
+    redHueUpper1, redHueUpper2,
+    greenHueLower, greenHueUpper,
+    blueHueLower, blueHueUpper,
+    minSaturation, minValue,
+    minVisibleAreaFactor,
+  } = settings.color
 
   return (
     <section
@@ -39,13 +48,13 @@ const Index: React.FC = () => {
           <div className="flex justify-around gap-6">
             <div className="flex-1">
               <label className="block text-sm">
-                Red HL 1: {settings.color.redHueLower1}
+                Red HL 1: {redHueLower1}
               </label>
               <input
                 type="range"
                 min="0"
                 max="180"
-                value={settings.color.redHueLower1}
+                value={redHueLower1}
                 onChange={(e) =>
                   setRedHueLower1(parseInt(e.target.value, 10))
                 }
@@ -54,13 +63,13 @@ const Index: React.FC = () => {
             </div>
             <div className="flex-1">
               <label className="block text-sm">
-                Red HU 1: {settings.color.redHueUpper1}
+                Red HU 1: {redHueUpper1}
               </label>
               <input
                 type="range"
                 min="0"
                 max="180"
-                value={settings.color.redHueUpper1}
+                value={redHueUpper1}
                 onChange={(e) =>
                   setRedHueUpper1(parseInt(e.target.value, 10))
                 }
@@ -71,13 +80,13 @@ const Index: React.FC = () => {
           <div className="flex justify-around gap-6">
             <div className="flex-1">
               <label className="block text-sm">
-                Red HL 2: {settings.color.redHueLower2}
+                Red HL 2: {redHueLower2}
               </label>
               <input
                 type="range"
                 min="0"
                 max="180"
-                value={settings.color.redHueLower2}
+                value={redHueLower2}
                 onChange={(e) =>
                   setRedHueLower2(parseInt(e.target.value, 10))
                 }
@@ -86,13 +95,13 @@ const Index: React.FC = () => {
             </div>
             <div className="flex-1">
               <label className="block text-sm">
-                Red HU 2: {settings.color.redHueUpper2}
+                Red HU 2: {redHueUpper2}
               </label>
               <input
                 type="range"
                 min="0"
                 max="180"
-                value={settings.color.redHueUpper2}
+                value={redHueUpper2}
                 onChange={(e) =>
                   setRedHueUpper2(parseInt(e.target.value, 10))
                 }
@@ -105,13 +114,13 @@ const Index: React.FC = () => {
         <div className="flex justify-around gap-6 bg-green-400/60 p-2 rounded-md">
           <div className="flex-1">
             <label className="block text-sm">
-              Green HL: {settings.color.greenHueLower}
+              Green HL: {greenHueLower}
             </label>
             <input
               type="range"
               min="0"
               max="180"
-              value={settings.color.greenHueLower}
+              value={greenHueLower}
               onChange={(e) =>
                 setGreenHueLower(parseInt(e.target.value, 10))
               }
@@ -120,13 +129,13 @@ const Index: React.FC = () => {
           </div>
           <div className="flex-1">
             <label className="block text-sm">
-              Green HU: {settings.color.greenHueUpper}
+              Green HU: {greenHueUpper}
             </label>
             <input
               type="range"
               min="0"
               max="180"
-              value={settings.color.greenHueUpper}
+              value={greenHueUpper}
               onChange={(e) =>
                 setGreenHueUpper(parseInt(e.target.value, 10))
               }
@@ -138,13 +147,13 @@ const Index: React.FC = () => {
         <div className="flex justify-around gap-6 bg-blue-200/60 p-2 rounded-md">
           <div className="flex-1">
             <label className="block text-sm">
-              Blue HL: {settings.color.blueHueLower}
+              Blue HL: {blueHueLower}
             </label>
             <input
               type="range"
               min="0"
               max="180"
-              value={settings.color.blueHueLower}
+              value={blueHueLower}
               onChange={(e) =>
                 setBlueHueLower(parseInt(e.target.value, 10))
               }
@@ -153,13 +162,13 @@ const Index: React.FC = () => {
           </div>
           <div className="flex-1">
             <label className="block text-sm">
-              Blue HU: {settings.color.blueHueUpper}
+              Blue HU: {blueHueUpper}
             </label>
             <input
               type="range"
               min="0"
               max="180"
-              value={settings.color.blueHueUpper}
+              value={blueHueUpper}
               onChange={(e) =>
                 setBlueHueUpper(parseInt(e.target.value, 10))
               }
@@ -171,13 +180,13 @@ const Index: React.FC = () => {
         <div className="flex justify-around gap-6 p-2">
           <div className="flex-1">
             <label className="block text-sm">
-              Min Sat: {settings.color.minSaturation}
+              Min Sat: {minSaturation}
             </label>
             <input
               type="range"
               min="0"
               max="255"
-              value={settings.color.minSaturation}
+              value={minSaturation}
               onChange={(e) =>
                 setMinSaturation(parseInt(e.target.value, 10))
               }
@@ -186,15 +195,35 @@ const Index: React.FC = () => {
           </div>
           <div className="flex-1">
             <label className="block text-sm">
-              Min Value: {settings.color.minValue}
+              Min Value: {minValue}
             </label>
             <input
               type="range"
               min="0"
               max="255"
-              value={settings.color.minValue}
+              value={minValue}
               onChange={(e) =>
                 setMinValue(parseInt(e.target.value, 10))
+              }
+              className="w-full"
+            />
+          </div>
+        </div>
+        {/* Deteccion de imagen */}
+        <div className="flex justify-around gap-6 p-2">
+          <div className="flex-1">
+            <label className="block text-sm">
+              Visible Area<span className="align-sub uppercase text-[0.6rem]"> Factor</span>:{" "}
+              {minVisibleAreaFactor.toFixed(1)}
+            </label>
+            <input
+              type="range"
+              min="0.6"
+              max="1.0"
+              step="0.1"
+              value={minVisibleAreaFactor}
+              onChange={(e) =>
+                setMinVisibleAreaFactor(parseFloat(e.target.value))
               }
               className="w-full"
             />

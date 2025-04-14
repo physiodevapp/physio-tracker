@@ -11,10 +11,12 @@ const Index: React.FC = () => {
     setMinAvgAmplitude,
     setPeakDropThreshold,
     setCyclesToAverage,
+    setCyclesForAnalysis,
     setHysteresis,
     setDurationChangeThreshold,
     setVelocityDropThreshold,
     setVariabilityThreshold,
+    setOutlierSensitivity,
     resetForceSettings,
   } = useSettings();
 
@@ -29,7 +31,7 @@ const Index: React.FC = () => {
         >
         Set default values <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>
-      <div className="space-y-2 text-white">
+      <div className="flex flex-col gap-4 text-white">
         <div className="flex gap-6">
           <div className="flex-1 flex flex-col gap-2">
             <label 
@@ -180,6 +182,45 @@ const Index: React.FC = () => {
               step="0.01" 
               value={settings.force.variabilityThreshold}
               onChange={(e) => setVariabilityThreshold(parseFloat(e.target.value))}
+              className="w-full"
+              />
+          </div>
+        </div>
+        <div className="flex gap-6">
+        <div className="flex-1 flex flex-col gap-2">
+          <label 
+            htmlFor="cyclesForAnalysis" 
+            className="block text-sm"
+            >
+            Cycles<span className="align-sub uppercase text-[0.6rem]"> analysis</span>: {settings.force.cyclesForAnalysis}
+          </label>
+          <input
+            id="cyclesForAnalysis"
+            type="range"
+            min="4" 
+            max="8" 
+            step="1" 
+            value={settings.force.cyclesForAnalysis}
+            onChange={(e) => setCyclesForAnalysis(parseInt(e.target.value))}
+            className="w-full"
+            />
+          </div>
+          <div className="flex-1 flex flex-col gap-2">
+            <label 
+              htmlFor="outlierSensitivity"
+              className="block text-sm"
+              >
+                Outlier<span className="align-sub uppercase text-[0.6rem]"> Sensitivity (σ)</span>:{" "}
+                {settings.force.outlierSensitivity.toFixed(1)}
+            </label>
+            <input
+              id="outlierSensitivity"
+              type="range"
+              min="1"
+              max="5"
+              step="0.1"
+              value={settings.force.outlierSensitivity}
+              onChange={(e) => setOutlierSensitivity(parseFloat(e.target.value))}
               className="w-full"
               />
           </div>

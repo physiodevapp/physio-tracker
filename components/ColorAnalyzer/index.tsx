@@ -47,6 +47,14 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   const [showData, setShowData] = useState(false);
   
   const { settings } = useSettings();
+  const { 
+    redHueLower1, redHueLower2,
+    redHueUpper1, redHueUpper2,
+    greenHueLower, greenHueUpper,
+    blueHueLower, blueHueUpper,
+    minSaturation, minValue,
+    minVisibleAreaFactor 
+  } = settings.color;
   
   const webcamRef = useRef<Webcam>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -214,7 +222,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
   
       const minVisibleArea = src.cols * src.cols;
-      if (biggest && maxArea >= 0.8 * minVisibleArea) {
+      if (biggest && maxArea >= minVisibleAreaFactor * minVisibleArea) {
         const ordered = [];
         for (let i = 0; i < 4; i++) {
           ordered.push({
@@ -365,7 +373,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       }
   
       const minVisibleArea = src.cols * src.cols;
-      if (!biggest || maxArea < 0.76 * minVisibleArea) {
+      if (!biggest || maxArea < (minVisibleAreaFactor * 0.96) * minVisibleArea) {
         console.log("No se detectó un folio DIN A4 suficientemente grande.");
         gray.delete(); blurred.delete(); edges.delete();
         contours.delete(); hierarchy.delete(); src.delete();
@@ -423,10 +431,10 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       cvInstance.cvtColor(warpMat, hsv, cvInstance.COLOR_RGBA2RGB);
       cvInstance.cvtColor(hsv, hsv, cvInstance.COLOR_RGB2HSV);
   
-      const lowerRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.redHueLower1, settings.color.minSaturation, settings.color.minValue, 0]);
-      const upperRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.redHueUpper1, 255, 255, 255]);
-      const lowerRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.redHueLower2, settings.color.minSaturation, settings.color.minValue, 0]);
-      const upperRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.redHueUpper2, 255, 255, 255]);
+      const lowerRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [redHueLower1, minSaturation, minValue, 0]);
+      const upperRed1 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [redHueUpper1, 255, 255, 255]);
+      const lowerRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [redHueLower2, minSaturation, minValue, 0]);
+      const upperRed2 = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [redHueUpper2, 255, 255, 255]);
       const redMask1 = new cvInstance.Mat();
       const redMask2 = new cvInstance.Mat();
       cvInstance.inRange(hsv, lowerRed1, upperRed1, redMask1);
@@ -434,13 +442,13 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       const redMask = new cvInstance.Mat();
       cvInstance.add(redMask1, redMask2, redMask);
   
-      const lowerGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.greenHueLower, settings.color.minSaturation, settings.color.minValue, 0]);
-      const upperGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.greenHueUpper, 255, 255, 255]);
+      const lowerGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [greenHueLower, minSaturation, minValue, 0]);
+      const upperGreen = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [greenHueUpper, 255, 255, 255]);
       const greenMask = new cvInstance.Mat();
       cvInstance.inRange(hsv, lowerGreen, upperGreen, greenMask);
   
-      const lowerBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.blueHueLower, settings.color.minSaturation, settings.color.minValue, 0]);
-      const upperBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [settings.color.blueHueUpper, 255, 255, 255]);
+      const lowerBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [blueHueLower, minSaturation, minValue, 0]);
+      const upperBlue = new cvInstance.Mat(hsv.rows, hsv.cols, hsv.type(), [blueHueUpper, 255, 255, 255]);
       const blueMask = new cvInstance.Mat();
       cvInstance.inRange(hsv, lowerBlue, upperBlue, blueMask);
   

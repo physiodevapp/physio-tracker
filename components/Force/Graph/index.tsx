@@ -116,6 +116,8 @@ const Index: React.FC<IndexProps> = ({
     workLoad,
   });
 
+  const { outlierSensitivity } = settings;
+
   useEffect(() => {
     if (isRecording) {  
       setCycles(prevData => {
@@ -477,8 +479,8 @@ const Index: React.FC<IndexProps> = ({
                     // .filter((data, index) => index !== 0) // revisar
                     .reverse();
 
-                  const sigma = 2;
-                  const iqrMultiplier = 2;
+                  const sigma = outlierSensitivity;
+                  const iqrMultiplier = outlierSensitivity;
 
                   const getStats = (array: number[]) => {
                     const valid = array.filter(v => !isNaN(v));

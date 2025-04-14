@@ -24,6 +24,7 @@ interface ColorSettings {
   blueHueUpper: number;
   minSaturation: number;
   minValue: number;
+  minVisibleAreaFactor: number;
 }
 
 // Agregamos un nuevo grupo force con variables opcionales
@@ -32,10 +33,12 @@ export interface ForceSettings {
   minAvgAmplitude: number;
   peakDropThreshold: number;
   cyclesToAverage: number;
+  cyclesForAnalysis: number;
   hysteresis: number;
   durationChangeThreshold: number;
   velocityDropThreshold: number;
   variabilityThreshold: number;
+  outlierSensitivity: number;
 }
 
 // Interfaz para BalanceSettings
@@ -80,15 +83,18 @@ interface SettingsContextProps {
   setBlueHueUpper: (value: number) => void;
   setMinSaturation: (value: number) => void;
   setMinValue: (value: number) => void;
+  setMinVisibleAreaFactor: (value: number) => void;
   // Setters para force (todos opcionales)
   setMovingAverageWindow: (value: number) => void;
   setMinAvgAmplitude: (value: number) => void;
   setPeakDropThreshold: (value: number) => void;
   setCyclesToAverage: (value: number) => void;
+  setCyclesForAnalysis: (value: number) => void;
   setHysteresis: (value: number) => void;
   setDurationChangeThreshold: (value: number) => void;
   setVelocityDropThreshold: (value: number) => void;
   setVariabilityThreshold: (value: number) => void;
+  setOutlierSensitivity: (value: number) => void;
   // Setters para balance
   setCalibrationDelay: (value: number) => void;
   setCalibrationPoints: (value: number) => void;
@@ -135,16 +141,19 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       blueHueUpper: 128,
       minSaturation: 70,
       minValue: 50,
+      minVisibleAreaFactor: 0.8,
     },
     force: {
       movingAverageWindow: 3_000,       // 3 segundos por defecto (en ms)
       minAvgAmplitude: 0.5,             // Ejemplo: 0.5 kg
       peakDropThreshold: 0.7,           // 70%
       cyclesToAverage: 3,               // Promediar los últimos 3 ciclos
+      cyclesForAnalysis: 6,
       hysteresis: 0.1,                  // Factor de histéresis por defecto
       durationChangeThreshold: 0.05,
       velocityDropThreshold: 0.75,
       variabilityThreshold: 0.04,
+      outlierSensitivity: 2,
     },
     balance: {
       calibrationDelay: 6_000,          // en milisegundos
@@ -223,6 +232,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const setBlueHueUpper = (value: number) => setSettings(prev => ({ ...prev, color: { ...prev.color, blueHueUpper: value } }));
   const setMinSaturation = (value: number) => setSettings(prev => ({ ...prev, color: { ...prev.color, minSaturation: value } }));
   const setMinValue = (value: number) => setSettings(prev => ({ ...prev, color: { ...prev.color, minValue: value } }));
+  const setMinVisibleAreaFactor = (value: number) => setSettings(prev => ({ ...prev, color: { ...prev.color, minVisibleAreaFactor: value } }));
   const resetColorSettings = () => {
     setSettings(prev => ({ ...prev, color: defaultConfig.color }));
   };
@@ -236,6 +246,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     setSettings(prev => ({ ...prev, force: { ...prev.force, peakDropThreshold: value } }));
   const setCyclesToAverage = (value: number) =>
     setSettings(prev => ({ ...prev, force: { ...prev.force, cyclesToAverage: value } }));
+  const setCyclesForAnalysis = (value: number) =>
+    setSettings(prev => ({ ...prev, force: { ...prev.force, cyclesForAnalysis: value } }));
   const setHysteresis = (value: number) =>
     setSettings(prev => ({ ...prev, force: { ...prev.force, hysteresis: value } }));
   const setDurationChangeThreshold = (value: number) =>
@@ -244,6 +256,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     setSettings(prev => ({ ...prev, force: { ...prev.force, velocityDropThreshold: value } }));
   const setVariabilityThreshold = (value: number) =>
     setSettings(prev => ({ ...prev, force: { ...prev.force, variabilityThreshold: value } }));
+  const setOutlierSensitivity = (value: number) =>
+    setSettings(prev => ({ ...prev, force: { ...prev.force, outlierSensitivity: value } }));
   const resetForceSettings = () => {
     setSettings(prev => ({ ...prev, force: defaultConfig.force }));
   };  
@@ -289,15 +303,18 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setBlueHueUpper,
         setMinSaturation,
         setMinValue,
+        setMinVisibleAreaFactor,
         resetColorSettings,
         setMovingAverageWindow,
         setMinAvgAmplitude,
         setPeakDropThreshold,
         setCyclesToAverage,
+        setCyclesForAnalysis,
         setHysteresis,
         setDurationChangeThreshold,
         setVelocityDropThreshold,
         setVariabilityThreshold,
+        setOutlierSensitivity,
         resetForceSettings,
         setCalibrationDelay,
         setCalibrationPoints,

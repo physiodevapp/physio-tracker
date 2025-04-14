@@ -4,7 +4,7 @@ import { lttbDownsample } from "@/utils/chart";
 import annotationPlugin, { AnnotationOptions } from 'chartjs-plugin-annotation';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ViewfinderCircleIcon } from "@heroicons/react/24/solid";
-import { adjustCyclesByZeroCrossing, detectOutlierEdges } from "../../../utils/force";
+import { adjustCyclesByZeroCrossing, Cycle, detectOutlierEdges } from "../../../utils/force";
 import { useBluetooth } from "@/providers/Bluetooth";
 import { useSettings } from "@/providers/Settings";
 
@@ -129,71 +129,6 @@ const Index: React.FC<IndexProps> = ({
       x: point.time / 1_000, // ms
       y: point.force,       // kg
     }));
-  
-    const sigma = 1.5;
-    const iqrMultiplier = 1.5;
-    const minForceThreshold = 0.1;
-    const minSlope = 0.016;
-  
-    // Detectar el inicio real (cuando la fuerza empieza a subir)
-    const findStartIndex = (data: typeof rawSensorData, threshold: number, minSlope: number) => {
-      for (let i = 0; i < data.length - 1; i++) {
-        const slope = data[i + 1].force - data[i].force;
-        if (data[i].force >= threshold && slope > minSlope) {
-          return i;
-        }
-      }
-      return 0;
-    };
-  
-    // Detectar el final real (cuando termina de bajar)
-    const findEndIndex = (data: typeof rawSensorData, threshold: number, minSlope: number) => {
-      for (let i = data.length - 2; i >= 0; i--) {
-        const slope = data[i + 1].force - data[i].force;
-        if (data[i].force >= threshold && slope < -minSlope) {
-          return i + 1;
-        }
-      }
-      return data.length - 1;
-    };
-  
-    const startIdx = findStartIndex(rawSensorData, minForceThreshold, minSlope);
-    const endIdx = findEndIndex(rawSensorData, minForceThreshold, minSlope);
-  
-    // Si no hay un rango válido, devuelve vacío
-    if (startIdx >= endIdx) return [];
-  
-    const trimmedData = rawSensorData.slice(startIdx, endIdx + 1);
-  
-    const startCut = 1_000_000; // μs
-    const endCut = 1_000_000;
-    const totalDuration = trimmedData[trimmedData.length - 1].time;
-  
-    const filteredForStats = trimmedData.filter(p =>
-      p.time > startCut && p.time < totalDuration - endCut
-    );
-  
-    const values = filteredForStats.map(p => p.force);
-    const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
-    const std = Math.sqrt(values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length);
-  
-    const sorted = [...values].sort((a, b) => a - b);
-    const q1 = sorted[Math.floor(sorted.length * 0.25)];
-    const q3 = sorted[Math.floor(sorted.length * 0.75)];
-    const iqr = q3 - q1;
-    const lowerBound = q1 - iqrMultiplier * iqr;
-    const upperBound = q3 + iqrMultiplier * iqr;
-  
-    const cleaned = trimmedData.filter(p => {
-      const outlierBySigma = Math.abs(p.force - mean) > sigma * std;
-      const outlierByIQR = p.force < lowerBound || p.force > upperBound;
-      return !outlierBySigma && !outlierByIQR;
-    });
-  
-    return cleaned.map(point => ({
-      x: point.time / 1_000, // en milisegundos
-      y: point.force,
-    }));
   }, [rawSensorData]);
   
   // Aplicamos la función de downsampling usando useMemo para optimizar
@@ -205,27 +140,39 @@ const Index: React.FC<IndexProps> = ({
   const minTime = downsampledData.length > 0 ? downsampledData[0].x : 0;
   const maxTime = downsampledData.length > 0 ? downsampledData[downsampledData.length - 1].x : 1000; 
 
-  const crossLineValueRef = useRef<number>(0);
-  const topLineValue = Math.max(...downsampledData.map(p => p.y));
+  const [adjustedCycles, setAdjustedCycles] = useState<Cycle[]>([]);
+  const [topLineValue, setTopLineValue] = useState(0);
+  const [crossLineValue, setCrossLineValue] = useState(0);
 
-  const adjustedCycles = useMemo(() => {
+  useEffect(() => {
+    if (!downsampledData.length) return;
+
+    // 1. Calcular valores auxiliares
+    const maxY = Math.max(...downsampledData.map(p => p.y));
+    setTopLineValue(maxY);
+
     const { startOutlierIndex, endOutlierIndex } = detectOutlierEdges(mappedData);
-    if (startOutlierIndex || endOutlierIndex) {
-      const trimmedData = mappedData.slice(
-        startOutlierIndex ?? 0,
-        endOutlierIndex !== null ? endOutlierIndex + 1 : undefined
-      );
-      crossLineValueRef.current = calculateMeanY(trimmedData) ?? 0;
-    }
-    else {
-      crossLineValueRef.current = calculateMeanY(mappedData) ?? 0;
-    }
-    
-    const { adjustedCycles } = adjustCyclesByZeroCrossing(mappedData, crossLineValueRef.current, cycles, cyclesToAverage);
-    // console.log('adjustedCycles ', adjustedCycles)
+    const trimmedData = startOutlierIndex || endOutlierIndex
+      ? mappedData.slice(
+          startOutlierIndex ?? 0,
+          endOutlierIndex !== null ? endOutlierIndex + 1 : undefined
+        )
+      : mappedData;
 
-    return adjustedCycles;
-  }, [downsampledData]);
+    const crossLine = calculateMeanY(trimmedData) ?? 0;
+    setCrossLineValue(crossLine);
+
+    // 2. Calcular ciclos ajustados
+    const { adjustedCycles } = adjustCyclesByZeroCrossing(
+      mappedData,
+      crossLine,
+      cycles,
+      cyclesToAverage
+    );
+    setAdjustedCycles(adjustedCycles);
+  }, [downsampledData, mappedData, cycles, cyclesToAverage]);
+
+  // ------
 
   const cycleAnnotations: Record<string, AnnotationOptions> = useMemo(() => {
     if (!adjustedCycles?.length) return {};
@@ -435,12 +382,12 @@ const Index: React.FC<IndexProps> = ({
                 crossLine: {
                   type: 'line',
                   display: true,
-                  yMin: crossLineValueRef.current,
-                  yMax: crossLineValueRef.current,
+                  yMin: crossLineValue,
+                  yMax: crossLineValue,
                   borderColor: 'rgba(68, 68, 239, 0.4)',
                   borderWidth: 1,
                   label: {
-                    content: `Avg: ${crossLineValueRef.current} kg`,
+                    content: `Avg: ${crossLineValue} kg`,
                     display: false,
                     position: 'start',
                   },
@@ -544,7 +491,13 @@ const Index: React.FC<IndexProps> = ({
         <ViewfinderCircleIcon 
         className="absolute bottom-0 left-0 p-1 pl-0 w-8 h-8 text-gray-400"
         onClick={() => {
-          chartRef.current?.resetZoom();
+          // chartRef.current?.resetZoom();
+          if (chartRef.current) {
+            chartRef.current.zoomScale('x', {
+              min: cycles[0].startX ?? 0,
+              max: cycles[cycles.length - 1].endX ?? downsampledData[downsampledData.length -1].x,
+            });
+          }
 
           setIsZoomed(false);
         }}
