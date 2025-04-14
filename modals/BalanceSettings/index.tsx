@@ -13,8 +13,18 @@ const Index = () => {
     setCalibrationStdThreshold,
     setCutoffFrequency,
     setGravityFactor,
+    setAutoStartAfterCalibration,
     resetBalanceSettings
   } = useSettings();
+  const { 
+    testDuration,
+    cutoffFrequency,
+    calibrationDomFreqThreshold,
+    calibrationStdThreshold,
+    calibrationDelay,
+    gravityFactor,   
+    autoStartAfterCalibration,
+  } = settings.balance
 
   return (
     <section
@@ -32,14 +42,14 @@ const Index = () => {
         <div className="flex justify-around gap-6">
           <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm mb-1">
-              Duration: {settings.balance.testDuration} seg
+              Duration: {testDuration} seg
             </label>
             <input
                 type="range"
                 min="10"
                 max="30"
                 step="1"
-                value={settings.balance.testDuration}
+                value={testDuration}
                 onChange={(e) =>
                   setTestDuration(parseInt(e.target.value, 10))
                 }
@@ -48,14 +58,14 @@ const Index = () => {
           </div>
           <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm mb-1">
-              Freq<sub className='align-sub text-[0.6rem] uppercase'> cut-off</sub>: {settings.balance.cutoffFrequency.toFixed(1)} Hz
+              Freq<sub className='align-sub text-[0.6rem] uppercase'> cut-off</sub>: {cutoffFrequency.toFixed(1)} Hz
             </label>
             <input
                 type="range"
                 min="2"
                 max="10"
                 step="0.5"
-                value={settings.balance.cutoffFrequency}
+                value={cutoffFrequency}
                 onChange={(e) =>
                   setCutoffFrequency(parseFloat(e.target.value))
                 }
@@ -66,14 +76,14 @@ const Index = () => {
         <div className="flex justify-around gap-6">
           <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm mb-1">
-              Freq<sub className='align-sub text-[0.6rem] uppercase'> dom</sub>: {settings.balance.calibrationDomFreqThreshold.toFixed(1)} Hz
+              Freq<sub className='align-sub text-[0.6rem] uppercase'> dom</sub>: {calibrationDomFreqThreshold.toFixed(1)} Hz
             </label>
             <input
                 type="range"
                 min="0"
                 max="2"
                 step="0.1"
-                value={settings.balance.calibrationDomFreqThreshold}
+                value={calibrationDomFreqThreshold}
                 onChange={(e) =>
                   setCalibrationDomFreqThreshold(parseFloat(e.target.value))
                 }
@@ -82,14 +92,14 @@ const Index = () => {
           </div>
           <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm mb-1">
-              STD: {settings.balance.calibrationStdThreshold.toFixed(1)} m/s²
+              STD: {calibrationStdThreshold.toFixed(1)} m/s²
             </label>
             <input
                 type="range"
                 min="0"
                 max="1"
                 step="0.1"
-                value={settings.balance.calibrationStdThreshold}
+                value={calibrationStdThreshold}
                 onChange={(e) =>
                   setCalibrationStdThreshold(parseFloat(e.target.value))
                 }
@@ -100,14 +110,14 @@ const Index = () => {
         <div className="flex justify-around gap-6">
           <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm mb-1">
-              Hold: {(settings.balance.calibrationDelay / 1000)} seg
+              Hold: {(calibrationDelay / 1000)} seg
             </label>
             <input
                 type="range"
                 min="4"
                 max="10"
                 step="1"
-                value={settings.balance.calibrationDelay / 1000}
+                value={calibrationDelay / 1000}
                 onChange={(e) =>
                   setCalibrationDelay(parseInt(e.target.value, 10) * 1000)
                 }
@@ -116,14 +126,14 @@ const Index = () => {
           </div>
           <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm mb-1">
-              Gravity<sub className='align-sub text-[0.6rem] uppercase'> factor</sub>: {settings.balance.gravityFactor.toFixed(2)}
+              Gravity<sub className='align-sub text-[0.6rem] uppercase'> factor</sub>: {gravityFactor.toFixed(2)}
             </label>
             <input
                 type="range"
                 min="0.1"
                 max="1"
                 step="0.05"
-                value={settings.balance.gravityFactor}
+                value={gravityFactor}
                 onChange={(e) =>
                   setGravityFactor(parseFloat(e.target.value))
                 }
@@ -131,9 +141,26 @@ const Index = () => {
               />
           </div>
         </div>
-        <div className="flex justify-around gap-6">
-          <div className="flex-1">
-            
+        <div className="flex justify-around gap-6 mt-4">
+          <div className="flex-1 flex flex-row-reverse justify-end gap-2">
+            <span className="text-white text-sm px-2">Auto-start after calibration</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                value="" 
+                className="sr-only peer" 
+                checked={autoStartAfterCalibration}
+                onChange={() => setAutoStartAfterCalibration(!autoStartAfterCalibration)}
+                />
+              <div
+                className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-0 peer-focus:ring-[#5dadec]
+                rounded-full peer dark:bg-gray-700 peer-checked:bg-[#5dadec] transition-all duration-200"
+              ></div>
+              <div
+                className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow
+                peer-checked:translate-x-full transform transition-all duration-200"
+              ></div>
+            </label>
           </div>
         </div>
       </form>      

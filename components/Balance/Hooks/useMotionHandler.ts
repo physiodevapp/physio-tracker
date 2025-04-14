@@ -5,7 +5,7 @@ import { IFilterState, IFrequencyData, IMotionData, ICOPData } from "@/interface
 import { butterworthLowPass_SampleGeneric, getFrequencyFeatures, calculateSTD, calculateCOP_Stats } from "@/utils/balance";
 import { BalanceSettings } from "@/providers/Settings";
 
-export default function useMotionHandler({settings}: {settings: BalanceSettings}) {  
+export default function useMotionHandler({settings, isManualStart}: {settings: BalanceSettings, isManualStart: boolean}) {  
   // 🔗 Constantes
   const {
     calibrationDelay: CALIBRATION_DELAY,
@@ -17,6 +17,7 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
     gravityFactor: GRAVITY_FACTOR,
     cutoffFrequency: CUTOFF_FREQUENCY,
     sensorHeight,
+    autoStartAfterCalibration,
   } = settings;
 
   // 🛠️ Variables del filtro Butterworth
@@ -211,7 +212,7 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
     setIsBaselineDefined(true);
     isBaselineDefinedRef.current = true;
 
-    setLog("Evaluating...")
+    // setLog("Evaluating...")
 
     motionDataRef.current = [];
   }
@@ -279,6 +280,10 @@ export default function useMotionHandler({settings}: {settings: BalanceSettings}
         if (!checkCalibration()) return;
 
         if (!isBaselineDefinedRef.current) calibrateBaseline();
+
+        if (!autoStartAfterCalibration && !isManualStart) {
+          motionDataRef.current = [];
+        }
 
         // analyzeDeviceMotionData({calculationMode: "realTime"});
       }

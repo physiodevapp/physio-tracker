@@ -53,6 +53,7 @@ export interface BalanceSettings {
   cutoffFrequency: number;
   testDuration: number;
   sensorHeight: number;
+  autoStartAfterCalibration: boolean;
 }
 
 interface Settings {
@@ -106,6 +107,7 @@ interface SettingsContextProps {
   setCutoffFrequency: (value: number) => void;
   setTestDuration: (value: number) => void;
   setSensorHeight: (value: number) => void;
+  setAutoStartAfterCalibration: (value: boolean) => void;
   // Función para resetear los settings
   resetPoseSettings: (value: boolean) => void;
   resetPoseGraphSettings: () => void;
@@ -166,6 +168,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       cutoffFrequency: 5,               // en Hz
       testDuration: 15,                 // en segundos
       sensorHeight: 110,                // en cm
+      autoStartAfterCalibration: true,
     },
   };
 
@@ -273,6 +276,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const setCutoffFrequency = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, cutoffFrequency: value } }));
   const setTestDuration = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, testDuration: value } }));
   const setSensorHeight = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, sensorHeight: value } }));
+  const setAutoStartAfterCalibration = (value: boolean) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, autoStartAfterCalibration: value } }));
   const resetBalanceSettings = () => {
     setSettings(prev => ({ ...prev, balance: defaultConfig.balance }));
   }; 
@@ -326,6 +330,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setCutoffFrequency,
         setTestDuration,
         setSensorHeight,
+        setAutoStartAfterCalibration,
         resetBalanceSettings
       }}
       >

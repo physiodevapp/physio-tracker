@@ -28,6 +28,7 @@ export interface IndexProps {
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [showSettings, setShowSettings] = useState(false);
   const { settings, setSensorHeight } = useSettings();
+  const { autoStartAfterCalibration } = settings.balance;
 
   const [isInfoLogVisible, setIsInfoLogVisible] = useState(true);
 
@@ -37,6 +38,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [hasValidTestResults, setHasValidTestResults] = useState(false);
   const [isDefaultState, setIsDefaultState] = useState(false);
   
+  const [isManualStart, setIsManualStart] = useState(false);
+
   const { 
     startMotion, stopMotion,
     isBaselineDefined,
@@ -44,7 +47,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     log,
     COPData, 
     frequencyData,
-  } = useMotionHandler({settings: settings.balance});
+  } = useMotionHandler({
+    settings: settings.balance,
+    isManualStart,
+  });
 
   const { orientation } = useOrientationHandler({
     settings: settings.balance,
@@ -77,6 +83,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       stopMotion();
 
       setIsInfoLogVisible(true);
+
+      setIsManualStart(false);
     }
   }, [isRecording]);
 
@@ -116,7 +124,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               <p className="text-lg">Are you sure?</p>
               <button 
                 className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg p-2"
-                onClick={() =>  setIsRecording(false)}
+                onClick={() => setIsRecording(false)}
                 >
                   Cancel now
                 </button>
@@ -124,29 +132,41 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           </div>
         ) : null
       }
-      {isRecording && (
-        <div 
-          {...(!isOrientationCorrect && { 'data-element': 'non-swipeable' })}
-          className='absolute w-full h-dvh z-50 flex justify-center items-center bg-black/30'
-          onClick={() => setIsCancellationRequested(true)}
-          >
-          <CountdownRing 
-            seconds={15}
-            start={isBaselineDefined}
-            pause={!isOrientationCorrect}
-            onEnd={() => setIsRecording(false)}
-            size={200}
-            thickness={12}
-            backgroundThickness={11}
-            color={isOrientationCorrect
-              ? !isBaselineDefined ? 'yellow' : 'limegreen'
-              : 'red'
+      {/**isRecording */}
+      {isRecording ? (
+          <div 
+            {...(!isOrientationCorrect && { 'data-element': 'non-swipeable' })}
+            className='absolute w-full h-dvh z-50 flex justify-center items-center bg-black/30'
+            onClick={() => setIsCancellationRequested(true)}
+            >
+            {(!autoStartAfterCalibration && isBaselineDefined) ? (
+              <button 
+                className="absolute z-10 top-1/2 -translate-y-1/2 px-6 rotate-90 rounded-lg p-2 bg-green-500 font-bold uppercase text-2xl"
+                onClick={() => setIsManualStart(true)}
+              >Start</button>
+              ) : null
             }
-            backgroundColor='#444'
-            text={log}
-            />
-        </div>
-      )}
+            <CountdownRing 
+              seconds={15}
+              start={
+                isBaselineDefined && 
+                (autoStartAfterCalibration || isManualStart)
+              }
+              pause={!isOrientationCorrect}
+              onEnd={() => setIsRecording(false)}
+              size={200}
+              thickness={12}
+              backgroundThickness={11}
+              color={isOrientationCorrect
+                ? !isBaselineDefined ? 'yellow' : 'limegreen'
+                : 'red'
+              }
+              backgroundColor='#444'
+              text={log}
+              />
+          </div>
+        ) : null
+      }
       {!isRecording && (
         <>
           <div className="absolute top-0 left-0 z-[1] w-full h-[7rem] bg-gradient-to-b from-white via-white/20 to-transparent dark:from-black dark:via-black/20 dark:to-transparent pointer-events-none"></div>
@@ -319,7 +339,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                         <button 
                           className="absolute top-1/2 -translate-y-1/2 px-6 rotate-90 rounded-lg p-2 bg-green-500 font-bold uppercase text-2xl animate-pulse"
                           onClick={() => settings?.balance && setIsRecording(true)}
-                        >Start</button>
+                        >Calibrate</button>
                       </>
                     ) : null
                   }
