@@ -940,7 +940,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           </div>
         ) : null
       }
-      <div className={`relative z-30 flex flex-col items-center justify-start ${
+      <div 
+        data-element={(videoUrl && (!videoRef.current?.paused || !videoProcessed)) ? 'non-swipeable' : ''}
+        className={`relative z-30 flex flex-col items-center justify-start ${
           displayGraphs ? "h-[50dvh]" : "h-dvh"
         }`}>
         <motion.h1
@@ -1014,7 +1016,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                     <VideoCameraIcon 
                       className={`h-6 w-6 cursor-pointer ${recording ? 'text-green-500 animate-pulse ' : 'text-white'}`}
                       />
-                    <p className="absolute top-[60%] -right-1 bg-white/80 dark:bg-black/80 rounded-[0.2rem] px-[0.2rem] py-0 text-[#5dadec] text-xs text-center">
+                    <p className="absolute top-[60%] -right-1 bg-white/80 dark:bg-black/80 rounded-[0.2rem] px-[0.2rem] py-0 text-[#5dadec] dark:text-white text-xs text-center">
                       {(recording ? estimatedFps : undefined) ?? "FPS"}
                     </p>
                   </div>
@@ -1035,31 +1037,34 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   </>
                 </>
               )}
-              {videoUrl && (
-                <TrashIcon 
-                  className={`h-6 w-6 cursor-pointer ${
-                    videoProcessed ? 'text-orange-300' : 'text-red-500'
-                  }`}
-                  onClick={handleRemoveRecord}
-                  />
-              )}
-              {(videoUrl && !videoProcessed) && (
-                <CubeTransparentIcon 
-                  className={`h-6 w-6 text-white cursor-pointer ${
-                    ((!isFrozen && videoProcessed) || displayGraphs) ? "opacity-40" : ""
-                  }`}
-                  onClick={() => ((isFrozen || !videoProcessed) && !displayGraphs) && handleProcessVideo()}
-                  />
-              )}
-              {((videoUrl && videoProcessed)) && (
-                <PresentationChartBarIcon 
-                  data-element="non-swipeable"
-                  className={`h-6 w-6 text-white cursor-pointer ${
-                    recording ? 'opacity-40' : ''
-                  }`} 
-                  onClick={() => !recording && handleGrahpsVisibility()}
-                  />
-              )}
+              {videoUrl ? (
+                  <TrashIcon 
+                    className={`h-6 w-6 cursor-pointer ${
+                      videoProcessed ? 'text-orange-300' : 'text-red-500'
+                    }`}
+                    onClick={handleRemoveRecord}
+                    />
+                ) : null
+              }
+              {(videoUrl && !videoProcessed) ? (
+                  <CubeTransparentIcon 
+                    className={`h-6 w-6 text-white cursor-pointer ${
+                      ((!isFrozen && videoProcessed) || displayGraphs) ? "opacity-40" : ""
+                    }`}
+                    onClick={() => ((isFrozen || !videoProcessed) && !displayGraphs) && handleProcessVideo()}
+                    />
+                ) : null
+              }
+              {((videoUrl && videoProcessed)) ? (
+                  <PresentationChartBarIcon 
+                    data-element="non-swipeable"
+                    className={`h-6 w-6 text-white cursor-pointer ${
+                      recording ? 'opacity-40' : ''
+                    }`} 
+                    onClick={() => !recording && handleGrahpsVisibility()}
+                    />
+                ) : null
+              }
             </section>
             <section 
               data-element="non-swipeable"
@@ -1074,7 +1079,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 <CameraIcon 
                   className={`h-6 w-6 cursor-pointer`}
                   />
-                <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 text-[#5dadec] bg-white/80 dark:bg-black/80 rounded-full p-[0.1rem]"/>
+                <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 text-[#5dadec] dark:text-white bg-white/80 dark:bg-black/80 rounded-full p-[0.1rem]"/>
               </div>
               <UserIcon 
                 className={`h-6 w-6 cursor-pointer ${
@@ -1109,9 +1114,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                       onClick={forwardStep}/>
                   </>
                 )}
-                {(!videoProcessed && !videoRef.current?.paused) && (
+                {(!videoProcessed && !videoRef.current?.paused) ? (
                   <CubeTransparentIcon className="w-8 h-8 text-white animate-spin"/>
-                )}
+                  ) : null
+                }
             </section>
           ) : null
         }
