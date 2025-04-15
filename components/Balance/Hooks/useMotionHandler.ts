@@ -28,6 +28,7 @@ export default function useMotionHandler({
 
   const isManualStartRef = useRef(isManualStart);
   const isCancellationRequestedRef = useRef(isCancellationRequested);
+  const autoStartAfterCalibrationRef = useRef(autoStartAfterCalibration);
 
   // 🛠️ Variables del filtro Butterworth
   const filterStateRef_Y = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });
@@ -144,7 +145,7 @@ export default function useMotionHandler({
 
     if (now - measurementStartTimeRef.current < CALIBRATION_DELAY) {
       // console.log(`Esperando ${((CALIBRATION_DELAY - (now - measurementStartTimeRef.current)) / 1000).toFixed(0)} segundos...`);
-      setLog(`Hold still...`)
+      setLog(`Hold still...`);
       return false;
     }
 
@@ -523,6 +524,10 @@ export default function useMotionHandler({
   useEffect(() => {
     isCancellationRequestedRef.current = isCancellationRequested;
   }, [isCancellationRequested]);
+
+  useEffect(() => {
+    autoStartAfterCalibrationRef.current = autoStartAfterCalibration;
+  }, [autoStartAfterCalibration]);
 
   useEffect(() => {
 
