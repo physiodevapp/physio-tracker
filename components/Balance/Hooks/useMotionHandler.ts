@@ -429,7 +429,6 @@ export default function useMotionHandler({
       motionListenerActiveRef.current = false;
       analyzeDeviceMotionData({calculationMode: "postProcessing"});
       window.removeEventListener('devicemotion', handleMotion, false);
-      setLog(motionDataRef.current.length.toFixed(0)) 
     }
   }
 
