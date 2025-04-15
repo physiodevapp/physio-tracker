@@ -293,6 +293,8 @@ export default function useMotionHandler({
           motionDataRef.current = [];
         }
 
+        setLog(motionDataRef.current.length.toFixed(0))
+
         // analyzeDeviceMotionData({calculationMode: "realTime"});
       }
     } catch (error) {
@@ -393,6 +395,7 @@ export default function useMotionHandler({
 
   // ⚙️ ** Analizar los datos del evento DeviceMotion **
   function analyzeDeviceMotionData ({ calculationMode }: {calculationMode: "realTime" | "postProcessing"}) {
+    setLog(motionDataRef.current.length.toFixed(0))
     try {      
       // Frequencies
       const {
@@ -471,7 +474,7 @@ export default function useMotionHandler({
       });
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      setLog(`Unsufficient data`);
+      setLog(`Unsufficient data ${motionDataRef.current.length.toFixed(0)}`);
     }
   }
 
