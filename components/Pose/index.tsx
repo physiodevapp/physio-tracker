@@ -1204,7 +1204,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           ? 'rotate-45'
           : '-rotate-45'
         }`}
-        onClick={() => {           
+        onClick={() => { 
+          if (!showOrthogonalOption) return;
+                    
           setOrthogonalReference(prev => {
             if (prev === 'vertical') return 'horizontal';
             if (prev === 'horizontal') return undefined;

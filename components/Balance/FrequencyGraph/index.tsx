@@ -167,6 +167,11 @@ const Index: React.FC<IndexProps> = ({
         animation: false,
         maintainAspectRatio: true,
         aspectRatio: 1,
+        interaction: {
+          mode: "nearest",
+          axis: "x",
+          intersect: false,
+        },
         plugins: {
           legend: { display: true, labels: { usePointStyle: true } },
           tooltip: {

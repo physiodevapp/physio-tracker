@@ -28,7 +28,10 @@ export interface IndexProps {
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [showSettings, setShowSettings] = useState(false);
   const { settings, setSensorHeight } = useSettings();
-  const { autoStartAfterCalibration } = settings.balance;
+  const { 
+    testDuration,
+    autoStartAfterCalibration, 
+  } = settings.balance;
 
   const [isInfoLogVisible, setIsInfoLogVisible] = useState(true);
 
@@ -147,7 +150,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               ) : null
             }
             <CountdownRing 
-              seconds={15}
+              seconds={testDuration}
               start={
                 isBaselineDefined && 
                 (autoStartAfterCalibration || isManualStart)
@@ -339,7 +342,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                         <button 
                           className="absolute top-1/2 -translate-y-1/2 px-6 rotate-90 rounded-lg p-2 bg-green-500 font-bold uppercase text-2xl animate-pulse"
                           onClick={() => settings?.balance && setIsRecording(true)}
-                        >Calibrate</button>
+                        >{autoStartAfterCalibration ? 'Start' : 'Calibrate'}</button>
                       </>
                     ) : null
                   }

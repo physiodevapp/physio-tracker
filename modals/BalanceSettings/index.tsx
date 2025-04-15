@@ -142,8 +142,7 @@ const Index = () => {
           </div>
         </div>
         <div className="flex justify-around gap-6 mt-4">
-          <div className="flex-1 flex flex-row-reverse justify-end gap-2">
-            <span className="text-white text-sm px-2">Auto-start after calibration</span>
+          <div className="flex-1 flex flex-col justify-end gap-2">
             <label className="relative inline-flex items-center cursor-pointer">
               <input 
                 type="checkbox" 
@@ -160,6 +159,7 @@ const Index = () => {
                 className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow
                 peer-checked:translate-x-full transform transition-all duration-200"
               ></div>
+              <span className="text-white text-sm px-2">Auto-start after calibration</span>
             </label>
           </div>
         </div>
