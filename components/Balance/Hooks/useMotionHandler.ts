@@ -293,8 +293,6 @@ export default function useMotionHandler({
           motionDataRef.current = [];
         }
 
-        setLog(motionDataRef.current.length.toFixed(0))
-
         // analyzeDeviceMotionData({calculationMode: "realTime"});
       }
     } catch (error) {
@@ -389,13 +387,13 @@ export default function useMotionHandler({
       console.log("🔴 Motion Listener DETENIDO");
       motionListenerActiveRef.current = false;
       analyzeDeviceMotionData({calculationMode: "postProcessing"});
-      window.removeEventListener('devicemotion', handleMotion, false);      
+      window.removeEventListener('devicemotion', handleMotion, false);  
+      setLog(motionDataRef.current.length.toFixed(0))    
     }
   }
 
   // ⚙️ ** Analizar los datos del evento DeviceMotion **
   function analyzeDeviceMotionData ({ calculationMode }: {calculationMode: "realTime" | "postProcessing"}) {
-    setLog(motionDataRef.current.length.toFixed(0))
     try {      
       // Frequencies
       const {
@@ -474,7 +472,7 @@ export default function useMotionHandler({
       });
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      setLog(`Unsufficient data ${motionDataRef.current.length.toFixed(0)}`);
+      setLog(`Unsufficient data: ${motionDataRef.current.length.toFixed(0)} points`);
     }
   }
 
