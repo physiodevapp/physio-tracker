@@ -1,96 +1,52 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Chart as ChartJS, ChartConfiguration, ChartEvent, registerables } from "chart.js";
+import { Chart as ChartJS, ChartConfiguration, registerables } from "chart.js";
 
 ChartJS.register(...registerables);
 
-interface SpectrumParams {
-  frequencies: number[];
-  amplitudes: number[];
-}
-
-interface IndexProps {
-  spectrumParamsY: SpectrumParams;
-  spectrumParamsZ: SpectrumParams;
-  options: {
-    canvasId: string;
-    maxFreq?: number;
-  }
-}
-
 const customCrosshairPlugin = (isActive: boolean = true) => ({
   id: 'customCrosshair',
-  afterEvent(chart: ChartJS & { _customCrosshairX?: number; _lastEvent?: ChartEvent }, args: { event: ChartEvent }) {
-    if (!isActive) return;
-
-    const { chartArea } = chart;
-    const { event } = args;
-
-    if (!event || event.x == null || event.y == null) return;
-
-    // Guardar la última posición del ratón para tooltip y crosshair
-    chart._lastEvent = event;
-
-    if (
-      event.x >= chartArea.left &&
-      event.x <= chartArea.right &&
-      event.y >= chartArea.top &&
-      event.y <= chartArea.bottom
-    ) {
-      chart._customCrosshairX = event.x;
-    } else {
-      chart._customCrosshairX = undefined;
-    }
-  },
   afterDraw(chart: ChartJS & { _customCrosshairX?: number }) {
     if (!isActive) return;
-  
-    const x = chart._customCrosshairX;
-    if (!x) return;
 
-    // Comprobar si hay datasets visibles
+    const x = chart._customCrosshairX;
+    if (x == null) return;
+
     const anyVisible = chart.data.datasets.some((_, index) => {
       const meta = chart.getDatasetMeta(index);
       return !meta.hidden;
     });
-  
-    // ❌ Si no hay datos visibles, no dibujamos nada
+
     if (!anyVisible) return;
-  
+
     const { ctx, chartArea, scales } = chart;
-    const xScale = scales['x'];
-    const yScale = scales['y'];
-  
+    const xScale = scales["x"];
+    const yScale = scales["y"];
     const xValue = xScale.getValueForPixel(x);
-  
-    // Línea vertical roja
+
+    // Línea vertical
     ctx.save();
-    ctx.strokeStyle = '#F66';
+    ctx.strokeStyle = "#F66";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x, chartArea.top);
     ctx.lineTo(x, chartArea.bottom);
     ctx.stroke();
     ctx.restore();
-  
-    // Para cada dataset
+
     chart.data.datasets.forEach((dataset, datasetIndex) => {
       const meta = chart.getDatasetMeta(datasetIndex);
-      if (meta.hidden) return; 
+      if (meta.hidden) return;
 
       const data = dataset.data as { x: number; y: number }[];
-  
-      if (!data || !data.length) return;
-  
-      // Buscar el punto más cercano al xValue
+
       const closestPoint = data.reduce((prev, curr) =>
         Math.abs(curr.x - xValue!) < Math.abs(prev.x - xValue!) ? curr : prev
       );
-  
+
       const yPixel = yScale.getPixelForValue(closestPoint.y);
-  
-      // Dibujar línea horizontal en y = yPixel
+
       ctx.save();
       ctx.strokeStyle = dataset.borderColor as string;
       ctx.lineWidth = 1;
@@ -101,80 +57,91 @@ const customCrosshairPlugin = (isActive: boolean = true) => ({
       ctx.stroke();
       ctx.restore();
     });
-  }, 
+  },
 });
 
-const Index: React.FC<IndexProps> = ({
-  spectrumParamsY,
-  spectrumParamsZ,
-  options,
-}) => {
+const Index: React.FC = () => {
   const chartRef = useRef<ChartJS | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const { canvasId, maxFreq = 10 } = options;
 
   const [tooltipData, setTooltipData] = useState<{
     x: number;
     values: { label: string; value: number; color: string }[];
-  } | null>(null); 
-
-  const { filteredDataY, filteredDataZ } = useMemo(() => {
-    const filterData = (frequencies: number[], amplitudes: number[]) => {
-      return frequencies.reduce<{ points: { x: number; y: number }[] }>(
-        (acc, freq, i) => {
-          if (freq >= 0 && freq <= maxFreq) {
-            acc.points.push({ x: freq, y: amplitudes[i] });
-          }
-          return acc;
-        },
-        { points: [] }
-      );
-    };
-  
-    const { points: filteredDataY } = filterData(
-      spectrumParamsY.frequencies,
-      spectrumParamsY.amplitudes
-    );
-    const { points: filteredDataZ } = filterData(
-      spectrumParamsZ.frequencies,
-      spectrumParamsZ.amplitudes
-    );
-  
-    return { filteredDataY, filteredDataZ };
-  }, [spectrumParamsY, spectrumParamsZ, maxFreq]);
-  
+  } | null>(null);  
 
   const chartConfig = useMemo<ChartConfiguration>(
     () => ({
       type: "line",
       data: {
-        // labels: filteredFreqsY,
+        // labels: [0.5, 1.0, 1.5, 2.0, 2.5, 3.0],
         datasets: [
           {
             label: "ML Amplitude",
-            data: filteredDataY,
+            data: [
+              { x: 0.5, y: 0.01 },
+              { x: 0.75, y: 0.015 },
+              { x: 1.0, y: 0.03 },
+              { x: 1.25, y: 0.045 },
+              { x: 1.5, y: 0.08 },
+              { x: 1.75, y: 0.09 },
+              { x: 2.0, y: 0.07 },
+              { x: 2.25, y: 0.05 },
+              { x: 2.5, y: 0.04 },
+              { x: 2.75, y: 0.035 },
+              { x: 3.0, y: 0.03 },
+              { x: 3.25, y: 0.025 },
+              { x: 3.5, y: 0.02 },
+              { x: 3.75, y: 0.015 },
+              { x: 4.0, y: 0.01 },
+              { x: 4.25, y: 0.008 },
+              { x: 4.5, y: 0.006 },
+              { x: 4.75, y: 0.005 },
+              { x: 5.0, y: 0.004 },
+              { x: 5.25, y: 0.003 },
+            ],
             borderColor: "rgba(75, 192, 192, 1)",
             backgroundColor: "rgba(75, 192, 192, 0.2)",
             fill: false,
             pointRadius: 0,
             pointHoverRadius: 3,
             pointHoverBorderWidth: 1,
-            pointHoverBorderColor: 'red',
+            pointHoverBorderColor: "red",
             pointHitRadius: 0,
           },
           {
             label: "AP Amplitude",
-            data: filteredDataZ,
+            data: [
+              { x: 0.5, y: 0.008 },
+              { x: 0.75, y: 0.012 },
+              { x: 1.0, y: 0.025 },
+              { x: 1.25, y: 0.04 },
+              { x: 1.5, y: 0.065 },
+              { x: 1.75, y: 0.1 },
+              { x: 2.0, y: 0.11 },
+              { x: 2.25, y: 0.095 },
+              { x: 2.5, y: 0.07 },
+              { x: 2.75, y: 0.055 },
+              { x: 3.0, y: 0.045 },
+              { x: 3.25, y: 0.04 },
+              { x: 3.5, y: 0.035 },
+              { x: 3.75, y: 0.03 },
+              { x: 4.0, y: 0.025 },
+              { x: 4.25, y: 0.02 },
+              { x: 4.5, y: 0.015 },
+              { x: 4.75, y: 0.01 },
+              { x: 5.0, y: 0.008 },
+              { x: 5.25, y: 0.006 },
+            ],
             borderColor: "rgba(245, 143, 180, 1)",
             backgroundColor: "rgba(245, 143, 180, 0.2)",
             fill: false,
             pointRadius: 0,
             pointHoverRadius: 3,
             pointHoverBorderWidth: 1,
-            pointHoverBorderColor: 'red',
+            pointHoverBorderColor: "red",
             pointHitRadius: 0,
           },
-        ],
+        ],        
       },
       plugins: [
         customCrosshairPlugin(),
@@ -195,7 +162,7 @@ const Index: React.FC<IndexProps> = ({
             labels: { 
               usePointStyle: true 
             },
-            onClick: () => {},
+            onClick: () => {}                                                   
           },
           tooltip: {
             enabled: false,
@@ -221,7 +188,7 @@ const Index: React.FC<IndexProps> = ({
                 return {
                   label: point.dataset.label ?? '',
                   value: point.parsed.y,
-                  color: (dataset.borderColor as string) ?? 'black',
+                  color: (dataset.borderColor as string) ?? 'black', // ✅ usa dataset directamente
                 };
               });
             
@@ -229,14 +196,14 @@ const Index: React.FC<IndexProps> = ({
             
               chart._customCrosshairX = tooltip.caretX;
               chart.draw();
-            }, 
+            },                                             
           },
         },
         scales: {
           x: {
             type: "linear",
             min: 0,
-            max: maxFreq,
+            max: 6,
             title: { display: true, text: "Frequency (Hz)" },
             ticks: {
               stepSize: 1,
@@ -252,7 +219,7 @@ const Index: React.FC<IndexProps> = ({
         },
       },
     }),
-    [filteredDataY, filteredDataZ, maxFreq]
+    []
   );
 
   useEffect(() => {
@@ -296,7 +263,7 @@ const Index: React.FC<IndexProps> = ({
         </div>
       </div>
 
-      <canvas id={canvasId} ref={canvasRef} className="bg-white"/>
+      <canvas id={'testing-canvas'} ref={canvasRef} className="bg-white"/>
     </div>
   );
 };
