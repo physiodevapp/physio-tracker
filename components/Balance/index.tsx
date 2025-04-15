@@ -156,7 +156,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 isBaselineDefined && 
                 (autoStartAfterCalibration || isManualStart)
               }
-              pause={!isOrientationCorrect}
+              pause={!isOrientationCorrect || isCancellationRequested}
               onEnd={() => setIsRecording(false)}
               size={200}
               thickness={12}
