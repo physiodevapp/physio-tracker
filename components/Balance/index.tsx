@@ -31,6 +31,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const { 
     testDuration,
     autoStartAfterCalibration, 
+    calibrationPoints,
+    sensorHeight,
   } = settings.balance;
 
   const [isInfoLogVisible, setIsInfoLogVisible] = useState(true);
@@ -81,19 +83,19 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       setHasValidTestResults(false);
     } 
     else if (!isDefaultState) {
-      setIsCancellationRequested(false);
       stopMotion();
-
+      
       setIsInfoLogVisible(true);
-
+      
+      setIsCancellationRequested(false);
       setIsManualStart(false);
     }
   }, [isRecording]);
 
   useEffect(() => {
-    const hasSufficientData = (COPData.copPoints?.length ?? 0) > settings.balance.calibrationPoints
+    const hasSufficientData = (COPData.copPoints?.length ?? 0) > calibrationPoints
     if (isBaselineDefined && hasSufficientData) {
-      setHasValidTestResults(true)
+      setHasValidTestResults(true);
     } 
     else {
       setHasValidTestResults(false);
@@ -101,7 +103,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }, [COPData]);
 
   const getThumbPosition = () => {
-    const percentage = ((settings.balance.sensorHeight - 40) / (220 - 40)) * 100;
+    const percentage = ((sensorHeight - 40) / (220 - 40)) * 100;
     return `${percentage}%`;
   };
 
@@ -316,7 +318,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                     {orientation === "landscape" ? (
                         <>
                           <div className="absolute top-1/2 -translate-y-1/2 left-0 w-[6rem] py-1 rotate-90 bg-blue-500 text-white text-lg text-center rounded-xl border-[6px] border-white dark:border-background-dark">
-                            {settings.balance.sensorHeight} cm
+                            {sensorHeight} cm
                           </div>
                           <div
                             data-element="non-swipeable" 
@@ -335,7 +337,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                               <input
                                 id="update-height"
                                 type="range"
-                                value={settings.balance.sensorHeight}
+                                value={sensorHeight}
                                 min="40"
                                 max="220"
                                 step="5"

@@ -292,10 +292,6 @@ export default function useMotionHandler({
 
         if (!isBaselineDefinedRef.current) calibrateBaseline();
 
-        if (!autoStartAfterCalibration) {
-          setLog(isManualStartRef.current ? 'true' : 'false')
-        }
-
         if (!autoStartAfterCalibration && !isManualStartRef.current) {
           motionDataRef.current = [];
         }
@@ -330,6 +326,9 @@ export default function useMotionHandler({
       noGravityFiltered: { y: 0, z: 0 },
     };
     setIsOrientationCorrect(false);
+
+    isManualStartRef.current = false;
+    isCancellationRequestedRef.current = false;
     
     // Resetear variables relacionadas con la medición
     motionDataRef.current = [];
@@ -394,7 +393,8 @@ export default function useMotionHandler({
       console.log("🔴 Motion Listener DETENIDO");
       motionListenerActiveRef.current = false;
       analyzeDeviceMotionData({calculationMode: "postProcessing"});
-      window.removeEventListener('devicemotion', handleMotion, false); 
+      window.removeEventListener('devicemotion', handleMotion, false);
+      setLog(motionDataRef.current.length.toFixed(0)) 
     }
   }
 
