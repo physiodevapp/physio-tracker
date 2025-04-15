@@ -36,7 +36,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [isInfoLogVisible, setIsInfoLogVisible] = useState(true);
 
   const [isRecording, setIsRecording] = useState<boolean | null>(null);
-  const [isCancellationRequested, setIsCancellationRequested] = useState<boolean | null>(null);
+  const [isCancellationRequested, setIsCancellationRequested] = useState<boolean>(false);
 
   const [hasValidTestResults, setHasValidTestResults] = useState(false);
   const [isDefaultState, setIsDefaultState] = useState(false);
@@ -194,7 +194,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   {/**hasValidTestResults */}
                   {hasValidTestResults ? (  
                       <div data-element="non-swipeable">
-                        <p className="absolute -translate-y-10 text-lg">Metrics analyzed</p>
+                        <p className="absolute -translate-y-10 left-1/2 -translate-x-1/2 text-lg">Metrics analyzed</p>
                         <section className="flex flex-row flex-wrap w-full px-2 gap-y-4">
                           <div className="flex-1 basis-full py-2 border-2 border-gray-400  dark:border-white rounded-lg">
                             <table className="w-full border-collapse text-left">
