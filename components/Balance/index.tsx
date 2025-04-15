@@ -144,10 +144,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             className='absolute w-full h-dvh z-60 flex justify-center items-center bg-black/30'
             onClick={() => setIsCancellationRequested(true)}
             >
+              {/**(!autoStartAfterCalibration && isBaselineDefined && !isManualStart) */}
             {(!autoStartAfterCalibration && isBaselineDefined && !isManualStart) ? (
               <button 
                 className="absolute z-10 top-1/2 -translate-y-1/2 px-6 rotate-90 rounded-lg p-2 bg-green-500 font-bold uppercase text-2xl"
-                onClick={() => setIsManualStart(true)}
+                onClick={(event) => {
+                  event.stopPropagation();
+
+                  setIsManualStart(true);
+                }}
               >Start</button>
               ) : null
             }
