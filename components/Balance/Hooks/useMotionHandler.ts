@@ -26,6 +26,9 @@ export default function useMotionHandler({
     autoStartAfterCalibration,
   } = settings;
 
+  const isManualStartRef = useRef(isManualStart);
+  const isCancellationRequestedRef = useRef(isCancellationRequested);
+
   // 🛠️ Variables del filtro Butterworth
   const filterStateRef_Y = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });
   const filterStateRef_Y_2 = useRef<IFilterState>({ x1: 0, x2: 0, y1: 0, y2: 0 });
@@ -228,7 +231,7 @@ export default function useMotionHandler({
     try {
       if (!motionListenerActiveRef.current) return;
 
-      if (isBaselineDefinedRef.current === true && isCancellationRequested) return;
+      if (isBaselineDefinedRef.current === true && isCancellationRequestedRef.current) return;
 
       if (!isDeviceInCorrectPosition({gravity_X: (event.accelerationIncludingGravity!.x! - event.acceleration! .x!)})) return;
       
@@ -290,10 +293,10 @@ export default function useMotionHandler({
         if (!isBaselineDefinedRef.current) calibrateBaseline();
 
         if (!autoStartAfterCalibration) {
-          setLog(isManualStart ? 'true' : 'false')
+          setLog(isManualStartRef.current ? 'true' : 'false')
         }
 
-        if (!autoStartAfterCalibration && !isManualStart) {
+        if (!autoStartAfterCalibration && !isManualStartRef.current) {
           motionDataRef.current = [];
         }
 
@@ -478,6 +481,14 @@ export default function useMotionHandler({
       setLog(`Unsufficient data: ${motionDataRef.current.length.toFixed(0)} points`);
     }
   }
+
+  useEffect(() => {
+    isManualStartRef.current = isManualStart;
+  }, [isManualStart]);
+  
+  useEffect(() => {
+    isCancellationRequestedRef.current = isCancellationRequested;
+  }, [isCancellationRequested]);
 
   useEffect(() => {
 
