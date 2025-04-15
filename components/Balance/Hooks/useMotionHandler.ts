@@ -289,6 +289,10 @@ export default function useMotionHandler({
 
         if (!isBaselineDefinedRef.current) calibrateBaseline();
 
+        if (!autoStartAfterCalibration) {
+          setLog(isManualStart ? 'true' : 'false')
+        }
+
         if (!autoStartAfterCalibration && !isManualStart) {
           motionDataRef.current = [];
         }
@@ -387,8 +391,7 @@ export default function useMotionHandler({
       console.log("🔴 Motion Listener DETENIDO");
       motionListenerActiveRef.current = false;
       analyzeDeviceMotionData({calculationMode: "postProcessing"});
-      window.removeEventListener('devicemotion', handleMotion, false);  
-      setLog(motionDataRef.current.length.toFixed(0))    
+      window.removeEventListener('devicemotion', handleMotion, false); 
     }
   }
 
