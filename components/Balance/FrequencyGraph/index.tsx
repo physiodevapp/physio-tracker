@@ -101,29 +101,7 @@ const customCrosshairPlugin = (isActive: boolean = true) => ({
       ctx.stroke();
       ctx.restore();
     });
-  },
-  afterDatasetVisibilityChange(chart: Chart & { _lastEvent?: ChartEvent }) {
-    if (!chart._lastEvent) return;
-  
-    const event = chart._lastEvent;
-  
-    const elements = chart.getElementsAtEventForMode(
-      event as unknown as Event,
-      'nearest',
-      { intersect: false },
-      false
-    );
-  
-    if (elements.length > 0) {
-      // Si hay elementos visibles → mostrar tooltip
-      chart.setActiveElements(elements);
-    } else {
-      // Si no hay nada → ocultar tooltip
-      chart.setActiveElements([]);
-    }
-  
-    chart.update();
-  },  
+  }, 
 });
 
 const Index: React.FC<IndexProps> = ({
@@ -134,6 +112,8 @@ const Index: React.FC<IndexProps> = ({
   const chartRef = useRef<Chart | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { canvasId, maxFreq = 10 } = options;
+
+  const crosshairXValueRef = useRef<number | undefined>(undefined);
 
   const { filteredFreqsY, filteredAmpsY, filteredAmpsZ } = useMemo(() => {
     const filterData = (frequencies: number[], amplitudes: number[]) => {
@@ -207,7 +187,74 @@ const Index: React.FC<IndexProps> = ({
           intersect: false,
         },
         plugins: {
-          legend: { display: true, labels: { usePointStyle: true } },
+          legend: { 
+            display: true, 
+            labels: { 
+              usePointStyle: true 
+            },
+            onClick: (e, legendItem, legend) => {
+              const chart = legend.chart as Chart & { _customCrosshairX?: number };
+              const xScale = chart.scales['x'];
+            
+              const index = legendItem.datasetIndex;
+              if (typeof index !== 'number') return;
+            
+              const meta = chart.getDatasetMeta(index);
+              const isCurrentlyHidden = meta.hidden ?? false;
+              meta.hidden = !isCurrentlyHidden;
+            
+              // Capturamos el valor actual visible antes del update
+              const activeTooltipPoint = chart.tooltip?.dataPoints?.[0];
+              const xValueBeforeUpdate = crosshairXValueRef.current ?? activeTooltipPoint?.parsed?.x;
+            
+              chart.update();
+            
+              const allHidden = chart.data.datasets.every((_, i) => {
+                const meta = chart.getDatasetMeta(i);
+                return meta.hidden === true;
+              });
+            
+              if (allHidden) {
+                chart.setActiveElements([]);
+                chart.update();
+                chart._customCrosshairX = undefined;
+                chart.draw();
+                return;
+              }
+            
+              // ✅ Solo usar xValueBeforeUpdate, NO verticalLineValue
+              if (xValueBeforeUpdate === undefined) return;
+            
+              chart._customCrosshairX = xScale.getPixelForValue(xValueBeforeUpdate);
+              crosshairXValueRef.current = xValueBeforeUpdate; 
+            
+              const activeElements: { datasetIndex: number; index: number }[] = [];
+            
+              chart.data.datasets.forEach((dataset, datasetIndex) => {
+                const meta = chart.getDatasetMeta(datasetIndex);
+                if (meta.hidden) return;
+            
+                const points = dataset.data as { x: number; y: number }[];
+            
+                let closestIndex = 0;
+                let minDiff = Infinity;
+            
+                points.forEach((point, index) => {
+                  const diff = Math.abs(point.x - xValueBeforeUpdate);
+                  if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIndex = index;
+                  }
+                });
+            
+                activeElements.push({ datasetIndex, index: closestIndex });
+              });
+            
+              chart.setActiveElements(activeElements);
+              chart.update();
+              chart.draw();
+            }, 
+          },
           tooltip: {
             boxPadding: 6,
             callbacks: {

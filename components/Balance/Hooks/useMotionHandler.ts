@@ -5,7 +5,13 @@ import { IFilterState, IFrequencyData, IMotionData, ICOPData } from "@/interface
 import { butterworthLowPass_SampleGeneric, getFrequencyFeatures, calculateSTD, calculateCOP_Stats } from "@/utils/balance";
 import { BalanceSettings } from "@/providers/Settings";
 
-export default function useMotionHandler({settings, isManualStart}: {settings: BalanceSettings, isManualStart: boolean}) {  
+export default function useMotionHandler({
+  settings, 
+  isManualStart,
+  isCancellationRequested,
+}: {
+  settings: BalanceSettings; isManualStart: boolean; isCancellationRequested: boolean;
+}) {  
   // 🔗 Constantes
   const {
     calibrationDelay: CALIBRATION_DELAY,
@@ -221,6 +227,8 @@ export default function useMotionHandler({settings, isManualStart}: {settings: B
   function handleMotion(event: DeviceMotionEvent) {
     try {
       if (!motionListenerActiveRef.current) return;
+
+      if (isBaselineDefinedRef.current === true && isCancellationRequested) return;
 
       if (!isDeviceInCorrectPosition({gravity_X: (event.accelerationIncludingGravity!.x! - event.acceleration! .x!)})) return;
       

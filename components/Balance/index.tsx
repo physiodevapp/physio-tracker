@@ -53,6 +53,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   } = useMotionHandler({
     settings: settings.balance,
     isManualStart,
+    isCancellationRequested,
   });
 
   const { orientation } = useOrientationHandler({
