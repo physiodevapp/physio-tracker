@@ -180,7 +180,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       {!isRecording ? (
           <>
             <div className="absolute top-0 left-0 z-[1] w-full h-[7rem] bg-gradient-to-b from-white via-white/20 to-transparent dark:from-black dark:via-black/20 dark:to-transparent pointer-events-none"></div>
-            <div 
+            <div  
               className={`relative w-full h-dvh flex flex-col items-center overflow-auto pt-[7rem]`}
               onClick={handleMainLayer}
               >

@@ -96,7 +96,24 @@ export default function useMotionHandler({
       ML_Y: 0,
       AP_Z: 0,
       Global: 0,
-    },    
+    },
+    jerk: { 
+      ML_Y: null, 
+      AP_Z: null, 
+      Global: null 
+    },
+    copArea: { 
+      boundaryPoints: null, 
+      value: null, 
+    },
+    ellipse: {
+      semiMajor: null,
+      semiMinor: null,
+      orientation: null,
+      centerX: null,
+      centerY: null,
+    },
+    copPoints: [],
   });
 
   // ⚙️ **Encapsulación de la verificación de posición**
@@ -357,6 +374,23 @@ export default function useMotionHandler({
         AP_Z: 0,
         Global: 0,
       },    
+      jerk: { 
+        ML_Y: null, 
+        AP_Z: null, 
+        Global: null 
+      },
+      copArea: { 
+        boundaryPoints: null, 
+        value: null, 
+      },
+      ellipse: {
+        semiMajor: null,
+        semiMinor: null,
+        orientation: null,
+        centerX: null,
+        centerY: null,
+      },
+      copPoints: [],
     });
     setFrequencyData({
       frequencies_y: [],
@@ -493,7 +527,7 @@ export default function useMotionHandler({
   useEffect(() => {
 
     return () => {
-      window.removeEventListener("devicemotion", handleMotion);
+      window.removeEventListener("devicemotion", handleMotion, false);
     }
   }, []);  
 
