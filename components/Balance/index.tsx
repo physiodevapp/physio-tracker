@@ -35,11 +35,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const [isInfoLogVisible, setIsInfoLogVisible] = useState(true);
 
-  const [isRecording, setIsRecording] = useState<boolean | null>(null);
+  const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isCancellationRequested, setIsCancellationRequested] = useState<boolean>(false);
 
   const [hasValidTestResults, setHasValidTestResults] = useState(false);
-  const [isDefaultState, setIsDefaultState] = useState(false);
+  const [isDefaultState, setIsDefaultState] = useState(true);
   
   const [isManualStart, setIsManualStart] = useState(false);
 
@@ -72,8 +72,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   };
 
   useEffect(() => {
-    if (isRecording === null) return;
-
     if (isRecording) {
       handleMainLayer();
 
@@ -82,7 +80,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       setIsDefaultState(false);
       setHasValidTestResults(false);
     } 
-    else {
+    else if (!isDefaultState) {
       setIsCancellationRequested(false);
       stopMotion();
 
