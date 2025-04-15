@@ -310,7 +310,7 @@ export default function useMotionHandler({
 
         if (!isBaselineDefinedRef.current) calibrateBaseline();
 
-        if (!autoStartAfterCalibration && !isManualStartRef.current) {
+        if (!autoStartAfterCalibrationRef.current && !isManualStartRef.current) {
           motionDataRef.current = [];
         }
 
