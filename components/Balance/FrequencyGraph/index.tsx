@@ -21,13 +21,16 @@ interface IndexProps {
 
 const customCrosshairPlugin = (isActive: boolean = true) => ({
   id: 'customCrosshair',
-  afterEvent(chart: Chart & { _customCrosshairX?: number }, args: { event: ChartEvent }) {
+  afterEvent(chart: Chart & { _customCrosshairX?: number; _lastEvent?: ChartEvent }, args: { event: ChartEvent }) {
     if (!isActive) return;
 
     const { chartArea } = chart;
     const { event } = args;
 
     if (!event || event.x == null || event.y == null) return;
+
+    // Guardar la última posición del ratón para tooltip y crosshair
+    chart._lastEvent = event;
 
     if (
       event.x >= chartArea.left &&
@@ -45,6 +48,15 @@ const customCrosshairPlugin = (isActive: boolean = true) => ({
   
     const x = chart._customCrosshairX;
     if (!x) return;
+
+    // Comprobar si hay datasets visibles
+    const anyVisible = chart.data.datasets.some((_, index) => {
+      const meta = chart.getDatasetMeta(index);
+      return !meta.hidden;
+    });
+  
+    // ❌ Si no hay datos visibles, no dibujamos nada
+    if (!anyVisible) return;
   
     const { ctx, chartArea, scales } = chart;
     const xScale = scales['x'];
@@ -89,7 +101,29 @@ const customCrosshairPlugin = (isActive: boolean = true) => ({
       ctx.stroke();
       ctx.restore();
     });
-  }
+  },
+  afterDatasetVisibilityChange(chart: Chart & { _lastEvent?: ChartEvent }) {
+    if (!chart._lastEvent) return;
+  
+    const event = chart._lastEvent;
+  
+    const elements = chart.getElementsAtEventForMode(
+      event as unknown as Event,
+      'nearest',
+      { intersect: false },
+      false
+    );
+  
+    if (elements.length > 0) {
+      // Si hay elementos visibles → mostrar tooltip
+      chart.setActiveElements(elements);
+    } else {
+      // Si no hay nada → ocultar tooltip
+      chart.setActiveElements([]);
+    }
+  
+    chart.update();
+  },  
 });
 
 const Index: React.FC<IndexProps> = ({
@@ -178,7 +212,8 @@ const Index: React.FC<IndexProps> = ({
             boxPadding: 6,
             callbacks: {
               label: function (context) {
-                return `${context.dataset.label}: ${context.parsed.y.toFixed(2)} m/s²`;
+                const label = context.dataset.label!.replace('Amplitude', 'Amp.');
+                return `${label}: ${context.parsed.y.toFixed(2)} m/s²`;
               },
               title: function (context) {
                 return `${context[0].parsed.x.toFixed(2)} Hz`;

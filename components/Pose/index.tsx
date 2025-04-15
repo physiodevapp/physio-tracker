@@ -1197,7 +1197,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           </div>
         ) : null
       }
-      <ArrowTopRightOnSquareIcon 
+      {!videoProcessed ? ( <ArrowTopRightOnSquareIcon 
         className={`absolute bottom-2 left-1 z-30 w-8 h-8 text-white transition-transform ${(!showOrthogonalOption || orthogonalReference === undefined)
           ? '-rotate-0 opacity-50'
           : orthogonalReference === 'horizontal'
@@ -1213,7 +1213,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             return 'vertical';
           })
         }}
-        />
+        /> ) : null
+      }
     </>
   );
 };

@@ -89,7 +89,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
       setIsManualStart(false);
     }
-  }, [isRecording]);
+  }, [isRecording, isCancellationRequested]);
 
   useEffect(() => {
     const hasSufficientData = (COPData.copPoints?.length ?? 0) > settings.balance.calibrationPoints
@@ -117,10 +117,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         >
         Balance
       </motion.h1>
+      {/**(isRecording && isCancellationRequested) */}
       {(isRecording && isCancellationRequested) ? (
           <div 
             data-element="non-swipeable"
-            className="absolute top-0 h-dvh w-full z-40 flex items-center justify-center bg-black/60"
+            className="absolute top-0 h-dvh w-full z-50 flex items-center justify-center bg-black/60"
             onClick={() => setIsCancellationRequested(false)}
             >
             <div className="dark:bg-gray-800 rounded-lg px-10 py-6 flex flex-col gap-2 rotate-90">
@@ -139,10 +140,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       {isRecording ? (
           <div 
             {...(!isOrientationCorrect && { 'data-element': 'non-swipeable' })}
-            className='absolute w-full h-dvh z-50 flex justify-center items-center bg-black/30'
+            className='absolute w-full h-dvh z-60 flex justify-center items-center bg-black/30'
             onClick={() => setIsCancellationRequested(true)}
             >
-            {(!autoStartAfterCalibration && isBaselineDefined) ? (
+            {(!autoStartAfterCalibration && isBaselineDefined && !isManualStart) ? (
               <button 
                 className="absolute z-10 top-1/2 -translate-y-1/2 px-6 rotate-90 rounded-lg p-2 bg-green-500 font-bold uppercase text-2xl"
                 onClick={() => setIsManualStart(true)}
@@ -192,7 +193,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   }
                   {/**hasValidTestResults */}
                   {hasValidTestResults ? (  
-                      <>
+                      <div data-element="non-swipeable">
                         <p className="absolute -translate-y-10 text-lg">Metrics analyzed</p>
                         <section className="flex flex-row flex-wrap w-full px-2 gap-y-4">
                           <div className="flex-1 basis-full py-2 border-2 border-gray-400  dark:border-white rounded-lg">
@@ -286,7 +287,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                               />     
                           </div>  
                         </section> 
-                      </>
+                      </div>
                     ) : null
                   }
                 </>
