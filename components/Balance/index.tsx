@@ -89,7 +89,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
       setIsManualStart(false);
     }
-  }, [isRecording, isCancellationRequested]);
+  }, [isRecording]);
 
   useEffect(() => {
     const hasSufficientData = (COPData.copPoints?.length ?? 0) > settings.balance.calibrationPoints

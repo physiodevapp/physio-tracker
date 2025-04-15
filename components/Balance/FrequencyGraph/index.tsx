@@ -212,7 +212,7 @@ const Index: React.FC<IndexProps> = ({
             boxPadding: 6,
             callbacks: {
               label: function (context) {
-                const label = context.dataset.label!.replace('Amplitude', 'Amp.');
+                const label = context.dataset.label!.replace('Amplitude', 'Amp');
                 return `${label}: ${context.parsed.y.toFixed(2)} m/s²`;
               },
               title: function (context) {
