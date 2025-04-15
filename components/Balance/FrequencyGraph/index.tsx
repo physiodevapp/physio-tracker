@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Chart as ChartJS, ChartConfiguration, ChartEvent, registerables } from "chart.js";
+import { Chart as ChartJS, ChartConfiguration, registerables } from "chart.js";
 
 ChartJS.register(...registerables);
 
@@ -21,76 +21,46 @@ interface IndexProps {
 
 const customCrosshairPlugin = (isActive: boolean = true) => ({
   id: 'customCrosshair',
-  afterEvent(chart: ChartJS & { _customCrosshairX?: number; _lastEvent?: ChartEvent }, args: { event: ChartEvent }) {
-    if (!isActive) return;
-
-    const { chartArea } = chart;
-    const { event } = args;
-
-    if (!event || event.x == null || event.y == null) return;
-
-    // Guardar la última posición del ratón para tooltip y crosshair
-    chart._lastEvent = event;
-
-    if (
-      event.x >= chartArea.left &&
-      event.x <= chartArea.right &&
-      event.y >= chartArea.top &&
-      event.y <= chartArea.bottom
-    ) {
-      chart._customCrosshairX = event.x;
-    } else {
-      chart._customCrosshairX = undefined;
-    }
-  },
   afterDraw(chart: ChartJS & { _customCrosshairX?: number }) {
     if (!isActive) return;
-  
-    const x = chart._customCrosshairX;
-    if (!x) return;
 
-    // Comprobar si hay datasets visibles
+    const x = chart._customCrosshairX;
+    if (x == null) return;
+
     const anyVisible = chart.data.datasets.some((_, index) => {
       const meta = chart.getDatasetMeta(index);
       return !meta.hidden;
     });
-  
-    // ❌ Si no hay datos visibles, no dibujamos nada
+
     if (!anyVisible) return;
-  
+
     const { ctx, chartArea, scales } = chart;
-    const xScale = scales['x'];
-    const yScale = scales['y'];
-  
+    const xScale = scales["x"];
+    const yScale = scales["y"];
     const xValue = xScale.getValueForPixel(x);
-  
-    // Línea vertical roja
+
+    // Línea vertical
     ctx.save();
-    ctx.strokeStyle = '#F66';
+    ctx.strokeStyle = "#F66";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x, chartArea.top);
     ctx.lineTo(x, chartArea.bottom);
     ctx.stroke();
     ctx.restore();
-  
-    // Para cada dataset
+
     chart.data.datasets.forEach((dataset, datasetIndex) => {
       const meta = chart.getDatasetMeta(datasetIndex);
-      if (meta.hidden) return; 
+      if (meta.hidden) return;
 
       const data = dataset.data as { x: number; y: number }[];
-  
-      if (!data || !data.length) return;
-  
-      // Buscar el punto más cercano al xValue
+
       const closestPoint = data.reduce((prev, curr) =>
         Math.abs(curr.x - xValue!) < Math.abs(prev.x - xValue!) ? curr : prev
       );
-  
+
       const yPixel = yScale.getPixelForValue(closestPoint.y);
-  
-      // Dibujar línea horizontal en y = yPixel
+
       ctx.save();
       ctx.strokeStyle = dataset.borderColor as string;
       ctx.lineWidth = 1;
@@ -101,7 +71,7 @@ const customCrosshairPlugin = (isActive: boolean = true) => ({
       ctx.stroke();
       ctx.restore();
     });
-  }, 
+  },
 });
 
 const Index: React.FC<IndexProps> = ({
@@ -269,35 +239,38 @@ const Index: React.FC<IndexProps> = ({
   }, [chartConfig]);
 
   return (
-    <div 
-      data-element="non-swipeable"
-      className="w-full h-auto max-w-screen bg-white border-gray-200 border-2 dark:border-none rounded-lg py-2 pr-1">
-      <div className="flex flex-row-reverse justify-between items-center px-6 pb-2 bg-white text-black text-sm p-2 rounded shadow">
-        <div className="font-bold mb-1 text-lg">
-          Freq: {tooltipData?.x !== undefined ? tooltipData.x.toFixed(2) + ' Hz' : '- Hz'}
+    <>
+      <p className="w-full text-center py-2 text-lg">Frequency Spectrum Results</p>
+      <div 
+        data-element="non-swipeable"
+        className="w-full h-auto max-w-screen bg-white border-gray-200 border-2 dark:border-none rounded-lg py-2 pr-1">
+        <div className="flex flex-row-reverse justify-between items-center px-6 pb-2 bg-white text-black text-sm p-2 rounded shadow">
+          <div className="font-bold mb-1 text-lg text-gray-600">
+            Freq: {tooltipData?.x !== undefined ? tooltipData.x.toFixed(2) + ' Hz' : '- Hz'}
+          </div>
+          <div className="flex flex-col gap-1 text-gray-600">
+            {(tooltipData?.values?.length
+              ? tooltipData.values
+              : [{ label: 'ML Amp', value: undefined, color: 'rgba(75, 192, 192, 1)' }, { label: 'AP Amp', value: undefined, color: 'rgba(245, 143, 180, 1)' }]
+            ).map((item, i) => (
+              <div key={i} className="flex items-center gap-1">
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-full mr-1 border-2"
+                  style={{ 
+                    borderColor: item.color, 
+                    backgroundColor: item.color.replace(/rgba?\(([^,]+,[^,]+,[^,]+),[^)]+\)/, 'rgba($1, 0.6)'), 
+                  }}
+                ></span>
+                {item.label.replace('Amplitude', 'Amp')}:{" "}
+                {item.value !== undefined ? item.value.toFixed(2) + " m/s²" : "- m/s"}
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-col gap-1">
-          {(tooltipData?.values?.length
-            ? tooltipData.values
-            : [{ label: 'ML Amp', value: undefined, color: 'rgba(75, 192, 192, 1)' }, { label: 'AP Amp', value: undefined, color: 'rgba(245, 143, 180, 1)' }]
-          ).map((item, i) => (
-            <div key={i} className="flex items-center gap-1">
-              <span
-                className="inline-block w-2.5 h-2.5 rounded-full mr-1 border-2"
-                style={{ 
-                  borderColor: item.color, 
-                  backgroundColor: item.color.replace(/rgba?\(([^,]+,[^,]+,[^,]+),[^)]+\)/, 'rgba($1, 0.6)'), 
-                }}
-              ></span>
-              {item.label.replace('Amplitude', 'Amp')}:{" "}
-              {item.value !== undefined ? item.value.toFixed(2) + " m/s²" : "- m/s"}
-            </div>
-          ))}
-        </div>
-      </div>
 
-      <canvas id={canvasId} ref={canvasRef} className="bg-white"/>
-    </div>
+        <canvas id={canvasId} ref={canvasRef} className="bg-white"/>
+      </div>
+    </>
   );
 };
 

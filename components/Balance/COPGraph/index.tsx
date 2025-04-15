@@ -127,11 +127,14 @@ const Index: React.FC<IndexProps> = ({ ellipseParams, areaParams, options }) => 
   }, [ellipsePoints, convertedCOPPoints, copAreaPoints]);
 
   return (
-    <div 
-      data-element="non-swipeable"
-      className="w-full aspect-square max-w-screen bg-white border-gray-200 border-2 dark:border-none rounded-lg py-2 pr-1">
-      <canvas id={canvasId} ref={canvasRef} className="bg-white"/>
-    </div>
+    <>
+      <p className="w-full text-center py-2 text-lg">COP Results</p>
+      <div 
+        data-element="non-swipeable"
+        className="w-full aspect-square max-w-screen bg-white border-gray-200 border-2 dark:border-none rounded-lg py-2 pr-1">
+        <canvas id={canvasId} ref={canvasRef} className="bg-white"/>
+      </div>
+    </>
   )
 }
 
