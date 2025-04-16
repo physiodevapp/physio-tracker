@@ -258,7 +258,7 @@ const Index: React.FC<IndexProps> = ({
                   className="inline-block w-2.5 h-2.5 rounded-full mr-1 border-2"
                   style={{ 
                     borderColor: item.color, 
-                    backgroundColor: item.color.replace(/rgba?\(([^,]+,[^,]+,[^,]+),[^)]+\)/, 'rgba($1, 0.6)'), 
+                    backgroundColor: item.color.replace(/rgba?\(([^,]+,[^,]+,[^,]+),[^)]+\)/, 'rgba($1, 1.0)'), 
                   }}
                 ></span>
                 {item.label.replace('Amplitude', 'Amp')}:{" "}

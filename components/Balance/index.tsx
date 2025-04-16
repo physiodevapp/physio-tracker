@@ -92,6 +92,13 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       
       setIsCancellationRequested(false);
       setIsManualStart(false);
+
+      // Forzar la espera antes de desvalidar
+      const timeout = setTimeout(() => {
+        setIsValidatingData(false);
+      }, 1000);
+
+      return () => clearTimeout(timeout);
     }
   }, [isRecording]);
 
@@ -100,9 +107,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     if (isBaselineDefined && hasSufficientData) {
       setHasValidTestResults(true);
 
-      setTimeout(() => {
-        setIsValidatingData(false);
-      }, 1_000);
+      setIsValidatingData(false);
     } 
     else {
       setHasValidTestResults(false);
