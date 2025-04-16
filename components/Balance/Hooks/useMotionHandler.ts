@@ -131,7 +131,7 @@ export default function useMotionHandler({
     if (!isLandscape) {
       setLog("Position error");
     } else {
-      setLog("");
+      setLog("...");
     }
   
     return isLandscape;
@@ -313,6 +313,8 @@ export default function useMotionHandler({
         if (!autoStartAfterCalibrationRef.current && !isManualStartRef.current) {
           motionDataRef.current = [];
         }
+
+        setLog("Recording...")
 
         // analyzeDeviceMotionData({calculationMode: "realTime"});
       }

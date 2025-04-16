@@ -85,7 +85,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       setHasValidTestResults(false);
     } 
     else if (!isDefaultState) {
-      setIsValidatingData(true);
       stopMotion();
       
       setIsInfoLogVisible(true);
@@ -173,7 +172,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 (autoStartAfterCalibration || isManualStart)
               }
               pause={!isOrientationCorrect || isCancellationRequested}
-              onEnd={() => setIsRecording(false)}
+              onEnd={() => {
+                setIsValidatingData(true);
+
+                setIsRecording(false);
+              }}
               size={200}
               thickness={12}
               backgroundThickness={11}
