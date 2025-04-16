@@ -11,7 +11,6 @@ const Pose = dynamic(() => import('../components/Pose').then(mod => mod.default)
 const Force = dynamic(() => import('../components/Force').then(mod => mod.default), { ssr: false });
 const ColorAnalyzer = dynamic(() => import('../components/ColorAnalyzer').then(mod => mod.default), { ssr: false });
 const Balance = dynamic(() => import('../components/Balance').then(mod => mod.default), { ssr: false });
-// const Test = dynamic(() => import('../components/Test').then(mod => mod.default), { ssr: false });
 
 export default function Home() {
   const [page, setPage] = useState<MainMenuOption>('force');
@@ -75,7 +74,6 @@ export default function Home() {
                 </motion.div>
               );
             case 'force':
-              // return <Test />
               return (
                 <motion.div
                   key="force"

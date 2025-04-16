@@ -192,7 +192,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         ) : null
       }
       {/**!isRecording */}
-      {!isRecording ? (
+      {(!isRecording && !isValidatingData) ? (
           <>
             <div className="absolute top-0 left-0 z-[1] w-full h-[7rem] bg-gradient-to-b from-white via-white/20 to-transparent dark:from-black dark:via-black/20 dark:to-transparent pointer-events-none"></div>
             <div  
@@ -315,7 +315,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 ) : null
               }
               {/**(!isValidatingData && (isDefaultState || !hasValidTestResults)) */}
-              {(!isValidatingData && (isDefaultState || !hasValidTestResults)) ? (
+              {(isDefaultState || !hasValidTestResults) ? (
                   <>
                     <Image 
                       src="/silhouette_transparent.png" 
