@@ -13,8 +13,8 @@ import {
 } from "@heroicons/react/24/solid";
 import React, { useEffect, useState } from "react";
 import BalanceSettings from "@/modals/BalanceSettings";
-import useMotionHandler from "./Hooks/useMotionHandler";
-import useOrientationHandler from "./Hooks/useOrientationHandler";
+import useMotionHandler from "../../hooks/useMotionHandler";
+import useOrientationHandler from "../../hooks/useOrientationHandler";
 import SpectrumChart from "./FrequencyGraph";
 import COPChart from "./COPGraph";
 import { motion } from "framer-motion";
@@ -96,7 +96,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       // Forzar la espera antes de desvalidar
       const timeout = setTimeout(() => {
         setIsValidatingData(false);
-      }, 100);
+      }, 2_000);
 
       return () => clearTimeout(timeout);
     }
