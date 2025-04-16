@@ -106,6 +106,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     } 
     else {
       setHasValidTestResults(false);
+
+      setIsValidatingData(false);
     }
   }, [COPData]);
 
@@ -154,7 +156,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               {/**(!autoStartAfterCalibration && isBaselineDefined && !isManualStart) */}
             {(!autoStartAfterCalibration && isBaselineDefined && !isManualStart) ? (
               <PlayIcon
-                className="w-[10rem] h-[10rem] p-6 absolute z-10 top-1/2 -translate-y-1/2 rotate-90 text-white"
+                className="w-[10rem] h-[10rem] p-6 absolute z-10 top-1/2 -translate-y-1/2 rotate-90 text-white rounded-full bg-background-dark"
                 onClick={(event) => {
                   event.stopPropagation();
 
@@ -184,6 +186,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           </div>
         ) : null
       }
+      {/**!isRecording */}
       {!isRecording ? (
           <>
             <div className="absolute top-0 left-0 z-[1] w-full h-[7rem] bg-gradient-to-b from-white via-white/20 to-transparent dark:from-black dark:via-black/20 dark:to-transparent pointer-events-none"></div>
@@ -306,7 +309,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   </>
                 ) : null
               }
-              {/**(isDefaultState || !hasValidTestResults) */}
+              {/**(!isValidatingData && (isDefaultState || !hasValidTestResults)) */}
               {(!isValidatingData && (isDefaultState || !hasValidTestResults)) ? (
                   <>
                     <Image 

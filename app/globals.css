@@ -56,15 +56,17 @@ body {
     border: 2px solid #1f2937;
   }
   
-  .slider-color::-webkit-slider-thumb {
+  input[type="range"].slider-color::-webkit-slider-thumb {
     border-color: white !important;
   }
 
-  .sensor-height-range {
+  /* sensor-height */
+
+  input[type="range"].sensor-height-range {
     @apply appearance-none w-full bg-transparent;
   }
 
-  .sensor-height-range::-webkit-slider-runnable-track {
+  input[type="range"].sensor-height-range::-webkit-slider-runnable-track {
     background: repeating-linear-gradient(
       to right,
       #3B82F6,
@@ -74,14 +76,14 @@ body {
     ) !important;
     height: 4px;
     border: none;
-    border-radius: 0;
+    border-radius: 6px;
   }
 
-  .sensor-height-range::-webkit-slider-thumb {
+  input[type="range"].sensor-height-range::-webkit-slider-thumb {
     @apply appearance-none w-4 h-4 bg-white/0 border border-blue-500 rounded-full mt-[-6px];
   }
 
-  .sensor-height-range::-moz-range-track {
+  input[type="range"].sensor-height-range::-moz-range-track {
     background: repeating-linear-gradient(
       to right,
       #3B82F6,
@@ -94,7 +96,7 @@ body {
     border-radius: 0;
   }
 
-  .sensor-height-range::-moz-range-thumb {
+  input[type="range"].sensor-height-range::-moz-range-thumb {
     @apply w-4 h-4 bg-white/0 border border-blue-500 rounded-full;
   }
 }
