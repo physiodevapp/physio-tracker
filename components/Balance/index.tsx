@@ -96,7 +96,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       // Forzar la espera antes de desvalidar
       const timeout = setTimeout(() => {
         setIsValidatingData(false);
-      }, 1000);
+      }, 1500);
 
       return () => clearTimeout(timeout);
     }
@@ -106,13 +106,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     const hasSufficientData = (COPData.copPoints?.length ?? 0) > calibrationPoints
     if (isBaselineDefined && hasSufficientData) {
       setHasValidTestResults(true);
-
-      setIsValidatingData(false);
     } 
     else {
       setHasValidTestResults(false);
-
-      setIsValidatingData(false);
     }
   }, [COPData]);
 
