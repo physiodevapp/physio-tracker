@@ -100,7 +100,7 @@ const Index = ({
       <div className="absolute flex flex-row flex-wrap justify-center">
         <p className={`flex-1 basis-full text-center text-6xl font-bold ${start ? 'animate-pulse' : ''}`}>{timeLeft} s</p>
         {text && (
-          <p className={`flex-1 basis-full text-center text-2xl ${!start ? 'animate-pulse' : ''}`}>{text}</p>
+          <p className={`flex-1 basis-full text-center text-2xl animate-pulse`}>{text}</p>
         )}
       </div>
     </div>

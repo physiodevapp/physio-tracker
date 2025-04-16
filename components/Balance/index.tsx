@@ -7,6 +7,7 @@ import {
   Cog6ToothIcon,
   DevicePhoneMobileIcon,
   PlayIcon,
+  PresentationChartLineIcon,
   TrashIcon,
   XMarkIcon,
 } from "@heroicons/react/24/solid";
@@ -95,7 +96,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       // Forzar la espera antes de desvalidar
       const timeout = setTimeout(() => {
         setIsValidatingData(false);
-      }, 1500);
+      }, 100);
 
       return () => clearTimeout(timeout);
     }
@@ -135,9 +136,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             onClick={() => setIsCancellationRequested(false)}
             >
             <div className="dark:bg-gray-800 rounded-lg px-10 py-6 flex flex-col gap-2 rotate-90">
-              <p className="text-lg">Are you sure?</p>
+              <p className="text-xl">Are you sure?</p>
               <button 
-                className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg p-2"
+                className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl p-2"
                 onClick={() => setIsRecording(false)}
                 >
                   Cancel now
@@ -376,6 +377,13 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       }
       {(showSettings && !isRecording) ? (
           <BalanceSettings />
+        ) : null
+      }
+      {isValidatingData ? (
+          <div className="absolute top-0 h-dvh w-full z-50 flex flex-col gap-2 items-center justify-center bg-black/60">
+            <PresentationChartLineIcon className="w-16 h-16 text-white animate-pulse"/>
+            <p className="text-lg animate-pulse">Processing data...</p>
+          </div>
         ) : null
       }
       <section 
