@@ -102,7 +102,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
       setTimeout(() => {
         setIsValidatingData(false);
-      }, 200);
+      }, 1_000);
     } 
     else {
       setHasValidTestResults(false);
