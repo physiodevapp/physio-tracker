@@ -6,6 +6,7 @@ import {
   Bars3Icon,
   Cog6ToothIcon,
   DevicePhoneMobileIcon,
+  PlayIcon,
   TrashIcon,
   XMarkIcon,
 } from "@heroicons/react/24/solid";
@@ -42,6 +43,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const [hasValidTestResults, setHasValidTestResults] = useState(false);
   const [isDefaultState, setIsDefaultState] = useState(true);
+  const [isRenderingCOPData, setIsRenderingCOPData] = useState(false);
   
   const [isManualStart, setIsManualStart] = useState(false);
 
@@ -96,6 +98,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     const hasSufficientData = (COPData.copPoints?.length ?? 0) > calibrationPoints
     if (isBaselineDefined && hasSufficientData) {
       setHasValidTestResults(true);
+
+      setIsRenderingCOPData(true);
+      setTimeout(() => {
+        setIsRenderingCOPData(false);
+      }, 200);
     } 
     else {
       setHasValidTestResults(false);
@@ -146,14 +153,22 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             >
               {/**(!autoStartAfterCalibration && isBaselineDefined && !isManualStart) */}
             {(!autoStartAfterCalibration && isBaselineDefined && !isManualStart) ? (
-              <button 
-                className="absolute z-10 top-1/2 -translate-y-1/2 px-6 rotate-90 rounded-lg p-2 bg-green-500 font-bold uppercase text-2xl"
+              // <button 
+              //   className="absolute z-10 top-1/2 -translate-y-1/2 px-6 rotate-90 rounded-lg p-2 bg-green-500 font-bold uppercase text-2xl"
+              //   onClick={(event) => {
+              //     event.stopPropagation();
+
+              //     setIsManualStart(true);
+              //   }}
+              // >Start</button>
+              <PlayIcon
+                className="w-24 h-24 absolute z-10 top-1/2 -translate-y-1/2 rotate-90 text-white"
                 onClick={(event) => {
                   event.stopPropagation();
 
                   setIsManualStart(true);
                 }}
-              >Start</button>
+                /> 
               ) : null
             }
             <CountdownRing 
@@ -300,7 +315,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 ) : null
               }
               {/**(isDefaultState || !hasValidTestResults) */}
-              {(isDefaultState || !hasValidTestResults) ? (
+              {(!isRenderingCOPData && (isDefaultState || !hasValidTestResults)) ? (
                   <>
                     <Image 
                       src="/silhouette_transparent.png" 
