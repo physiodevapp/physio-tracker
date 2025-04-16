@@ -278,7 +278,13 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const setSensorHeight = (value: number) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, sensorHeight: value } }));
   const setAutoStartAfterCalibration = (value: boolean) => setSettings(prev => ({ ...prev, balance: { ...prev.balance, autoStartAfterCalibration: value } }));
   const resetBalanceSettings = () => {
-    setSettings(prev => ({ ...prev, balance: defaultConfig.balance }));
+    setSettings(prev => ({ 
+      ...prev, 
+      balance: {
+        ...defaultConfig.balance,
+        sensorHeight: prev.balance.sensorHeight,
+      } 
+    }));
   }; 
 
   useEffect(() => {
