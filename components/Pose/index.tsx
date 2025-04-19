@@ -671,7 +671,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     return `${sideShort} ${capitalizedPart}`;
   };
 
-  const updateMultipleJoints = ({keypoints, jointNames, jointDataRef, jointConfigMap, actualTimestamp, ctx}: {
+  const updateMultipleJoints = ({
+    keypoints, 
+    jointNames, 
+    jointDataRef, 
+    jointConfigMap, 
+    actualTimestamp, 
+    // ctx,
+  }: {
     keypoints: poseDetection.Keypoint[],
     jointNames: CanvasKeypointName[],
     jointDataRef: RefObject<JointDataMap>,
