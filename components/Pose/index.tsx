@@ -39,8 +39,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [isCameraReady, setIsCameraReady] = useState(false);
 
   const lastXRef = useRef<number | null>(null);
-  // const ignoreNextVerticalLineChangeRef = useRef(false);
-  const [ignoreNextVerticalLineChange, setIgnoreNextVerticalLineChange] = useState(false);
+  const ignoreNextVerticalLineChangeRef = useRef(false);
 
   const [infoMessage, setInfoMessage] = useState({
     show: false,
@@ -379,7 +378,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             });
 
             if (video.currentTime !== baseTime) {
-              console.log(`✅ FRAME_INTERVAL óptimo: ${testInterval.toFixed(4)}s`);
+              // console.log(`✅ FRAME_INTERVAL óptimo: ${testInterval.toFixed(4)}s`);
               return testInterval;
             }
 
@@ -402,8 +401,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             : video.duration - video.currentTime < 0.05;
 
           if (isEnded) {
-            console.log("✅ Análisis terminado");
-          
+            // console.log("✅ Análisis terminado");          
             const allTimestamps = Object.values(recordedPositionsRef.current)
               .flatMap((arr) => arr?.map((entry) => entry.timestamp) ?? []);
             const minTimestamp = Math.min(...allTimestamps);
@@ -427,7 +425,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           
               // 🧠 Calcular FPS estimado
               const fps = frameCount / video.duration;
-              console.log("🎯 FPS estimado:", fps.toFixed(2));
+              // console.log("🎯 FPS estimado:", fps.toFixed(2));
               setEstimatedFps(fps);
           
               // 🧹 Limpiar duplicados
@@ -525,7 +523,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   };
 
   const handleEnded = () => {
-    console.log('handleEnded')
+    // console.log('handleEnded')
     if (!videoProcessed) {
       setVideoProcessed(true);
 
@@ -542,8 +540,12 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const handleChartValueX = (newValue: {
     x: number;
     values: { label: string; y: number }[];
-  }) => {
+  }) => {   
+    // console.log('handleChartValueX ', ignoreNextVerticalLineChangeRef.current) 
+    if (ignoreNextVerticalLineChangeRef.current || !isFrozen) return;
+
     // console.log('handleChartValueX ', newValue)
+
     const video = videoRef.current;
     if (!video) return;
   
@@ -579,8 +581,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     const video = videoRef.current;
     if (!video || video.currentTime <= 0) return;
 
-    // ignoreNextVerticalLineChangeRef.current = true;
-    setIgnoreNextVerticalLineChange(true);
+    ignoreNextVerticalLineChangeRef.current = true;
   
     togglePlayback({ action: "pause" });
   
@@ -595,7 +596,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       }
       await analyzeSingleFrame();
 
-      setIgnoreNextVerticalLineChange(false);
+      ignoreNextVerticalLineChangeRef.current = false;
     };
   };
   
@@ -603,8 +604,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     const video = videoRef.current;
     if (!video || video.currentTime >= video.duration) return;
 
-    // ignoreNextVerticalLineChangeRef.current = true;
-    setIgnoreNextVerticalLineChange(true);
+    ignoreNextVerticalLineChangeRef.current = true;
   
     togglePlayback({ action: "pause" });
   
@@ -619,7 +619,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       }
       await analyzeSingleFrame();
 
-      setIgnoreNextVerticalLineChange(false);
+      ignoreNextVerticalLineChangeRef.current = false;
     };
   };  
 
@@ -1446,8 +1446,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             recordedPositions={videoProcessed ? recordedPositionsRef.current : undefined}
             onVerticalLineChange={handleChartValueX}
             parentStyles="relative z-0 h-[50dvh] bg-white"
-            ignoreExternalTrigger={ignoreNextVerticalLineChange}
-            // verticalLineValue={isFrozen ? videoCurrentTime : undefined}
+            verticalLineValue={(videoCurrentTime * 1000)}
             // ignoreExternalTriggerRef={ignoreNextVerticalLineChangeRef}
             />
         </div> ) : null

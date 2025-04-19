@@ -1,4 +1,4 @@
-import { RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Chart as ChartJS,
   ChartDataset,
@@ -15,10 +15,6 @@ ChartJS.register(
   ...registerables,
   zoomPlugin 
 );
-
-function areAllDatasetsHidden(chart: ChartJS): boolean {
-  return chart.data.datasets!.every((ds, i) => !chart.isDatasetVisible(i));
-}
 
 // Definimos la interfaz para cada punto de datos
 interface DataPoint {
@@ -44,21 +40,25 @@ interface IndexProps {
   parentStyles?: string; // Estilos CSS para el contenedor
   recordedPositions?: RecordedPositions;
   verticalLineValue?: number;
-  ignoreExternalTriggerRef?: RefObject<boolean>;
-  ignoreExternalTrigger?: boolean;
+}
+
+const areAllDatasetsHidden = (chart: ChartJS): boolean => {
+  return chart.data.datasets!.every((ds, i) => !chart.isDatasetVisible(i));
 }
 
 const customCrosshairPlugin = ({
   recordedPositions,
-  tooltipXRef
+  tooltipXRef,
 }: {
   recordedPositions: RecordedPositions;
   tooltipXRef: React.RefObject<number>;
 }) => ({
   id: 'customCrosshair',
-  afterDraw(chart: ChartJS & { _customCrosshairX?: number }) {
+  afterDraw(chart: ChartJS) {
     const xMs = tooltipXRef.current;
-    if (xMs == null) return;
+    const allHidden = areAllDatasetsHidden(chart);
+
+    if (xMs == null || allHidden) return;
 
     const { ctx, chartArea, scales } = chart;
     const xScale = scales["x"];
@@ -121,6 +121,31 @@ const customCrosshairPlugin = ({
   }
 });
 
+const getNearestJointValues = (
+  xMs: number,
+  recordedPositions: RecordedPositions,
+  datasets: ChartDataset<'line'>[]
+): { label: CanvasKeypointName; y: number }[] => {
+  return datasets.map((dataset) => {
+    const rawLabel = dataset.label ?? '';
+    const jointLabel = rawLabel
+      .toLowerCase()
+      .replace(/ (angle)/, '')
+      .replace(/\s+/g, '_') as CanvasKeypointName;
+
+    const jointData = recordedPositions[jointLabel] ?? [];
+
+    const nearest = jointData.reduce((prev, curr) =>
+      Math.abs(curr.timestamp - xMs) < Math.abs(prev.timestamp - xMs) ? curr : prev,
+      jointData[0]
+    );
+
+    return {
+      label: jointLabel,
+      y: nearest?.angle ?? null,
+    };
+  }).filter((val): val is { label: CanvasKeypointName; y: number } => val !== null);
+}; 
 
 const Index = ({
   joints,
@@ -129,11 +154,8 @@ const Index = ({
   onVerticalLineChange,
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
   verticalLineValue = 0,
-  // ignoreExternalTriggerRef,
-  ignoreExternalTrigger,
 }: IndexProps) => {
   const [isZoomed, setIsZoomed] = useState(false);
-  const crosshairXValueRef = useRef<number | undefined>(undefined);
   const tooltipXRef = useRef<number>(0);
 
   // --- Cofiguración del gráfico ----
@@ -243,7 +265,7 @@ const Index = ({
         startTimeRef.current = firstTimestamp;
       }
     }
-  }, [recordedPositions]);
+  }, [recordedPositions]); 
 
   const chartConfig = useMemo<ChartConfiguration>(
     () => ({
@@ -270,17 +292,17 @@ const Index = ({
         plugins: {
           zoom: {
             limits: {
-              x: {min: 0, max: 10, minRange: 5},
+              x: {min: 0, max: 10_000, minRange: 5_000},
               y: {min: -10, max: 200, minRange: 60}
             },
             pan: {
               enabled: false,
               mode: 'xy', // o 'xy'
-              threshold: 10,
-              onPan: ({ chart }: { chart: ChartJS & { _customCrosshairX?: number } }) => {
+              threshold: 10_000,
+              onPan: ({ chart }: { chart: ChartJS }) => {
                 setIsZoomed(true);
 
-                const x = chart._customCrosshairX;
+                const x = tooltipXRef.current;
                 if (!x) return;
 
                 const xValue = chart.scales.x.getValueForPixel(x);
@@ -349,8 +371,7 @@ const Index = ({
             },
             // onClick: () => {},  
             onClick: (e, legendItem, legend) => {
-              const chart = legend.chart as ChartJS & { _customCrosshairX?: number };
-              const xScale = chart.scales['x'];
+              const chart = legend.chart as ChartJS;
             
               const index = legendItem.datasetIndex;
               if (typeof index !== 'number') return;
@@ -361,19 +382,15 @@ const Index = ({
             
               // Capturamos el valor actual visible antes del update
               const activeTooltipPoint = chart.tooltip?.dataPoints?.[0];
-              const xValueBeforeUpdate = crosshairXValueRef.current ?? activeTooltipPoint?.parsed?.x;
+              const xValueBeforeUpdate = tooltipXRef.current ?? activeTooltipPoint?.parsed?.x;
             
               chart.update();
             
-              const allHidden = chart.data.datasets.every((_, i) => {
-                const meta = chart.getDatasetMeta(i);
-                return meta.hidden === true;
-              });
+              const allHidden = areAllDatasetsHidden(chart);
             
               if (allHidden) {
                 chart.setActiveElements([]);
                 chart.update();
-                chart._customCrosshairX = undefined;
                 chart.draw();
                 return;
               }
@@ -381,8 +398,7 @@ const Index = ({
               // ✅ Solo usar xValueBeforeUpdate, NO verticalLineValue
               if (xValueBeforeUpdate === undefined) return;
             
-              chart._customCrosshairX = xScale.getPixelForValue(xValueBeforeUpdate);
-              crosshairXValueRef.current = xValueBeforeUpdate; 
+              tooltipXRef.current = xValueBeforeUpdate 
             
               const activeElements: { datasetIndex: number; index: number }[] = [];
             
@@ -414,9 +430,7 @@ const Index = ({
           tooltip: {
             enabled: false,
             boxPadding: 6,
-            external: (context) => {
-              if (ignoreExternalTrigger) return;
-            
+            external: (context) => {            
               const chart = context.chart;
               if (areAllDatasetsHidden(chart)) return;
             
@@ -430,33 +444,17 @@ const Index = ({
             
               tooltipXRef.current = xMs; // Guarda para el plugin
             
-              const values = dataPoints.map((dp) => {
-                const rawLabel = dp.dataset.label ?? "";
-                const jointLabel = rawLabel
-                  .toLowerCase()
-                  .replace(/ (angle)/, "")
-                  .replace(/\s+/g, "_") as CanvasKeypointName;
-            
-                const jointData = recordedPositions?.[jointLabel] ?? [];
-            
-                const nearest = jointData.reduce((prev, curr) => {
-                  return Math.abs(curr.timestamp - xMs) < Math.abs(prev.timestamp - xMs)
-                    ? curr
-                    : prev;
-                }, jointData[0]);
-            
-                return {
-                  label: jointLabel,
-                  y: nearest?.angle ?? null,
-                };
-              });
+              const values = getNearestJointValues(
+                xMs, 
+                recordedPositions!, 
+                context.chart.data.datasets as ChartDataset<'line'>[]
+              );
             
               onVerticalLineChange({
                 x: xMs / 1000, // 🎯 segundos para el componente padre
                 values,
               });
-            }
-                      
+            }        
           }
         },
         elements: {
@@ -523,7 +521,7 @@ const Index = ({
   useEffect(() => {
     if (verticalLineValue === undefined) return;
 
-    const chart = chartRef.current as ChartJS & { _customCrosshairX?: number };
+    const chart = chartRef.current as ChartJS;
     if (!chart || verticalLineValue === undefined) return;
   
     const activeElements: { datasetIndex: number; index: number }[] = [];
@@ -556,10 +554,7 @@ const Index = ({
     });
 
     if (activeElements.length > 0 && !allIndexesAreZero) {
-      const xScale = chart.scales['x'];
-      const pixelX = xScale.getPixelForValue(verticalLineValue);
-      chart._customCrosshairX = pixelX;
-      crosshairXValueRef.current = verticalLineValue;
+      tooltipXRef.current = verticalLineValue;
       
       chart.setActiveElements(activeElements);
 
@@ -570,8 +565,7 @@ const Index = ({
     } else {
       // Si todos eran 0, entonces limpiar tooltip y línea
       chart.setActiveElements([]);
-      chart._customCrosshairX = undefined;
-      crosshairXValueRef.current = undefined;
+      tooltipXRef.current = 0;
       chart.update();
       chart.draw();
     }
