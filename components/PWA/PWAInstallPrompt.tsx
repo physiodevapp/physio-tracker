@@ -51,7 +51,7 @@ export default function PWAInstallPrompt() {
           exit={{ y: "100%", opacity: 0 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
-          <p className="dark:text-gray-300 text-md text-center flex-1">Best with:</p>
+          <p className="dark:text-gray-300 text-md text-center flex-1">Suggestion:</p>
           <div className="flex gap-3">
             <button
               onClick={handleInstallClick}

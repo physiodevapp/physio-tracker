@@ -57,6 +57,7 @@ const customCrosshairPlugin = (isActive: boolean = true) => ({
     const x = chart._customCrosshairX;
     if (!x) return;
 
+    // Línea vertical roja
     const { ctx, chartArea } = chart;
     ctx.save();
     ctx.strokeStyle = '#F66';
@@ -206,7 +207,8 @@ const Index: React.FC<IndexProps> = ({
             pointRadius: 0,
             pointHoverRadius: 4,
             pointHoverBorderWidth: 1,
-            pointHoverBorderColor: 'red',
+            pointHoverBorderColor: '#F66',
+            pointHoverBackgroundColor: 'white',
             pointHitRadius: 0,
           },
         ],

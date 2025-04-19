@@ -5,9 +5,13 @@ import * as poseDetection from '@tensorflow-models/pose-detection';
 
 // Definimos el tipo del detector
 export type DetectorType = poseDetection.PoseDetector | null;
+interface PoseDetectorContextType {
+  detector: DetectorType;
+  detectorModel: poseDetection.SupportedModels | null;
+}
 
 // Creamos el contexto con un valor inicial nulo
-const PoseDetectorContext = createContext<DetectorType>(null);
+const PoseDetectorContext = createContext<PoseDetectorContextType | null>(null);
 
 interface PoseDetectorProviderProps {
   isTfReady: boolean; // Indicador de que TensorFlow ya se inicializó
@@ -16,6 +20,7 @@ interface PoseDetectorProviderProps {
 
 export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTfReady, children }) => {
   const [detector, setDetector] = useState<DetectorType>(null);
+  const [detectorModel, setDetectorModel] = useState<poseDetection.SupportedModels | null>(null);
 
   useEffect(() => {
     // Si TensorFlow aún no está listo, no se inicializa el detector
@@ -31,9 +36,18 @@ export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTf
           {
             modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
             minPoseScore: 0.3,
-          }
+          },
+          /**
+           poseDetection.SupportedModels.BlazePose,
+           {
+             runtime: 'tfjs',
+             enableSmoothing: true,
+             modelType: 'lite', // 'lite', 'full' or 'heavy'
+           },   
+           */       
         );
         setDetector(detectorInstance);
+        setDetectorModel(poseDetection.SupportedModels.MoveNet);
       } catch (error) {
         console.error("Error al inicializar el detector:", error);
       }
@@ -43,14 +57,14 @@ export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTf
   }, [isTfReady, detector]);
 
   return (
-    <PoseDetectorContext.Provider value={detector}>
+    <PoseDetectorContext.Provider value={{detector, detectorModel}}>
       {children}
     </PoseDetectorContext.Provider>
   );
 };
 
 // Hook para usar el detector en cualquier componente
-export const usePoseDetector = (): DetectorType => {
+export const usePoseDetector = (): PoseDetectorContextType  => {
   const context = useContext(PoseDetectorContext);
   if (!context) {
     throw new Error('usePoseDetector must be used within a PoseDetectorProvider');

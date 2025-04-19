@@ -59,6 +59,7 @@ function customCrosshairPlugin(isActive: boolean = true) {
       const yScale = scales['y'];
     
       const xValue = xScale.getValueForPixel(x);
+      const xPixel = x;
     
       // Línea vertical roja
       ctx.save();
@@ -91,6 +92,17 @@ function customCrosshairPlugin(isActive: boolean = true) {
         ctx.beginPath();
         ctx.moveTo(chartArea.left, yPixel);
         ctx.lineTo(chartArea.right, yPixel);
+        ctx.stroke();
+        ctx.restore();
+
+        // Punto de intersección
+        ctx.save();
+        ctx.fillStyle = "#fff";
+        ctx.strokeStyle = "#F66";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(xPixel, yPixel, 4, 0, 2 * Math.PI);
+        ctx.fill();
         ctx.stroke();
         ctx.restore();
       });
@@ -243,9 +255,10 @@ const Index: React.FC<IndexProps> = ({
               borderColor: 'rgb(75, 192, 192)',
               tension: 0.1,
               pointRadius: 0,
-              pointHoverRadius: 4,
-              pointHoverBorderWidth: 1,
-              pointHoverBorderColor: 'red',
+              pointHoverRadius: 0,
+              pointHoverBorderWidth: 0,
+              pointHoverBorderColor: '#F66',
+              pointHoverBackgroundColor: '#F66',
               pointHitRadius: 0,
             },
           ],

@@ -7,10 +7,6 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 interface PoseSettings {
   selectedJoints: CanvasKeypointName[];
   angularHistorySize: number;
-  poseUpdateInterval: number;
-  poseGraphSample: number;
-  poseGraphSampleThreshold: number;
-  processingSpeed: number;
 }
 
 interface ColorSettings {
@@ -69,10 +65,6 @@ interface SettingsContextProps {
   // Setters para pose
   setSelectedJoints: (joints: CanvasKeypointName[]) => void;
   setAngularHistorySize: (size: number) => void;
-  setPoseUpdateInterval: (timeInMiliseconds: number) => void;
-  setPoseGraphSample: (sample: number) => void;
-  setPoseGraphSampleThreshold: (sampleThreshold: number) => void;
-  setProcessingSpeed: (speed: number) => void;
   // Setters para color
   setRedHueLower1: (value: number) => void;
   setRedHueUpper1: (value: number) => void;
@@ -109,7 +101,7 @@ interface SettingsContextProps {
   setSensorHeight: (value: number) => void;
   setAutoStartAfterCalibration: (value: boolean) => void;
   // Función para resetear los settings
-  resetPoseSettings: (value: boolean) => void;
+  resetPoseSettings: () => void;
   resetPoseGraphSettings: () => void;
   resetForceSettings: () => void;
   resetColorSettings: () => void;
@@ -127,10 +119,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     pose: {
       selectedJoints: [],
       angularHistorySize: 5,
-      poseUpdateInterval: 300,
-      poseGraphSample: 100,
-      poseGraphSampleThreshold: 100,
-      processingSpeed: 0.4,
     },
     color: {
       redHueLower1: 0,
@@ -189,37 +177,19 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       setSettings(prev => ({ ...prev, pose: { ...prev.pose, angularHistorySize: size } }));
     }
   };
-  const setPoseUpdateInterval = (timeInMiliseconds: number) => {
-    setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseUpdateInterval: timeInMiliseconds } }));
-  };
-  const setPoseGraphSample = (sample: number) => {
-    setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseGraphSample: sample } }));
-  };
-  const setPoseGraphSampleThreshold = (sampleThreshold: number) => {
-    setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseGraphSampleThreshold: sampleThreshold } }));
-  };
-  const setProcessingSpeed = (speed: number) => {
-    setSettings(prev => ({ ...prev, pose: { ...prev.pose, processingSpeed: speed } }));
-  }
-  const resetPoseSettings = (extraReset = false) => {
+  const resetPoseSettings = () => {
     setSettings(prev => ({
       ...prev,
       pose: {
         ...prev.pose,
         angularHistorySize: defaultConfig.pose.angularHistorySize,
-        ...(extraReset && {
-          processingSpeed: defaultConfig.pose.processingSpeed,
-          poseUpdateInterval: defaultConfig.pose.poseUpdateInterval,
-        }),
       },
     }));
   };
   const resetPoseGraphSettings = () => {
     setSettings(prev => ({
       ...prev, pose: {...prev.pose,
-        poseUpdateInterval: defaultConfig.pose.poseUpdateInterval,
-        poseGraphSample: defaultConfig.pose.poseGraphSample,
-        poseGraphSampleThreshold: defaultConfig.pose.poseGraphSampleThreshold,
+        angularHistorySize: defaultConfig.pose.angularHistorySize,
       }
     }));
   };
@@ -297,10 +267,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         settings,
         setSelectedJoints,
         setAngularHistorySize,
-        setPoseUpdateInterval,
-        setPoseGraphSample,
-        setPoseGraphSampleThreshold,
-        setProcessingSpeed,
         resetPoseSettings,
         resetPoseGraphSettings,
         setRedHueLower1,

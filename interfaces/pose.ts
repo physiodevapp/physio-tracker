@@ -7,12 +7,16 @@ export enum CanvasKeypointName {
   LEFT_HIP = "left_hip",
   LEFT_KNEE = "left_knee",
   LEFT_ANKLE = "left_ankle",
+  LEFT_HEEL = "left_heel",
+  LEFT_FOOT_INDEX = "left_foot_index",
   RIGHT_SHOULDER = "right_shoulder",
   RIGHT_ELBOW = "right_elbow",
   RIGHT_WRIST = "right_wrist",
   RIGHT_HIP = "right_hip",
   RIGHT_KNEE = "right_knee",
   RIGHT_ANKLE = "right_ankle",
+  RIGHT_HEEL = "right_heel",
+  RIGHT_FOOT_INDEX = "right_foot_index",
 }
 
 export enum Kinematics {

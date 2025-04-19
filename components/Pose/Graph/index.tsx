@@ -1,16 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { RefObject, useEffect, useMemo, useRef, useState } from "react";
 import {
   Chart as ChartJS,
   ChartDataset,
   ChartConfiguration,
-  ChartEvent,
   registerables,
   ActiveDataPoint,
 } from "chart.js";
 import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
-// import { getColorsForJoint } from "@/services/joint";
-import { useSettings } from "@/providers/Settings";
-import { lttbDownsample } from "@/utils/chart";
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ViewfinderCircleIcon } from "@heroicons/react/24/solid";
 
@@ -19,6 +15,10 @@ ChartJS.register(
   ...registerables,
   zoomPlugin 
 );
+
+function areAllDatasetsHidden(chart: ChartJS): boolean {
+  return chart.data.datasets!.every((ds, i) => !chart.isDatasetVisible(i));
+}
 
 // Definimos la interfaz para cada punto de datos
 interface DataPoint {
@@ -44,80 +44,83 @@ interface IndexProps {
   parentStyles?: string; // Estilos CSS para el contenedor
   recordedPositions?: RecordedPositions;
   verticalLineValue?: number;
+  ignoreExternalTriggerRef?: RefObject<boolean>;
+  ignoreExternalTrigger?: boolean;
 }
 
-const customCrosshairPlugin = (isActive: boolean = true) => ({
+const customCrosshairPlugin = ({
+  recordedPositions,
+  tooltipXRef
+}: {
+  recordedPositions: RecordedPositions;
+  tooltipXRef: React.RefObject<number>;
+}) => ({
   id: 'customCrosshair',
-  afterEvent(chart: ChartJS & { _customCrosshairX?: number }, args: { event: ChartEvent }) {
-    if (!isActive) return;
-
-    const { chartArea } = chart;
-    const { event } = args;
-
-    if (!event || event.x == null || event.y == null) return;
-
-    if (
-      event.x >= chartArea.left &&
-      event.x <= chartArea.right &&
-      event.y >= chartArea.top &&
-      event.y <= chartArea.bottom
-    ) {
-      chart._customCrosshairX = event.x;
-    } else {
-      chart._customCrosshairX = undefined;
-    }
-  },
   afterDraw(chart: ChartJS & { _customCrosshairX?: number }) {
-    if (!isActive) return;
-  
-    const x = chart._customCrosshairX;
-    if (!x) return;
-  
+    const xMs = tooltipXRef.current;
+    if (xMs == null) return;
+
     const { ctx, chartArea, scales } = chart;
-    const xScale = scales['x'];
-    const yScale = scales['y'];
-  
-    const xValue = xScale.getValueForPixel(x);
-  
+    const xScale = scales["x"];
+    const yScale = scales["y"];
+
+    const xPixel = xScale.getPixelForValue(xMs);
+
     // Línea vertical roja
     ctx.save();
-    ctx.strokeStyle = '#F66';
+    ctx.strokeStyle = "#F66";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(x, chartArea.top);
-    ctx.lineTo(x, chartArea.bottom);
+    ctx.moveTo(xPixel, chartArea.top);
+    ctx.lineTo(xPixel, chartArea.bottom);
     ctx.stroke();
     ctx.restore();
-  
-    // Para cada dataset
+
+    // Línea horizontal + punto exacto
     chart.data.datasets.forEach((dataset, datasetIndex) => {
       const meta = chart.getDatasetMeta(datasetIndex);
-      if (meta.hidden) return; 
+      if (meta.hidden) return;
 
-      const data = dataset.data as { x: number; y: number }[];
-  
-      if (!data || !data.length) return;
-  
-      // Buscar el punto más cercano al xValue
-      const closestPoint = data.reduce((prev, curr) =>
-        Math.abs(curr.x - xValue!) < Math.abs(prev.x - xValue!) ? curr : prev
+      const label = dataset.label ?? "";
+      const jointLabel = label
+        .toLowerCase()
+        .replace(/ (angle)/, "")
+        .replace(/\s+/g, "_") as CanvasKeypointName;
+
+      const jointData = recordedPositions?.[jointLabel];
+      if (!jointData?.length) return;
+
+      const nearest = jointData.reduce((prev, curr) =>
+        Math.abs(curr.timestamp - xMs) < Math.abs(prev.timestamp - xMs) ? curr : prev,
       );
-  
-      const yPixel = yScale.getPixelForValue(closestPoint.y);
-  
-      // Dibujar línea horizontal en y = yPixel
+
+      const yPixel = yScale.getPixelForValue(nearest.angle);
+
+      // Línea horizontal discontinua
       ctx.save();
-      ctx.strokeStyle = dataset.borderColor as string;
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = dataset.borderColor as string ?? "#999";
+      ctx.lineWidth = 2;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(chartArea.left, yPixel);
       ctx.lineTo(chartArea.right, yPixel);
       ctx.stroke();
       ctx.restore();
+
+      // Punto de intersección
+      ctx.save();
+      ctx.fillStyle = "#fff";
+      ctx.strokeStyle = "#F66";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(xPixel, yPixel, 4, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
     });
   }
 });
+
 
 const Index = ({
   joints,
@@ -126,16 +129,12 @@ const Index = ({
   onVerticalLineChange,
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
   verticalLineValue = 0,
+  // ignoreExternalTriggerRef,
+  ignoreExternalTrigger,
 }: IndexProps) => {
-  const { settings } = useSettings();
-  const { 
-    poseUpdateInterval,
-    poseGraphSample,
-    poseGraphSampleThreshold,
-  } = settings.pose;
-
   const [isZoomed, setIsZoomed] = useState(false);
   const crosshairXValueRef = useRef<number | undefined>(undefined);
+  const tooltipXRef = useRef<number>(0);
 
   // --- Cofiguración del gráfico ----
   const chartRef = useRef<ChartJS | null>(null);
@@ -180,12 +179,7 @@ const Index = ({
       const baseBackgroundColor = jointData.color.backgroundColor;
   
       valueTypes.forEach((vType) => {
-        let dataPoints = jointData.anglePoints
-
-        // Si la cantidad de puntos es mayor que el threshold deseado, los reducimos.
-        if (dataPoints.length > poseGraphSampleThreshold) {
-          dataPoints = lttbDownsample(dataPoints, poseGraphSample);
-        }
+        const dataPoints = jointData.anglePoints
   
         result.push({
           label: `${transformJointName(joint)} ${vType}`,
@@ -193,19 +187,21 @@ const Index = ({
           borderColor: baseColor,
           backgroundColor: baseBackgroundColor,
           borderWidth: 2,          
-          tension: 0.6,
+          tension: 0, //0.6,
           pointRadius: 0,
-          pointHoverRadius: 3,
-          pointHoverBorderWidth: 1,
-          pointHoverBorderColor: 'red',
+          pointHoverRadius: 0,
+          pointHoverBorderWidth: 0,
+          pointHoverBorderColor: '#F66',
+          pointHoverBackgroundColor: 'white',
           pointHitRadius: 0,
           parsing: false,
+          cubicInterpolationMode: 'monotone',
         });
       });
     });
 
     return result;
-  }, [chartData, joints, valueTypes, poseGraphSample, poseGraphSampleThreshold, poseUpdateInterval]);
+  }, [chartData, joints, valueTypes]);
 
   // Calculamos el rango del eje X usando el tiempo normalizado
   const allXValues = Object.values(chartData)
@@ -229,7 +225,7 @@ const Index = ({
           // Tomamos el primer timestamp como referencia (cero segundos)
           const start = dataArray[0].timestamp;
           const anglePoints = dataArray.map((d: { timestamp: number; angle: number; }) => ({
-            x: (d.timestamp - start) / 1000,
+            x: (d.timestamp - start),// / 1000,
             y: d.angle,
           }));
           newChartData[joint] = {
@@ -253,17 +249,20 @@ const Index = ({
     () => ({
       type: "line",
       data: {
-        datasets: datasets,
+        datasets,
       },
       plugins: [
-        customCrosshairPlugin(),
+        customCrosshairPlugin({
+          recordedPositions: recordedPositions!,
+          tooltipXRef,
+        }),
       ],
       options: {
         responsive: true,
         animation: false,
         maintainAspectRatio: false,
         interaction: {
-          mode: "index", //"nearest",
+          mode: "index", //"index","nearest"
           axis: "x",
           intersect: false,
           includeInvisible: false,
@@ -416,28 +415,48 @@ const Index = ({
             enabled: false,
             boxPadding: 6,
             external: (context) => {
-              const tooltipModel = context.tooltip;
-              const dataPoints = tooltipModel.dataPoints;
-
-              if (dataPoints && dataPoints.length > 0) {
-                const x = dataPoints[0].parsed.x;
-                const values = dataPoints.map(dp => {
-                  const rawLabel = dp.dataset.label ?? '';
-              
-                  const jointLabel = rawLabel
-                    .toLowerCase()
-                    .replace(/ (angle)/, '')
-                    .replace(/\s+/g, '_');
-              
-                  return {
-                    label: jointLabel,
-                    y: dp.parsed.y,
-                  };
-                });
-                // console.log('onVerticalLineChange ', values)
-                onVerticalLineChange({ x, values });
-              }
-            },
+              if (ignoreExternalTrigger) return;
+            
+              const chart = context.chart;
+              if (areAllDatasetsHidden(chart)) return;
+            
+              const tooltip = context.tooltip;
+              const { dataPoints, caretX } = tooltip;
+            
+              if (!dataPoints || dataPoints.length === 0) return;
+            
+              const xScale = chart.scales["x"];
+              const xMs = xScale.getValueForPixel(caretX)!; // ✅ valor real en milisegundos
+            
+              tooltipXRef.current = xMs; // Guarda para el plugin
+            
+              const values = dataPoints.map((dp) => {
+                const rawLabel = dp.dataset.label ?? "";
+                const jointLabel = rawLabel
+                  .toLowerCase()
+                  .replace(/ (angle)/, "")
+                  .replace(/\s+/g, "_") as CanvasKeypointName;
+            
+                const jointData = recordedPositions?.[jointLabel] ?? [];
+            
+                const nearest = jointData.reduce((prev, curr) => {
+                  return Math.abs(curr.timestamp - xMs) < Math.abs(prev.timestamp - xMs)
+                    ? curr
+                    : prev;
+                }, jointData[0]);
+            
+                return {
+                  label: jointLabel,
+                  y: nearest?.angle ?? null,
+                };
+              });
+            
+              onVerticalLineChange({
+                x: xMs / 1000, // 🎯 segundos para el componente padre
+                values,
+              });
+            }
+                      
           }
         },
         elements: {
@@ -455,13 +474,15 @@ const Index = ({
             title: { display: false, text: "Time (seconds)" },
             ticks: {
               display: joints.length > 0,
-              stepSize: 1,
-              maxTicksLimit: 12,
+              stepSize: 1_000,
+              maxTicksLimit: 12_000,
               callback: (value) => {
                 // Si el valor es negativo, no se muestra nada.
                 if (Number(value) < 0 || datasets.length === 0) return "";
+
+                const seconds = Number(value) / 1000;
                 
-                return Number(value).toFixed(0);
+                return seconds.toFixed(0);
               },
             },
           },

@@ -19,6 +19,7 @@ export const TensorFlowProvider: React.FC<TensorFlowProviderProps> = ({ children
       try {
         await tf.setBackend('webgl'); // O 'wasm' según tu preferencia
         await tf.ready();
+        // console.log('Tensorflow backend: ', tf.getBackend())
         setIsReady(true);
       } catch (error) {
         console.error("Error al inicializar TensorFlow:", error);

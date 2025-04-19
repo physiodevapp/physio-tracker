@@ -3,6 +3,7 @@
 import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import * as poseDetection from "@tensorflow-models/pose-detection";
+import * as tf from '@tensorflow/tfjs-core';
 import { JointDataMap, JointConfigMap, CanvasKeypointName, PoseSettings, Kinematics, JointColors } from "@/interfaces/pose";
 import { drawKeypointConnections, drawKeypoints } from "@/utils/draw";
 import { updateJoint } from "@/utils/joint";
@@ -23,26 +24,23 @@ interface IndexProps {
 
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const { settings, setSelectedJoints } = useSettings();
+  const {
+    selectedJoints,
+    angularHistorySize,
+  } = settings.pose;
 
   const [showOrthogonalOption, setShowOrthogonalOption] = useState(false);
   const [orthogonalReference, setOrthogonalReference] = useState<'vertical' | 'horizontal' | undefined>(undefined);
   const orthogonalReferenceRef = useRef(orthogonalReference);
 
   const [anglesToDisplay, setAnglesToDisplay] = useState<string[]>([]);
+  const anglesToDisplayRef = useRef<string[]>(anglesToDisplay);
 
   const [isCameraReady, setIsCameraReady] = useState(false);
 
   const lastXRef = useRef<number | null>(null);
-  const isSeekingFromChartRef  = useRef<{
-    isSeeking: boolean;
-    newValue: null | {
-      x: number;
-      values: { label: string; y: number }[];
-    }
-  }>({
-    isSeeking: false,
-    newValue: null,
-  });
+  // const ignoreNextVerticalLineChangeRef = useRef(false);
+  const [ignoreNextVerticalLineChange, setIgnoreNextVerticalLineChange] = useState(false);
 
   const [infoMessage, setInfoMessage] = useState({
     show: false,
@@ -61,7 +59,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [videoProcessed, setVideoProcessed] = useState(false);
   const videoProcessedRef = useRef(videoProcessed);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
-  const [isUploadedVideo, setIsUploadedVideo] = useState(false)
+  const [isUploadedVideo, setIsUploadedVideo] = useState(false);
   
   const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
   
@@ -73,11 +71,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [isPoseModalOpen, setIsPoseModalOpen] = useState(false);
   const [isPoseSettingsModalOpen, setIsPoseSettingsModalOpen] = useState(false);
   
-  const jointAngleHistorySizeRef = useRef(settings.pose.angularHistorySize);
+  const jointAngleHistorySizeRef = useRef(angularHistorySize);
   
   const jointDataRef = useRef<JointDataMap>({});
   
-  const visibleJointsRef = useRef(settings.pose.selectedJoints);
+  const visibleJointsRef = useRef(selectedJoints);
   const visibleKinematicsRef = useRef(visibleKinematics);
   
   const [isFrozen, setIsFrozen] = useState(false);
@@ -85,6 +83,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const referenceScaleRef = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const inputCanvasRef = useRef<HTMLCanvasElement>(null);
   const webcamRef = useRef<Webcam>(null);
   const videoConstraintsRef = useRef(videoConstraints);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -109,7 +108,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     return visibleKinematics.length === 2 ? 3 : 6;
   }, [visibleKinematics]);
   
-  const detector = usePoseDetector();
+  const { detector, detectorModel } = usePoseDetector();
 
   const keypointPairs: [CanvasKeypointName, CanvasKeypointName][] = [
     [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.RIGHT_SHOULDER],
@@ -120,8 +119,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     [CanvasKeypointName.LEFT_HIP, CanvasKeypointName.RIGHT_HIP],
     [CanvasKeypointName.LEFT_HIP, CanvasKeypointName.LEFT_KNEE],
     [CanvasKeypointName.LEFT_KNEE, CanvasKeypointName.LEFT_ANKLE],
+    [CanvasKeypointName.LEFT_ANKLE, CanvasKeypointName.LEFT_HEEL],
+    [CanvasKeypointName.LEFT_ANKLE, CanvasKeypointName.LEFT_FOOT_INDEX],
+    [CanvasKeypointName.LEFT_HEEL, CanvasKeypointName.LEFT_FOOT_INDEX],
     [CanvasKeypointName.RIGHT_HIP, CanvasKeypointName.RIGHT_KNEE],
     [CanvasKeypointName.RIGHT_KNEE, CanvasKeypointName.RIGHT_ANKLE],
+    [CanvasKeypointName.RIGHT_ANKLE, CanvasKeypointName.RIGHT_HEEL],
+    [CanvasKeypointName.RIGHT_ANKLE, CanvasKeypointName.RIGHT_FOOT_INDEX],
+    [CanvasKeypointName.RIGHT_HEEL, CanvasKeypointName.RIGHT_FOOT_INDEX],
   ];
 
   const jointConfigMap: JointConfigMap = {
@@ -158,11 +163,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       }
 
       if (videoProcessed && videoUrl) {
-        isSeekingFromChartRef.current = {
-          isSeeking: false,
-          newValue: null,
-        };
-
         togglePlayback({});
       }
     }
@@ -188,6 +188,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           result.push(`${formatted}: - °`); // añadir por defecto
         }
       });
+
+      anglesToDisplayRef.current = [...result]
 
       return result;
     });
@@ -317,31 +319,213 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     const video = videoRef.current;
     if (!video) return;
 
-    if (restart) {
-      video.playbackRate = settings.pose.processingSpeed;
+    const waitForFrameReady = async (video: HTMLVideoElement) => {
+      while (video.readyState < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    };
 
+    if (restart) {
       recordedPositionsRef.current = {};
       
       video.currentTime = 0;
+      setVideoCurrentTime(0)
     }
 
     const shouldPlay = action === "play" || (action === undefined && video.paused);
     const shouldPause = action === "pause" || (action === undefined && !video.paused);
 
     if (shouldPlay) {
-      setTimeout(() => {
-        video.play();
-      }, (restart && isFrozen) ? 100 : 0);
-      setIsFrozen(false);
-    } else if (shouldPause) {
+      // console.log('shouldPlay')
+      // ------
+      if (videoProcessed) {
+        if (restart && isFrozen) {
+          // Esperar a que el vídeo se reposicione a 0 antes de reproducir
+          video.onseeked = () => {
+            video.play();
+            setIsFrozen(false);
+            video.onseeked = null; // limpiar el listener
+          };
+        } else {
+          // No es un reinicio, se puede reproducir directamente
+          video.play();
+          setIsFrozen(false);
+        }
+      }
+      else if (!videoProcessed) {
+        video.pause();
+        setIsFrozen(false);
+
+        let frameCount = 0;
+        let FRAME_INTERVAL = 0.1; // valor temporal inicial
+
+        // 🧠 Detectar el intervalo mínimo útil para avanzar de frame en este vídeo
+        const findMinUsefulFrameInterval = async (
+          video: HTMLVideoElement,
+          maxTries = 10,
+          startInterval = 1 / 60
+        ): Promise<number> => {
+          const baseTime = video.currentTime;
+          let testInterval = startInterval;
+
+          for (let i = 0; i < maxTries; i++) {
+            await new Promise<void>((resolve) => {
+              const onSeeked = () => {
+                video.removeEventListener("seeked", onSeeked);
+                resolve();
+              };
+              video.addEventListener("seeked", onSeeked);
+              video.currentTime = baseTime + testInterval;
+            });
+
+            if (video.currentTime !== baseTime) {
+              console.log(`✅ FRAME_INTERVAL óptimo: ${testInterval.toFixed(4)}s`);
+              return testInterval;
+            }
+
+            testInterval += 0.005;
+          }
+
+          console.warn("⚠️ No se detectó un intervalo mínimo útil. Usando 0.1s");
+          return 0.1;
+        };
+
+        // 🔄 Bucle principal del análisis
+        const loop = async () => {
+          const video = videoRef.current;
+          if (!video || video.ended || isFrozen) return;
+
+          // console.log('video.currentTime ', video.currentTime)
+          // console.log('video.duration ', video.duration)
+          const isEnded = isUploadedVideo 
+            ? video.currentTime >= video.duration
+            : video.duration - video.currentTime < 0.05;
+
+          if (isEnded) {
+            console.log("✅ Análisis terminado");
+          
+            const allTimestamps = Object.values(recordedPositionsRef.current)
+              .flatMap((arr) => arr?.map((entry) => entry.timestamp) ?? []);
+            const minTimestamp = Math.min(...allTimestamps);
+            const firstTimeInSeconds = minTimestamp / 1000;
+          
+            video.currentTime = firstTimeInSeconds;
+          
+            video.onseeked = async () => {
+              video.onseeked = null;
+          
+              // 🔄 Esperar a que el nuevo frame esté listo
+              await waitForFrameReady(video);
+          
+              // 🔄 Espera adicional si usas BlazePose
+              if (detectorModel === poseDetection.SupportedModels.BlazePose) {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+              }
+          
+              // ✅ Analizar el primer frame real (posicionamiento)
+              await analyzeSingleFrame(); 
+          
+              // 🧠 Calcular FPS estimado
+              const fps = frameCount / video.duration;
+              console.log("🎯 FPS estimado:", fps.toFixed(2));
+              setEstimatedFps(fps);
+          
+              // 🧹 Limpiar duplicados
+              const removeDuplicateTimestamps = (
+                dataRef: React.RefObject<Record<string, { timestamp: number }[]>>
+              ) => {
+                Object.keys(dataRef.current).forEach((key) => {
+                  const seen = new Set<number>();
+                  const filtered = dataRef.current[key].filter((entry) => {
+                    if (!entry || typeof entry.timestamp !== "number") return false;
+                    const rounded = parseFloat(entry.timestamp.toFixed(3));
+                    if (seen.has(rounded)) return false;
+                    seen.add(rounded);
+                    return true;
+                  });
+                  dataRef.current[key] = filtered;
+                });
+              };
+          
+              // ❌ Quitar último valor añadido manualmente
+              (Object.keys(recordedPositionsRef.current) as CanvasKeypointName[]).forEach((key) => {
+                const arr = recordedPositionsRef.current[key];
+                if (Array.isArray(arr) && arr.length > 0) {
+                  arr.pop();
+                }
+              });
+          
+              removeDuplicateTimestamps(recordedPositionsRef);
+              handleEnded();
+              setVideoCurrentTime(firstTimeInSeconds);
+            };
+          
+            return;
+          }                           
+
+          video.onseeked = async () => {
+            video.onseeked = null;
+          
+            // 🕒 Esperar hasta que el vídeo haya cargado completamente el frame
+            await waitForFrameReady(video);
+          
+            const actualTimestamp = video.currentTime * 1000;
+          
+            // 🧠 Espera extra si usas BlazePose
+            if (detectorModel === poseDetection.SupportedModels.BlazePose) {
+              await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+          
+            await analyzeSingleFrame(actualTimestamp);
+            frameCount++;
+          
+            loop(); // sigue con el siguiente paso
+          };          
+          
+          video.currentTime += FRAME_INTERVAL; // esto se hace después de configurar onseeked
+        };
+
+        // ⏯️ Inicializar
+        if (video) {
+          // 🔍 Estimación de latencia del modelo en milisegundos
+          const getEstimatedModelLatency = () => {
+            switch (detectorModel) {
+              case poseDetection.SupportedModels.BlazePose:
+                return 80; // Puedes ajustar: lite: ~40ms, full: ~80ms
+              case poseDetection.SupportedModels.MoveNet:
+              default:
+                return 15; // Estimación para MoveNet
+            }
+          };
+
+          findMinUsefulFrameInterval(video).then((interval) => {
+            const estimatedProcessingTime = getEstimatedModelLatency() / 1000;
+            FRAME_INTERVAL = Math.max(interval, estimatedProcessingTime);
+            console.log(`🧠 FRAME_INTERVAL ajustado dinámicamente: ${FRAME_INTERVAL.toFixed(4)}s`);
+            loop();
+          });
+        }
+      }
+      // ------
+    } 
+    else if (shouldPause) {
+      // console.log('shouldPause ', anglesToDisplayRef.current)
+      // console.log('shouldPause ', recordedPositionsRef.current)
+      // console.log('shouldPause currentTime ', video.currentTime)
       video.pause();
-      setTimeout(() => {
+      video.onpause = async () => {
+        // console.log('onpause currentTime ', video.currentTime)
+        // console.log('onpause before ', anglesToDisplayRef.current)
+        await analyzeSingleFrame(video.currentTime)
+        // console.log('onpause after ', anglesToDisplayRef.current)
         setIsFrozen(true);
-      }, 100);
+        video.onpause = null;
+      };
     }
   };
 
   const handleEnded = () => {
+    console.log('handleEnded')
     if (!videoProcessed) {
       setVideoProcessed(true);
 
@@ -359,106 +543,85 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     x: number;
     values: { label: string; y: number }[];
   }) => {
+    // console.log('handleChartValueX ', newValue)
     const video = videoRef.current;
     if (!video) return;
-
-    if (newValue.x === lastXRef.current) return; 
+  
+    // Prevenir repeticiones innecesarias
+    if (newValue.x === lastXRef.current) return;
     lastXRef.current = newValue.x;
-    
+  
+    // Pausar si el vídeo estaba reproduciéndose
     if (!video.paused) {
       if (videoProcessed && videoUrl) {
-        isSeekingFromChartRef.current = {
-          isSeeking: false,
-          newValue: null,
-        };
-        
         togglePlayback({});
       }
     }
-    
+  
+    // Establecer nueva posición en el vídeo
     video.currentTime = newValue.x;
-    setVideoCurrentTime(video.currentTime);
     
-    setTimeout(async () => {
-      if (video!.paused) {
-        isSeekingFromChartRef.current = {
-          isSeeking: true,
-          newValue: newValue,
-        };
+    // Analizar el frame una vez esté cargado
+    video.onseeked = async () => {
+      setVideoCurrentTime(newValue.x);
+      video.onseeked = null; // evitar duplicación
+  
+      // Si usas BlazePose, espera un poco para asegurarte de que el frame se ha renderizado bien
+      if (detectorModel === poseDetection.SupportedModels.BlazePose) {
+        await new Promise((resolve) => setTimeout(resolve, 80)); // Ajusta si es necesario
       }
-
+  
       await analyzeSingleFrame();
-    }, 400);
-  };
-
-  const updateIsSeekingFromCurrentVideoTime = (timestampMs: number) => {
-    // Obtener el ángulo más cercano por articulación
-    const values: { label: string; y: number }[] = [];
-    Object.entries(recordedPositionsRef.current).forEach(([jointName, history]) => {
-      if (!history?.length) return;
-
-      // Buscar el ángulo con timestamp más cercano al tiempo actual
-      const closest = history.reduce((prev, curr) =>
-        Math.abs(curr.timestamp - timestampMs) < Math.abs(prev.timestamp - timestampMs)
-          ? curr
-          : prev
-      );
-
-      if (closest) {
-        values.push({ label: jointName, y: closest.angle });
-      }
-    });
-    // Actualizar isSeekingFromChartRef
-    isSeekingFromChartRef.current = {
-      isSeeking: true,
-      newValue: {
-        x: timestampMs,
-        values,
-      },
     };
-  }
-
+  };  
+  
   const rewindStep = () => {
-    if (videoRef.current!.currentTime <= 0) return;
+    const video = videoRef.current;
+    if (!video || video.currentTime <= 0) return;
 
-    togglePlayback({action: "pause"});
+    // ignoreNextVerticalLineChangeRef.current = true;
+    setIgnoreNextVerticalLineChange(true);
+  
+    togglePlayback({ action: "pause" });
+  
+    const stepTime = 1 / estimatedFps!;
+    video.currentTime = Math.max(video.currentTime - stepTime, 0);
+    
+    video.onseeked = async () => {
+      setVideoCurrentTime(video.currentTime);
+      video.onseeked = null;
+      if (detectorModel === poseDetection.SupportedModels.BlazePose) {
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      }
+      await analyzeSingleFrame();
 
-    const fps = (estimatedFps ?? 0) < 30 ? 30 : estimatedFps;
-    if (videoRef.current && fps) {
-      const stepTime = 1 / fps;
-
-      videoRef.current.currentTime = Math.max(videoRef.current.currentTime - stepTime, 0);
-
-      // Obtener el ángulo más cercano por articulación
-      const timestampMs = videoRef.current.currentTime * 1000;
-      updateIsSeekingFromCurrentVideoTime(timestampMs);
-
-      setTimeout(async () => {
-        await analyzeSingleFrame();
-      }, 200);
-    }
+      setIgnoreNextVerticalLineChange(false);
+    };
   };
-
+  
   const forwardStep = () => {
-    if (videoRef.current!.currentTime >= videoRef.current!.duration) return;
-    
-    togglePlayback({action: "pause"});
-    
-    const fps = (estimatedFps ?? 0) < 30 ? 30 : estimatedFps;
-    if (videoRef.current && fps) {
-      const stepTime = 1 / fps;
-      
-      videoRef.current.currentTime = Math.min(videoRef.current.currentTime + stepTime, videoRef.current.duration);
+    const video = videoRef.current;
+    if (!video || video.currentTime >= video.duration) return;
 
-      // Obtener el ángulo más cercano por articulación
-      const timestampMs = videoRef.current.currentTime * 1000;
-      updateIsSeekingFromCurrentVideoTime(timestampMs);      
-      
-      setTimeout(async () => {
-        await analyzeSingleFrame();
-      }, 200);
-    }
-  };
+    // ignoreNextVerticalLineChangeRef.current = true;
+    setIgnoreNextVerticalLineChange(true);
+  
+    togglePlayback({ action: "pause" });
+  
+    const stepTime = 1 / estimatedFps!;
+    video.currentTime = Math.min(video.currentTime + stepTime, video.duration);
+    
+    video.onseeked = async () => {
+      setVideoCurrentTime(video.currentTime);
+      video.onseeked = null;
+      if (detectorModel === poseDetection.SupportedModels.BlazePose) {
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      }
+      await analyzeSingleFrame();
+
+      setIgnoreNextVerticalLineChange(false);
+    };
+  };  
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
@@ -508,15 +671,22 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     return `${sideShort} ${capitalizedPart}`;
   };
 
-  const updateMultipleJoints = ({keypoints, jointNames, jointDataRef, jointConfigMap}: {
+  const updateMultipleJoints = ({keypoints, jointNames, jointDataRef, jointConfigMap, actualTimestamp, ctx}: {
     keypoints: poseDetection.Keypoint[],
     jointNames: CanvasKeypointName[],
     jointDataRef: RefObject<JointDataMap>,
-    jointConfigMap: JointConfigMap
+    jointConfigMap: JointConfigMap,
+    actualTimestamp?: number,
+    ctx?: CanvasRenderingContext2D,
   }) => {
     const anglesToDisplay: string[] = [];
-    setAnglesToDisplay(anglesToDisplay);
-    
+    if (videoRef.current) {
+      anglesToDisplayRef.current = [];
+    }
+    else {
+      setAnglesToDisplay([])
+    }
+     
     if (!visibleJointsRef.current.length) return; 
 
     jointNames.forEach((jointName) => {
@@ -524,27 +694,27 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
       const jointData = jointDataRef.current[jointName] ?? null;
 
-      const {
-        isSeeking,
-        newValue,
-      } = isSeekingFromChartRef.current;
-
       const updatedData = updateJoint({
         keypoints,
         jointData,
         jointName,
         invert: jointConfig.invert,
         angleHistorySize: jointAngleHistorySizeRef.current,
-        graphAngle: isSeeking 
-          ? newValue?.values.find((value) => value.label === jointName)?.y 
-          : null,
+        graphAngle: null,
         orthogonalReference: orthogonalReferenceRef.current,
+        mirror: videoConstraintsRef.current.facingMode === "user",
+        // ctx,
       });
+
       jointDataRef.current[jointName] = updatedData;
+
       if (updatedData && typeof updatedData.angle === "number") {
         const label = formatJointName(jointName);
         const angle = `${label}: ${updatedData.angle.toFixed(0)}°`;
         anglesToDisplay.push(angle);
+        if (videoRef.current) {
+          anglesToDisplayRef.current.push(angle);
+        }
       }
   
       if (videoRef.current && !videoProcessedRef.current) {
@@ -553,14 +723,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           recordedPositionsRef.current[jointName] = [];
         }
         recordedPositionsRef.current[jointName]!.push({
-          timestamp: videoRef.current!.currentTime * 1000, // updatedData.lastTimestamp,
+          timestamp: actualTimestamp ?? videoRef.current!.currentTime * 1000,
           angle: updatedData.angle,
           color: updatedData.color
         });
       }
     });
 
-    if (anglesToDisplay.length) {
+    // Solo actualizar el estado si hay cambios
+    if (!videoRef.current) {
       setAnglesToDisplay(anglesToDisplay);
     }
   };
@@ -593,10 +764,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     if (videoRef.current && isProcessingVideo) {
       setDisplayGraphs(false);
 
-      isSeekingFromChartRef.current = {
-        isSeeking: false,
-        newValue: null
-      };
+      // isSeekingFromChartRef.current = {
+      //   isSeeking: false,
+      //   newValue: null
+      // };
       
       videoProcessedRef.current = false;
       setVideoProcessed(false);
@@ -609,10 +780,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     if (videoUrl === null) {
       setDisplayGraphs(false);
 
-      isSeekingFromChartRef.current = {
-        isSeeking: false,
-        newValue: null
-      };
+      // isSeekingFromChartRef.current = {
+      //   isSeeking: false,
+      //   newValue: null
+      // };
   
       jointDataRef.current = {};
       recordedPositionsRef.current = {};
@@ -661,8 +832,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }, [videoProcessed])
   
   useEffect(() => {
-    jointAngleHistorySizeRef.current = settings.pose.angularHistorySize;
-    visibleJointsRef.current = settings.pose.selectedJoints;
+    jointAngleHistorySizeRef.current = angularHistorySize;
+    visibleJointsRef.current = selectedJoints;
   }, [settings])
 
   useEffect(() => {
@@ -711,7 +882,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     jointDataRef,
     visibleJointsRef,
     keypointPairs,
-    jointConfigMap
+    jointConfigMap,
+    actualTimestamp,
   }: {
     videoElement: HTMLVideoElement;
     canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -723,11 +895,32 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     visibleJointsRef: RefObject<CanvasKeypointName[]>;
     keypointPairs: [CanvasKeypointName, CanvasKeypointName][];
     jointConfigMap: JointConfigMap;
+    actualTimestamp?: number;
   }) => {
-    const poses = await detector!.estimatePoses(videoElement, {
-      maxPoses: 1,
-      flipHorizontal: false,
-    });
+    // const poses = await detector!.estimatePoses(videoElement, {
+    //   maxPoses: 1,
+    //   flipHorizontal: false,
+    // });
+    let poses = [];
+    if (detectorModel === poseDetection.SupportedModels.BlazePose) {
+      const inputCanvas = inputCanvasRef.current;
+      if (!inputCanvas) return;
+    
+      inputCanvas.width = videoElement.videoWidth;
+      inputCanvas.height = videoElement.videoHeight;
+    
+      const ctx = inputCanvas.getContext("2d");
+      ctx?.drawImage(videoElement, 0, 0, inputCanvas.width, inputCanvas.height);
+    
+      const inputTensor = tf.browser.fromPixels(inputCanvas);
+      poses = await detector!.estimatePoses(inputTensor);
+      inputTensor.dispose();
+    } else {
+      poses = await detector!.estimatePoses(videoElement, {
+        maxPoses: 1,
+        flipHorizontal: false,
+      });
+    }
   
     canvasRef.current!.width = videoElement.videoWidth;
     canvasRef.current!.height = videoElement.videoHeight;
@@ -772,12 +965,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           jointNames: visibleJointsRef.current,
           jointDataRef,
           jointConfigMap,
+          actualTimestamp,
+          ctx,
         });
       }
     }
   };
   
-  const analyzeSingleFrame = async () => {
+  const analyzeSingleFrame = async (actualTimestamp?: number) => {
     if (!detector || !canvasRef.current || (videoUrl ? !videoRef.current : !webcamRef.current)) return;
 
     try {
@@ -804,7 +999,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           jointDataRef,
           visibleJointsRef,
           keypointPairs,
-          jointConfigMap
+          jointConfigMap,
+          actualTimestamp,
         });
       }
     } catch (error) {
@@ -844,12 +1040,34 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             videoElement.readyState === 4 &&
             videoElement.videoWidth > 0 &&
             videoElement.videoHeight > 0
-        ) {
-          const poses = await detector.estimatePoses(videoElement, {
-            maxPoses: 1,
-            flipHorizontal: false,
-          });
+        ) {          
+          // const poses = await detector!.estimatePoses(videoElement, {
+          //   maxPoses: 1,
+          //   flipHorizontal: false,
+          // });
+          let poses = [];
+          if (detectorModel === poseDetection.SupportedModels.BlazePose) {
+            const inputCanvas = inputCanvasRef.current;
+            if (!inputCanvas) return;
           
+            inputCanvas.width = videoElement.videoWidth;
+            inputCanvas.height = videoElement.videoHeight;
+          
+            const ctx = inputCanvas.getContext("2d");
+            ctx?.drawImage(videoElement, 0, 0, inputCanvas.width, inputCanvas.height);
+          
+            const inputTensor = tf.browser.fromPixels(inputCanvas);
+            poses = await detector.estimatePoses(inputTensor);
+            inputTensor.dispose();
+          } else {
+            poses = await detector!.estimatePoses(videoElement, {
+              maxPoses: 1,
+              flipHorizontal: false,
+            });
+          }
+
+          if (!canvasRef.current) return;
+
           canvasRef.current.width = videoElement.videoWidth;
           canvasRef.current.height = videoElement.videoHeight;
 
@@ -886,12 +1104,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 lineWidth: 2 * (referenceScale / scaleFactor), 
               });
 
+              /**
+               if (videoRef.current && videoProcessedRef.current) {
+                 const timestampMs = videoRef.current.currentTime * 1000;
+                 updateIsSeekingFromCurrentVideoTime(timestampMs);
+               }
+              */
+
               // Calcular ángulo entre tres keypoints
-              if (videoRef.current && videoProcessedRef.current) {
-                const timestampMs = videoRef.current.currentTime * 1000;
-                updateIsSeekingFromCurrentVideoTime(timestampMs);
-              }
-              updateMultipleJoints({keypoints, jointNames: visibleJointsRef.current, jointDataRef, jointConfigMap});
+              updateMultipleJoints({keypoints, jointNames: visibleJointsRef.current, jointDataRef, jointConfigMap, ctx});
             }
           }
         }
@@ -969,6 +1190,36 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setVideoCurrentTime(e.currentTarget.currentTime);
   };
 
+  useEffect(() => {
+    if (videoProcessed) {
+      const closestJointData = selectedJoints.map(joint => {
+        const data = recordedPositionsRef.current[joint];
+        if (!data || !data.length) return null;
+      
+        const currentMs = videoCurrentTime * 1000;
+      
+        // Encontrar el item con timestamp más cercano
+        const closest = data.reduce((prev, curr) => {
+          return Math.abs(curr.timestamp - currentMs) < Math.abs(prev.timestamp - currentMs)
+            ? curr
+            : prev;
+        });
+
+        const label = formatJointName(joint);
+      
+        return {
+          angle: `${label}: ${closest.angle.toFixed(0)}°`,
+          timestamp: closest.timestamp,
+        };
+      }).filter(Boolean); // para quitar los null
+      // console.log('closestJointData ', recordedPositionsRef.current)
+      // console.log('closestJointData ', closestJointData)
+      const anglesToDisplay = [...closestJointData].map(a => a?.angle) as string[]
+      setAnglesToDisplay(anglesToDisplay);
+      
+    } 
+  }, [videoCurrentTime])
+
   return (
     <>
       {(!detector && !isCameraReady) ? (
@@ -1020,6 +1271,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             onUserMedia={() => setIsCameraReady(true)}
             />
         )}
+        <canvas ref={inputCanvasRef} style={{ display: "none" }} />
         <canvas 
           ref={canvasRef} 
           className={`absolute object-cover h-full w-full ${
@@ -1045,8 +1297,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               }
               {!videoUrl && (
                 <>
-                  <div 
-                    className={`relative cursor-pointer ${
+                  <VideoCameraIcon 
+                    className={`h-6 w-6 cursor-pointer ${recording ? 'text-green-500 animate-pulse ' : 'text-white'} ${
                       isFrozen ? "opacity-40" : ""
                     }`}
                     onClick={() => !isFrozen
@@ -1054,14 +1306,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                         ? handleStopRecording() 
                         : handleStartRecording() 
                       : null}
-                    >
-                    <VideoCameraIcon 
-                      className={`h-6 w-6 cursor-pointer ${recording ? 'text-green-500 animate-pulse ' : 'text-white'}`}
-                      />
-                    <p className="absolute top-[60%] -right-1 bg-white/80 dark:bg-black/80 rounded-[0.2rem] px-[0.2rem] py-0 text-[#5dadec] dark:text-white text-xs text-center">
-                      {(recording ? estimatedFps : undefined) ?? "FPS"}
-                    </p>
-                  </div>
+                  />
                   <>
                     <ArrowUpTrayIcon 
                       className={`h-6 w-6 cursor-pointer text-white ${
@@ -1182,7 +1427,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         handleModal={handlePoseModal} 
         jointOptions={jointOptions}
         maxSelected={maxJointsAllowed }
-        initialSelectedJoints={settings.pose.selectedJoints} 
+        initialSelectedJoints={selectedJoints} 
         onSelectionChange={handleJointSelection} 
         />
 
@@ -1196,12 +1441,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       {displayGraphs ? (
         <div className="relative">
           <PoseGraph 
-            joints={settings.pose.selectedJoints}
+            joints={selectedJoints}
             valueTypes={visibleKinematics}
             recordedPositions={videoProcessed ? recordedPositionsRef.current : undefined}
             onVerticalLineChange={handleChartValueX}
-            verticalLineValue={isFrozen ? videoCurrentTime : undefined}
             parentStyles="relative z-0 h-[50dvh] bg-white"
+            ignoreExternalTrigger={ignoreNextVerticalLineChange}
+            // verticalLineValue={isFrozen ? videoCurrentTime : undefined}
+            // ignoreExternalTriggerRef={ignoreNextVerticalLineChangeRef}
             />
         </div> ) : null
       }
