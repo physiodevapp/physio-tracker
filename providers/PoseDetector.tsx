@@ -31,23 +31,28 @@ export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTf
         // Si ya existe el detector, no se vuelve a crear
         if (detector) return;
 
-        const detectorInstance = await poseDetection.createDetector(
-          poseDetection.SupportedModels.MoveNet,
-          {
-            modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-            minPoseScore: 0.3,
-          },
-          /**
-           poseDetection.SupportedModels.BlazePose,
+        /**
+         const detectorInstance = await poseDetection.createDetector(
+           poseDetection.SupportedModels.MoveNet,
            {
-             runtime: 'tfjs',
-             enableSmoothing: true,
-             modelType: 'lite', // 'lite', 'full' or 'heavy'
-           },   
-           */       
+             modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+             minPoseScore: 0.3,
+           },      
+         );
+         setDetector(detectorInstance);
+         setDetectorModel(poseDetection.SupportedModels.MoveNet);
+        
+        */
+        const detectorInstance = await poseDetection.createDetector(
+          poseDetection.SupportedModels.BlazePose,
+          {
+            runtime: 'tfjs',
+            enableSmoothing: true,
+            modelType: 'lite', // 'lite', 'full' or 'heavy'
+          },   
         );
         setDetector(detectorInstance);
-        setDetectorModel(poseDetection.SupportedModels.MoveNet);
+        setDetectorModel(poseDetection.SupportedModels.BlazePose);
       } catch (error) {
         console.error("Error al inicializar el detector:", error);
       }

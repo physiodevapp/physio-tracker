@@ -417,7 +417,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           
               // 🔄 Espera adicional si usas BlazePose
               if (detectorModel === poseDetection.SupportedModels.BlazePose) {
-                await new Promise((resolve) => setTimeout(resolve, 100));
+                await new Promise((resolve) => setTimeout(resolve, 600));
               }
           
               // ✅ Analizar el primer frame real (posicionamiento)
@@ -452,8 +452,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   arr.pop();
                 }
               });
-          
+              
               removeDuplicateTimestamps(recordedPositionsRef);
+              console.log('✅ Análisis terminado y filtrado ', recordedPositionsRef.current);
+
               handleEnded();
               setVideoCurrentTime(firstTimeInSeconds);
             };
@@ -471,7 +473,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           
             // 🧠 Espera extra si usas BlazePose
             if (detectorModel === poseDetection.SupportedModels.BlazePose) {
-              await new Promise((resolve) => setTimeout(resolve, 100));
+              await new Promise((resolve) => setTimeout(resolve, 600));
             }
           
             await analyzeSingleFrame(actualTimestamp);
@@ -489,7 +491,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           const getEstimatedModelLatency = () => {
             switch (detectorModel) {
               case poseDetection.SupportedModels.BlazePose:
-                return 80; // Puedes ajustar: lite: ~40ms, full: ~80ms
+                return 40; // Puedes ajustar: lite: ~40ms, full: ~80ms
               case poseDetection.SupportedModels.MoveNet:
               default:
                 return 15; // Estimación para MoveNet
@@ -498,8 +500,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
           findMinUsefulFrameInterval(video).then((interval) => {
             const estimatedProcessingTime = getEstimatedModelLatency() / 1000;
-            FRAME_INTERVAL = Math.max(interval, estimatedProcessingTime);
+
+            // Ajustar con un margen, y poner un límite superior para evitar pasos muy grandes
+            const modeMultiplier = false ? 0.5 : 1; // revisar: añadir a settings -> userPrefersHighFrequency
+            FRAME_INTERVAL = Math.min(
+              Math.max(interval, estimatedProcessingTime) * modeMultiplier,
+              0.2 // límite superior: 5 fps máx.
+            );
             console.log(`🧠 FRAME_INTERVAL ajustado dinámicamente: ${FRAME_INTERVAL.toFixed(4)}s`);
+
             loop();
           });
         }
@@ -507,16 +516,12 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       // ------
     } 
     else if (shouldPause) {
-      // console.log('shouldPause ', anglesToDisplayRef.current)
-      // console.log('shouldPause ', recordedPositionsRef.current)
-      // console.log('shouldPause currentTime ', video.currentTime)
       video.pause();
       video.onpause = async () => {
-        // console.log('onpause currentTime ', video.currentTime)
-        // console.log('onpause before ', anglesToDisplayRef.current)
         await analyzeSingleFrame(video.currentTime)
-        // console.log('onpause after ', anglesToDisplayRef.current)
+        
         setIsFrozen(true);
+
         video.onpause = null;
       };
     }
@@ -570,7 +575,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   
       // Si usas BlazePose, espera un poco para asegurarte de que el frame se ha renderizado bien
       if (detectorModel === poseDetection.SupportedModels.BlazePose) {
-        await new Promise((resolve) => setTimeout(resolve, 80)); // Ajusta si es necesario
+        await new Promise((resolve) => setTimeout(resolve, 100)); // Ajusta si es necesario
       }
   
       await analyzeSingleFrame();
@@ -592,7 +597,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       setVideoCurrentTime(video.currentTime);
       video.onseeked = null;
       if (detectorModel === poseDetection.SupportedModels.BlazePose) {
-        await new Promise((resolve) => setTimeout(resolve, 80));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
       await analyzeSingleFrame();
 
@@ -615,7 +620,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       setVideoCurrentTime(video.currentTime);
       video.onseeked = null;
       if (detectorModel === poseDetection.SupportedModels.BlazePose) {
-        await new Promise((resolve) => setTimeout(resolve, 80));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
       await analyzeSingleFrame();
 
@@ -1017,9 +1022,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   useEffect(() => {    
     if (!detector || (videoUrl ? !videoRef.current : !webcamRef.current)) return;
+
+    let isMounted = true;
     
     const analyzeFrame = async () => {
-      if (isFrozen) {
+      if (isFrozen || !isMounted) {
         if (animationRef.current) {
           cancelAnimationFrame(animationRef.current);
           animationRef.current = null;
@@ -1137,9 +1144,12 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       }
     };
 
-    analyzeFrame();
+    // analyzeFrame();
+    animationRef.current = requestAnimationFrame(analyzeFrame);
 
     return () => {
+      isMounted = false;
+
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = null;
