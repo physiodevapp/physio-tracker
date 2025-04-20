@@ -70,8 +70,8 @@ export default function useCyclesDetector({
   const [cycleBoundaries, setCycleBoundaries] = useState<{ startX: number; endX: number, minY: number, maxY: number }>();
 
   const [cycleMetrics, setCycleMetrics] = useState<CycleMetric[]>([]);
-  const cycleDurations = useRef<number[]>([]);
-  const initialAvgVelocity = useRef<number | null>(null);
+  const cycleDurationsRef = useRef<number[]>([]);
+  const initialAvgVelocityRef = useRef<number | null>(null);
   
   // ---------- Refs para la lógica de detección de ciclo ----------
   // Ref para guardar el extremo que inició el ciclo ("above" o "below")
@@ -125,11 +125,11 @@ export default function useCyclesDetector({
   }, [downsampledData, movingAverageWindow]);
 
   const updateCycleDurations = (newDuration: number) => {
-    cycleDurations.current.push(newDuration);
+    cycleDurationsRef.current.push(newDuration);
     
     // Mantener solo los últimos "cyclesToAverage" ciclos en la memoria
-    if (cycleDurations.current.length > cyclesToAverage) {
-      cycleDurations.current.shift();
+    if (cycleDurationsRef.current.length > cyclesToAverage) {
+      cycleDurationsRef.current.shift();
     }
   };
 
@@ -249,15 +249,15 @@ export default function useCyclesDetector({
   // ------ Fatiga ------
   // Función de detección de fatiga basada en las métricas agregadas
   const detectFatigue = (): {isFatigued: boolean, reasons: string[], interpretation: string} => {
-    if (!aggregatedCycleMetrics || !cycleMetrics || !cycleDurations) return { isFatigued: false, reasons: [], interpretation: "" };
+    if (!aggregatedCycleMetrics || !cycleMetrics || !cycleDurationsRef) return { isFatigued: false, reasons: [], interpretation: "" };
 
     // Verifica si se puede normalizar
     const isWorkLoadConstant = (workLoad ?? 0) > 0; 
 
     // const cycleDurationFatigue  = aggregatedCycleMetrics.avgDuration > maxAvgDuration;
     let durationChangeRate = 0;
-    if (cycleDurations.current.length >= 2) {
-      const lastDurations = cycleDurations.current
+    if (cycleDurationsRef.current.length >= 2) {
+      const lastDurations = cycleDurationsRef.current
         .slice(-cyclesToAverage)
       for (let i = 1; i < lastDurations.length; i++) {
         durationChangeRate += (lastDurations[i] - lastDurations[i - 1]) / lastDurations[i - 1]; 
@@ -276,13 +276,13 @@ export default function useCyclesDetector({
       ? recentVelocities.reduce((sum, v) => sum + v, 0) / recentVelocities.length 
       : 0;  
     // Calcular la velocidad inicial una sola vez
-    if (initialAvgVelocity.current === null && cycleMetrics.length > cyclesToAverage) {
+    if (initialAvgVelocityRef.current === null && cycleMetrics.length > cyclesToAverage) {
       const initialVelocities = cycleMetrics
         .slice(1, cyclesToAverage)
         .map(cycle => (cycle.amplitude / (cycle.duration)) / (isWorkLoadConstant ? workLoad! : 1))
         .filter(velocity => !isNaN(velocity) && isFinite(velocity));
       
-      initialAvgVelocity.current = initialVelocities.length > 0 
+      initialAvgVelocityRef.current = initialVelocities.length > 0 
         ? initialVelocities.reduce((sum, v) => sum + v, 0) / initialVelocities.length 
         : avgVelocity;
     }
@@ -297,10 +297,10 @@ export default function useCyclesDetector({
       ? (cycleAmplitude / cycleDuration) / (isWorkLoadConstant ? workLoad! : 1)
       : null;
     setCycleRelativeSpeedRatio(
-      initialAvgVelocity.current != null &&
+      initialAvgVelocityRef.current != null &&
       velocity != null &&
       isFinite(velocity)
-        ? velocity / initialAvgVelocity.current
+        ? velocity / initialAvgVelocityRef.current
         : null
     );
 
@@ -314,7 +314,7 @@ export default function useCyclesDetector({
     // Fatiga basada en métricas promediadas sobre los ciclos recientes
     const cycleAmplitudeFatigue  = (aggregatedCycleMetrics.avgAmplitude / (isWorkLoadConstant ? workLoad! : 1)) < minAvgAmplitude;
     const cycleDurationFatigue = durationChangeRate > durationChangeThreshold;
-    const velocityFatigue = initialAvgVelocity.current !== null && avgVelocity < ((initialAvgVelocity.current ?? 0) * velocityDropThreshold);
+    const velocityFatigue = initialAvgVelocityRef.current !== null && avgVelocity < ((initialAvgVelocityRef.current ?? 0) * velocityDropThreshold);
     const variabilityFatigue = amplitudeVariance > variabilityThreshold;
     // Fatiga basada en el promedio de valores en la ventana de tiempo definida
     const timeWindowAmplitudeFatigue = (recentWindowData.recentPeak / (isWorkLoadConstant ? workLoad! : 1)) < (peak * amplitudeDropThreshold);
@@ -356,8 +356,8 @@ export default function useCyclesDetector({
       setCycleRelativeSpeedRatio(null);
       setCycleBoundaries(undefined);
       setCycleMetrics([]);
-      cycleDurations.current = [];
-      initialAvgVelocity.current = null;
+      cycleDurationsRef.current = [];
+      initialAvgVelocityRef.current = null;
       cycleStartRef.current = null;
       lastExtremeRef.current = null;
       cycleStartTimeRef.current = null;
