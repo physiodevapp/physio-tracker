@@ -23,10 +23,14 @@ interface IndexProps {
 }
 
 const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
-  const { settings, setSelectedJoints } = useSettings();
+  const { 
+    settings, 
+    setSelectedJoints 
+  } = useSettings();
   const {
     selectedJoints,
     angularHistorySize,
+    poseModel,
   } = settings.pose;
 
   const [showOrthogonalOption, setShowOrthogonalOption] = useState(false);
@@ -108,6 +112,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }, [visibleKinematics]);
   
   const { detector, detectorModel } = usePoseDetector();
+  const prevPoseModel = useRef<poseDetection.SupportedModels>(detectorModel);
 
   const keypointPairs: [CanvasKeypointName, CanvasKeypointName][] = [
     [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.RIGHT_SHOULDER],
@@ -1020,19 +1025,24 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
   }
 
+  useEffect(() => {
+    prevPoseModel.current = poseModel;
+  }, [poseModel]);
+
   useEffect(() => {    
     if (!detector || (videoUrl ? !videoRef.current : !webcamRef.current)) return;
 
+    let poseModelChanged = prevPoseModel.current !== poseModel;
     let isMounted = true;
     
     const analyzeFrame = async () => {
       if (isFrozen || !isMounted) {
-        if (animationRef.current) {
+        if (animationRef.current && !poseModelChanged) {
           cancelAnimationFrame(animationRef.current);
           animationRef.current = null;
         }
 
-        if (webcamRef.current && webcamRef.current.video) {
+        if (webcamRef.current && webcamRef.current.video && !poseModelChanged) {
           webcamRef.current.video.pause(); 
         }
 
@@ -1118,13 +1128,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 lineWidth: 2 * (referenceScale / scaleFactor), 
               });
 
-              /**
-               if (videoRef.current && videoProcessedRef.current) {
-                 const timestampMs = videoRef.current.currentTime * 1000;
-                 updateIsSeekingFromCurrentVideoTime(timestampMs);
-               }
-              */
-
               // Calcular ángulo entre tres keypoints
               updateMultipleJoints({keypoints, jointNames: visibleJointsRef.current, jointDataRef, jointConfigMap, ctx});
             }
@@ -1149,6 +1152,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
     return () => {
       isMounted = false;
+      poseModelChanged = prevPoseModel.current !== poseModel;
 
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);

@@ -24,7 +24,7 @@ const Index = () => {
     calibrationDelay,
     gravityFactor,   
     autoStartAfterCalibration,
-  } = settings.balance
+  } = settings.balance;
 
   return (
     <section

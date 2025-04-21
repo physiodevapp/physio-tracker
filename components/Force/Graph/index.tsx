@@ -84,7 +84,13 @@ const Index: React.FC<IndexProps> = ({
     hysteresis,
   } = settings;
 
-  const { cycles, setCycles } = useBluetooth(); // useContext(BluetoothContext);
+  const { 
+    cycles, 
+    setCycles,
+    // liveCycles,
+    setLiveCycles,
+  } = useBluetooth(); // useContext(BluetoothContext);
+
   
   // Mapeamos los datos para adaptarlos a la función lttbDownsample
   //  Convertimos "time" a "x" y de microsegundos a milisegundos
@@ -120,28 +126,27 @@ const Index: React.FC<IndexProps> = ({
   const { outlierSensitivity } = settings;
 
   useEffect(() => {
-    if (isRecording) {  
-      setCycles(prevData => {
-        const newCycle = { 
-          workLoad: workLoad, 
-          duration: cycleDuration, 
-          amplitude: cycleAmplitude,
-          speedRatio: null,
-          startX: cycleBoundaries?.startX ?? null,
-          endX: cycleBoundaries?.endX ?? null,
-          peakX:  null,
-          peakY: null,
-          relativeSpeedRatio: cycleRelativeSpeedRatio,
-        };
-  
-        if (newCycle.duration === null) return prevData;
+    if (isRecording && cycleDuration != null) {  
+      const newCycle = {
+        workLoad,
+        duration: cycleDuration,
+        amplitude: cycleAmplitude,
+        speedRatio: null,
+        startX: cycleBoundaries?.startX ?? null,
+        endX: cycleBoundaries?.endX ?? null,
+        peakX: null,
+        peakY: null,
+        relativeSpeedRatio: cycleRelativeSpeedRatio,
+      }
 
-        const updatedData = [...prevData, newCycle];
-        return updatedData;
-      });
+      setCycles(prev => [...prev, newCycle]);
+
+      setLiveCycles(prev => [...prev, newCycle]);
     }
     else if (!isRecording && !rawSensorData.length) {
       setCycles([]);
+
+      setLiveCycles([]);
     }
   }, [isRecording, cycleCount, rawSensorData]);
 

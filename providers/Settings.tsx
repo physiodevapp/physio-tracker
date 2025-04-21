@@ -2,11 +2,14 @@
 
 import { CanvasKeypointName } from '@/interfaces/pose';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import * as poseDetection from '@tensorflow-models/pose-detection';
 
 // Definimos interfaces para cada grupo de settings
 interface PoseSettings {
   selectedJoints: CanvasKeypointName[];
   angularHistorySize: number;
+  higherFrequency: boolean;
+  poseModel: poseDetection.SupportedModels;
 }
 
 interface ColorSettings {
@@ -65,6 +68,8 @@ interface SettingsContextProps {
   // Setters para pose
   setSelectedJoints: (joints: CanvasKeypointName[]) => void;
   setAngularHistorySize: (size: number) => void;
+  setHigherFrequency: (value: boolean) => void;
+  setPoseModel: (value: poseDetection.SupportedModels) => void;
   // Setters para color
   setRedHueLower1: (value: number) => void;
   setRedHueUpper1: (value: number) => void;
@@ -119,6 +124,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     pose: {
       selectedJoints: [],
       angularHistorySize: 5,
+      higherFrequency: false,
+      poseModel: poseDetection.SupportedModels.MoveNet,
     },
     color: {
       redHueLower1: 0,
@@ -176,6 +183,12 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     if (size >= 1 && size <= 20) {
       setSettings(prev => ({ ...prev, pose: { ...prev.pose, angularHistorySize: size } }));
     }
+  };
+  const setHigherFrequency = (value: boolean) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, higherFrequency: value } }));
+  };
+  const setPoseModel = (value: poseDetection.SupportedModels) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseModel: value } }));
   };
   const resetPoseSettings = () => {
     setSettings(prev => ({
@@ -267,6 +280,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         settings,
         setSelectedJoints,
         setAngularHistorySize,
+        setHigherFrequency,
+        setPoseModel,
         resetPoseSettings,
         resetPoseGraphSettings,
         setRedHueLower1,

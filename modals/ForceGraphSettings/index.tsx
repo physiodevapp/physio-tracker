@@ -192,7 +192,7 @@ const Index: React.FC = () => {
             htmlFor="cyclesForAnalysis" 
             className="block text-sm"
             >
-            Cycles<span className="align-sub uppercase text-[0.6rem]"> analysis</span>: {settings.force.cyclesForAnalysis}
+            Cycles<span className="align-sub uppercase text-[0.6rem]"> live analysis</span>: {settings.force.cyclesForAnalysis}
           </label>
           <input
             id="cyclesForAnalysis"

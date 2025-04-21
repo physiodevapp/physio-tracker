@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as poseDetection from '@tensorflow-models/pose-detection';
+import { useSettings } from './Settings';
 
 // Definimos el tipo del detector
 export type DetectorType = poseDetection.PoseDetector | null;
@@ -22,14 +23,43 @@ export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTf
   const [detector, setDetector] = useState<DetectorType>(null);
   const [detectorModel, setDetectorModel] = useState<poseDetection.SupportedModels | null>(null);
 
+  const { settings } = useSettings(); 
+  const { poseModel } = settings.pose;
+
   useEffect(() => {
     // Si TensorFlow aún no está listo, no se inicializa el detector
     if (!isTfReady) return;
-
+    
     const initializeDetector = async () => {
       try {
         // Si ya existe el detector, no se vuelve a crear
-        if (detector) return;
+        if (detectorModel === poseModel) return;
+
+        let detectorInstance;
+
+        if (poseModel === poseDetection.SupportedModels.MoveNet) {
+          detectorInstance = await poseDetection.createDetector(
+            poseDetection.SupportedModels.MoveNet,
+            {
+              modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+              minPoseScore: 0.3,
+            },      
+          );
+          setDetector(detectorInstance);
+          setDetectorModel(poseDetection.SupportedModels.MoveNet);
+        } 
+        else if (poseModel === poseDetection.SupportedModels.BlazePose) {
+          detectorInstance = await poseDetection.createDetector(
+            poseDetection.SupportedModels.BlazePose,
+            {
+              runtime: 'tfjs',
+              enableSmoothing: true,
+              modelType: 'lite', // 'lite', 'full' or 'heavy'
+            },   
+          );
+          setDetector(detectorInstance);
+          setDetectorModel(poseDetection.SupportedModels.BlazePose);
+        }
 
         /**
          const detectorInstance = await poseDetection.createDetector(
@@ -42,24 +72,24 @@ export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTf
          setDetector(detectorInstance);
          setDetectorModel(poseDetection.SupportedModels.MoveNet);
         
+         const detectorInstance = await poseDetection.createDetector(
+           poseDetection.SupportedModels.BlazePose,
+           {
+             runtime: 'tfjs',
+             enableSmoothing: true,
+             modelType: 'lite', // 'lite', 'full' or 'heavy'
+           },   
+         );
+         setDetector(detectorInstance);
+         setDetectorModel(poseDetection.SupportedModels.BlazePose);
         */
-        const detectorInstance = await poseDetection.createDetector(
-          poseDetection.SupportedModels.BlazePose,
-          {
-            runtime: 'tfjs',
-            enableSmoothing: true,
-            modelType: 'lite', // 'lite', 'full' or 'heavy'
-          },   
-        );
-        setDetector(detectorInstance);
-        setDetectorModel(poseDetection.SupportedModels.BlazePose);
       } catch (error) {
         console.error("Error al inicializar el detector:", error);
       }
     };
 
     initializeDetector();
-  }, [isTfReady, detector]);
+  }, [isTfReady, detector, poseModel]);
 
   return (
     <PoseDetectorContext.Provider value={{detector, detectorModel}}>

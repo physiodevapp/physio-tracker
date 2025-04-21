@@ -19,6 +19,7 @@ interface IBluetoothContext {
   sensorData: DataPoint[];
   rawSensorData: DataPoint[];
   cycles: Cycle[];
+  liveCycles: Cycle[];
   setDevice: React.Dispatch<React.SetStateAction<BluetoothDevice | null>>;
   setControlCharacteristic: React.Dispatch<React.SetStateAction<BluetoothRemoteGATTCharacteristic | null>>;
   setDataCharacteristic: React.Dispatch<React.SetStateAction<BluetoothRemoteGATTCharacteristic | null>>;
@@ -28,6 +29,7 @@ interface IBluetoothContext {
   setSensorData: React.Dispatch<React.SetStateAction<DataPoint[]>>;
   setRawSensorData: React.Dispatch<React.SetStateAction<DataPoint[]>>;
   setCycles: React.Dispatch<React.SetStateAction<Cycle[]>>;
+  setLiveCycles: React.Dispatch<React.SetStateAction<Cycle[]>>;
   connectToSensor: () => Promise<void>;
 }
 
@@ -41,6 +43,7 @@ export const BluetoothContext = createContext<IBluetoothContext>({
   sensorData: [],
   rawSensorData: [],
   cycles: [],
+  liveCycles: [],
   setDevice: () => {},
   setControlCharacteristic: () => {},
   setDataCharacteristic: () => {},
@@ -50,6 +53,7 @@ export const BluetoothContext = createContext<IBluetoothContext>({
   setSensorData: () => {},
   setRawSensorData: () => {},
   setCycles: () => {},
+  setLiveCycles: () => {},
   connectToSensor: async () => {
     throw new Error("connectToSensor no está implementado");
   },
@@ -69,6 +73,7 @@ export const BluetoothProvider: React.FC<BluetoothProviderProps> = ({ children }
   const [sensorData, setSensorData] = useState<DataPoint[]>([]);
   const [rawSensorData, setRawSensorData] = useState<DataPoint[]>([]);
   const [cycles, setCycles] = useState<Cycle[]>([]);
+  const [liveCycles, setLiveCycles] = useState<Cycle[]>([]);
   
   const bluetoothServerRef = useRef(null);
 
@@ -111,6 +116,7 @@ export const BluetoothProvider: React.FC<BluetoothProviderProps> = ({ children }
     sensorData,
     rawSensorData,
     cycles,
+    liveCycles,
     setDevice,
     setIsConnected,
     setControlCharacteristic,
@@ -120,6 +126,7 @@ export const BluetoothProvider: React.FC<BluetoothProviderProps> = ({ children }
     setSensorData,
     setRawSensorData,
     setCycles,
+    setLiveCycles,
     connectToSensor,
   };
 

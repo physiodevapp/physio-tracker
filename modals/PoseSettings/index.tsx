@@ -1,6 +1,7 @@
 import { useSettings } from '@/providers/Settings';
 import { ArrowPathIcon } from '@heroicons/react/24/solid';
 import React from 'react';
+import * as poseDetection from '@tensorflow-models/pose-detection';
 
 interface IndexProps {
   isModalOpen: boolean;
@@ -16,10 +17,14 @@ const Index = ({
   const {
     settings,
     setAngularHistorySize,
+    setPoseModel,
+    setHigherFrequency,
     resetPoseGraphSettings,
   } = useSettings();
   const {
     angularHistorySize,
+    poseModel,
+    higherFrequency,
   } = settings.pose;
 
   const handleAngleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,7 +47,7 @@ const Index = ({
         Set default values{" "}
         <ArrowPathIcon className="ml-2 w-6 h-6" />
       </div>
-      <form className="w-full flex flex-col justify-center gap-4 mt-2">
+      <form className="w-full flex flex-col justify-center gap-8 mt-2">
         <div className='flex w-full gap-6'> 
           <div className='flex-1 flex flex-col justify-between gap-2'>
             <label
@@ -64,6 +69,65 @@ const Index = ({
               />
           </div>
         </div> 
+        <div className='flex w-full gap-2'>
+          <div className="flex-1 flex flex-col justify-end gap-2">
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                value="" 
+                className="sr-only peer" 
+                checked={poseModel === poseDetection.SupportedModels.BlazePose}
+                onChange={() => {
+                  const next: poseDetection.SupportedModels = poseModel === poseDetection.SupportedModels.MoveNet ? poseDetection.SupportedModels.BlazePose : poseDetection.SupportedModels.MoveNet;
+
+                  setPoseModel(next);
+
+                  if (next === poseDetection.SupportedModels.MoveNet) {
+                    setHigherFrequency(false);
+                  }
+                }}
+                />
+              <div
+                className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-0 peer-focus:ring-[#5dadec]
+                rounded-full peer dark:bg-gray-700 peer-checked:bg-[#5dadec] transition-all duration-200"
+              ></div>
+              <div
+                className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow
+                peer-checked:translate-x-full transform transition-all duration-200"
+              ></div>
+              <span className="text-white text-sm pl-2">Model: {poseModel === poseDetection.SupportedModels.BlazePose ? poseDetection.SupportedModels.BlazePose : poseDetection.SupportedModels.MoveNet}</span>
+            </label>
+          </div>
+          <div className="flex-1 flex flex-col justify-end gap-2">
+            <label 
+            className="relative inline-flex items-center cursor-pointer"
+            >
+              <input 
+                type="checkbox" 
+                value="" 
+                className="sr-only peer" 
+                checked={higherFrequency}
+                onChange={() => setHigherFrequency(!higherFrequency)}
+                disabled={poseModel === poseDetection.SupportedModels.MoveNet}
+                />
+              <div
+                className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-0 peer-focus:ring-[#5dadec]
+                rounded-full peer dark:bg-gray-700 peer-checked:bg-[#5dadec] transition-all duration-200"
+              ></div>
+              <div
+                className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full shadow
+                peer-checked:translate-x-full transform transition-all duration-200 ${
+                  poseModel === poseDetection.SupportedModels.MoveNet ? "bg-white/40" : "bg-white"
+                }`}
+              ></div>
+              <span 
+              className={`text-white text-sm pl-2 ${
+                poseModel === poseDetection.SupportedModels.MoveNet ? "text-white/60" : "text-white"
+              }`}
+              >{poseModel === poseDetection.SupportedModels.BlazePose ? higherFrequency ? "Accuracy" : "Performance" : "N/A"}</span>
+            </label>
+          </div>
+        </div>
       </form>
     </div>
   ) : null;

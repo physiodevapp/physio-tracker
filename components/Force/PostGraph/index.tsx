@@ -121,7 +121,11 @@ const Index: React.FC<IndexProps> = ({
   rawSensorData,
   displayAnnotations = true,
 }) => {
-  const { cycles, setCycles } = useBluetooth(); // useContext(BluetoothContext);
+  const { 
+    cycles, 
+    setCycles,
+    // liveCycles,
+  } = useBluetooth(); // useContext(BluetoothContext);
 
   const { settings } = useSettings();
   const { cyclesToAverage } = settings.force;
@@ -488,7 +492,8 @@ const Index: React.FC<IndexProps> = ({
       });
     }
   
-    // console.log('validCycles ', validCycles)
+    // console.log('cycles ', validCycles)
+    // console.log('liveCycles ', liveCycles)
     setCycles(validCycles);
   }, [adjustedCycles]);
 
