@@ -401,9 +401,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
           // console.log('video.currentTime ', video.currentTime)
           // console.log('video.duration ', video.duration)
-          const isEnded = isUploadedVideo 
-            ? video.currentTime >= video.duration
-            : video.duration - video.currentTime < 0.05;
+          // const isEnded = isUploadedVideo 
+          //   ? video.currentTime >= video.duration
+          //   : video.duration - video.currentTime < 0.05;
+          const isEnded = video.duration - video.currentTime < 0.05;
 
           if (isEnded) {
             // console.log("✅ Análisis terminado");          
