@@ -12,6 +12,7 @@ interface PoseSettings {
   poseModel: poseDetection.SupportedModels;
   poseInitDelayMs: number;
   videoEndThresholdSec: number;
+  poseModelLatency: number;
 }
 
 interface ColorSettings {
@@ -74,6 +75,7 @@ interface SettingsContextProps {
   setPoseModel: (value: poseDetection.SupportedModels) => void;
   setPoseInitDelayMs: (value: number) => void;
   setVideoEndThresholdSec: (value: number) => void;
+  setPoseModelLatency: (value: number) => void;
   // Setters para color
   setRedHueLower1: (value: number) => void;
   setRedHueUpper1: (value: number) => void;
@@ -131,6 +133,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       poseModel: poseDetection.SupportedModels.MoveNet,
       poseInitDelayMs: 500,
       videoEndThresholdSec: 0.05,
+      poseModelLatency: 0.20,
     },
     color: {
       redHueLower1: 0,
@@ -198,8 +201,11 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const setPoseInitDelayMs = (value: number) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseInitDelayMs: value } }));
   };
-  const setVideoEndThresholdSec= (value: number) => {
+  const setVideoEndThresholdSec = (value: number) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, videoEndThresholdSec: value } }));
+  };
+  const setPoseModelLatency = (value: number) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseModelLatency: value } }));
   };
   const resetPoseSettings = () => {
     setSettings(prev => ({
@@ -288,6 +294,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setPoseModel,
         setPoseInitDelayMs,
         setVideoEndThresholdSec,
+        setPoseModelLatency,
         resetPoseSettings,
         setRedHueLower1,
         setRedHueUpper1,

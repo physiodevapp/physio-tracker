@@ -33,6 +33,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     poseModel,
     poseInitDelayMs,
     videoEndThresholdSec,
+    poseModelLatency,
   } = settings.pose;
 
   const [showOrthogonalOption, setShowOrthogonalOption] = useState(false);
@@ -68,6 +69,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [isCancellationRequested, setIsCancellationRequested] = useState<boolean>(false);
   const cancelProcessingRef = useRef(false);
   const isVideoRemoved = useRef(false);
+
+  const isSeekingRef = useRef(false);
   
   const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
   
@@ -136,6 +139,18 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     [CanvasKeypointName.RIGHT_ANKLE, CanvasKeypointName.RIGHT_HEEL],
     [CanvasKeypointName.RIGHT_ANKLE, CanvasKeypointName.RIGHT_FOOT_INDEX],
     [CanvasKeypointName.RIGHT_HEEL, CanvasKeypointName.RIGHT_FOOT_INDEX],
+  ];
+
+  const excludedParts = [
+    'left_eye', 'right_eye',
+    'left_eye_inner', 'right_eye_inner', 
+    'left_eye_outer', 'right_eye_outer',
+    'left_ear', 'right_ear',
+    'nose', 
+    'mouth_left', 'mouth_right',
+    'left_thumb', 'right_thumb',
+    'left_index', 'right_index', 
+    'left_pinky', 'right_pinky', 
   ];
 
   const jointConfigMap: JointConfigMap = {
@@ -505,7 +520,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           const getEstimatedModelLatency = () => {
             switch (detectorModel) {
               case poseDetection.SupportedModels.BlazePose:
-                return 40; // Puedes ajustar: lite: ~40ms, full: ~80ms
+                return poseModelLatency; // Puedes ajustar: lite: ~40ms, full: ~80ms
               case poseDetection.SupportedModels.MoveNet:
               default:
                 return 15; // Estimación para MoveNet
@@ -514,6 +529,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
           findMinUsefulFrameInterval(video).then((interval) => {
             const estimatedProcessingTime = getEstimatedModelLatency() / 1000;
+            // console.log('estimatedProcessingTime ', getEstimatedModelLatency() / 1000)
 
             // Ajustar con un margen, y poner un límite superior para evitar pasos muy grandes
             const modeMultiplier = false ? 0.5 : 1; // revisar: añadir a settings -> userPrefersHighFrequency
@@ -601,49 +617,57 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   
   const rewindStep = () => {
     const video = videoRef.current;
-    if (!video || video.currentTime <= 0) return;
-
+    if (!video || video.currentTime <= 0 || isSeekingRef.current) return;
+  
+    isSeekingRef.current = true;
     ignoreNextVerticalLineChangeRef.current = true;
   
     togglePlayback({ action: "pause" });
   
     const stepTime = 1 / estimatedFps!;
     video.currentTime = Math.max(video.currentTime - stepTime, 0);
-    
+  
     video.onseeked = async () => {
-      setVideoCurrentTime(video.currentTime);
       video.onseeked = null;
+      setVideoCurrentTime(video.currentTime);
+  
       if (detectorModel === poseDetection.SupportedModels.BlazePose) {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
+  
       await analyzeSingleFrame();
-
+  
       ignoreNextVerticalLineChangeRef.current = false;
+      isSeekingRef.current = false;
     };
-  };
+  };  
   
   const forwardStep = () => {
     const video = videoRef.current;
-    if (!video || video.currentTime >= video.duration) return;
-
+    if (!video || video.currentTime >= video.duration || isSeekingRef.current) return;
+  
+    isSeekingRef.current = true;
     ignoreNextVerticalLineChangeRef.current = true;
   
     togglePlayback({ action: "pause" });
   
     const stepTime = 1 / estimatedFps!;
     video.currentTime = Math.min(video.currentTime + stepTime, video.duration);
-    
+  
     video.onseeked = async () => {
-      setVideoCurrentTime(video.currentTime);
       video.onseeked = null;
+      setVideoCurrentTime(video.currentTime);
+  
       if (detectorModel === poseDetection.SupportedModels.BlazePose) {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
+  
       await analyzeSingleFrame();
-
+  
       ignoreNextVerticalLineChangeRef.current = false;
+      isSeekingRef.current = false;
     };
-  };  
+  };    
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
@@ -973,7 +997,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
   
         const keypoints = poses[0].keypoints.filter(
-          (kp) => kp.score && kp.score > poseSettings.scoreThreshold
+          (kp) => 
+            kp.score && 
+            kp.score > poseSettings.scoreThreshold &&
+            !excludedParts.includes(kp.name!)
         );
   
         drawKeypoints({
@@ -1149,7 +1176,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
               // Filtrar keypoints con score mayor a scoreThreshold
               const keypoints = poses[0].keypoints.filter(
-                (kp) => kp.score && kp.score > poseSettings.scoreThreshold
+                (kp) => 
+                  kp.score && 
+                  kp.score > poseSettings.scoreThreshold &&
+                  !excludedParts.includes(kp.name!)
               );
 
               // Dibujar keypoints en el canvas

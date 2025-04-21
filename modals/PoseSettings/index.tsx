@@ -21,6 +21,7 @@ const Index = ({
     setHigherFrequency,
     setPoseInitDelayMs,
     setVideoEndThresholdSec,
+    setPoseModelLatency,
     resetPoseSettings,
   } = useSettings();
   const {
@@ -29,6 +30,7 @@ const Index = ({
     higherFrequency,
     poseInitDelayMs,
     videoEndThresholdSec,
+    poseModelLatency,
   } = settings.pose;
 
   const handleAngleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,13 +158,35 @@ const Index = ({
               id='pose-init-delay'
               type='range'
               value={poseInitDelayMs}
-              min="100"
+              min="0"
               max="800"
-              step="100"
+              step="50"
               onChange={(e) => setPoseInitDelayMs(Number(e.target.value))}
               disabled={videoProcessed || poseModel === poseDetection.SupportedModels.MoveNet}
               />
           </div>
+          <div className='flex-1 flex flex-col justify-between gap-2'>
+            <label
+              htmlFor='model-latency'
+              className={`${
+                videoProcessed ? "text-white/60" : "text-white"
+              }`}
+              >
+              Latency: {poseModelLatency.toFixed(2)} ms
+            </label>
+            <input
+              id='model-latency'
+              type='range'
+              value={poseModelLatency}
+              min="0.15"
+              max="0.40"
+              step="0.01"
+              onChange={(e) => setPoseModelLatency(Number(e.target.value))}
+              disabled={videoProcessed}
+              />
+          </div>
+        </div>
+        <div className='flex w-full gap-6'>
           <div className='flex-1 flex flex-col justify-between gap-2'>
             <label
               htmlFor='video-end-detection'
@@ -170,7 +194,7 @@ const Index = ({
                 videoProcessed ? "text-white/60" : "text-white"
               }`}
               >
-              End<span className='align-sub uppercase text-[0.6rem]'> Detection</span>: {videoEndThresholdSec.toFixed(2)} s
+              End<span className='align-sub uppercase text-[0.6rem]'> Detection</span>: {videoEndThresholdSec.toFixed(3)} s
             </label>
             <input
               id='video-end-detection'
@@ -178,12 +202,12 @@ const Index = ({
               value={videoEndThresholdSec}
               min="0.01"
               max="0.10"
-              step="0.01"
+              step="0.001"
               onChange={(e) => setVideoEndThresholdSec(Number(e.target.value))}
               disabled={videoProcessed}
               />
           </div>
-        </div> 
+        </div>
       </form>
     </div>
   ) : null;
