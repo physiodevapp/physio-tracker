@@ -86,16 +86,25 @@ const Index = ({
                     setHigherFrequency(false);
                   }
                 }}
+                disabled={videoProcessed}
                 />
               <div
                 className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-0 peer-focus:ring-[#5dadec]
                 rounded-full peer dark:bg-gray-700 peer-checked:bg-[#5dadec] transition-all duration-200"
               ></div>
               <div
-                className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow
-                peer-checked:translate-x-full transform transition-all duration-200"
+                className={`absolute left-0.5 top-0.5 w-5 h-5rounded-full shadow
+                peer-checked:translate-x-full transform transition-all duration-200 ${
+                  videoProcessed ? "bg-white/40" : "bg-white"
+                }`}
               ></div>
-              <span className="text-white text-sm pl-2">Model: {poseModel === poseDetection.SupportedModels.BlazePose ? poseDetection.SupportedModels.BlazePose : poseDetection.SupportedModels.MoveNet}</span>
+              <span 
+                className={`text-white text-sm pl-2 ${
+                  videoProcessed ? "text-white/60" : "text-white"
+                }`}
+                >
+                  Model: {poseModel === poseDetection.SupportedModels.BlazePose ? poseDetection.SupportedModels.BlazePose : poseDetection.SupportedModels.MoveNet}
+              </span>
             </label>
           </div>
           <div className="flex-1 flex flex-col justify-end gap-2">
@@ -108,7 +117,7 @@ const Index = ({
                 className="sr-only peer" 
                 checked={higherFrequency}
                 onChange={() => setHigherFrequency(!higherFrequency)}
-                disabled={poseModel === poseDetection.SupportedModels.MoveNet}
+                disabled={videoProcessed || poseModel === poseDetection.SupportedModels.MoveNet}
                 />
               <div
                 className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-0 peer-focus:ring-[#5dadec]
@@ -117,14 +126,16 @@ const Index = ({
               <div
                 className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full shadow
                 peer-checked:translate-x-full transform transition-all duration-200 ${
-                  poseModel === poseDetection.SupportedModels.MoveNet ? "bg-white/40" : "bg-white"
+                  videoProcessed || poseModel === poseDetection.SupportedModels.MoveNet ? "bg-white/40" : "bg-white"
                 }`}
               ></div>
               <span 
-              className={`text-white text-sm pl-2 ${
-                poseModel === poseDetection.SupportedModels.MoveNet ? "text-white/60" : "text-white"
-              }`}
-              >{poseModel === poseDetection.SupportedModels.BlazePose ? higherFrequency ? "Accuracy" : "Performance" : "N/A"}</span>
+                className={`text-white text-sm pl-2 ${
+                  videoProcessed || poseModel === poseDetection.SupportedModels.MoveNet ? "text-white/60" : "text-white"
+                }`}
+                >
+                  {poseModel === poseDetection.SupportedModels.BlazePose ? higherFrequency ? "Accuracy" : "Performance" : "N/A"}
+              </span>
             </label>
           </div>
         </div>

@@ -398,13 +398,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         const loop = async () => {
           const video = videoRef.current;
           if (!video || video.ended || isFrozen) return;
-
-          // console.log('video.currentTime ', video.currentTime)
-          // console.log('video.duration ', video.duration)
-          // const isEnded = isUploadedVideo 
-          //   ? video.currentTime >= video.duration
-          //   : video.duration - video.currentTime < 0.05;
-          const isEnded = video.duration - video.currentTime < 0.05;
+          
+          const isEnded = video.duration - video.currentTime < 0.04;
 
           if (isEnded) {
             // console.log("✅ Análisis terminado");          
