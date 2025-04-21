@@ -10,6 +10,8 @@ interface PoseSettings {
   angularHistorySize: number;
   higherFrequency: boolean;
   poseModel: poseDetection.SupportedModels;
+  poseInitDelayMs: number;
+  videoEndThresholdSec: number;
 }
 
 interface ColorSettings {
@@ -70,6 +72,8 @@ interface SettingsContextProps {
   setAngularHistorySize: (size: number) => void;
   setHigherFrequency: (value: boolean) => void;
   setPoseModel: (value: poseDetection.SupportedModels) => void;
+  setPoseInitDelayMs: (value: number) => void;
+  setVideoEndThresholdSec: (value: number) => void;
   // Setters para color
   setRedHueLower1: (value: number) => void;
   setRedHueUpper1: (value: number) => void;
@@ -107,7 +111,6 @@ interface SettingsContextProps {
   setAutoStartAfterCalibration: (value: boolean) => void;
   // Función para resetear los settings
   resetPoseSettings: () => void;
-  resetPoseGraphSettings: () => void;
   resetForceSettings: () => void;
   resetColorSettings: () => void;
   resetBalanceSettings: () => void;
@@ -126,6 +129,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       angularHistorySize: 5,
       higherFrequency: false,
       poseModel: poseDetection.SupportedModels.MoveNet,
+      poseInitDelayMs: 500,
+      videoEndThresholdSec: 0.05,
     },
     color: {
       redHueLower1: 0,
@@ -190,20 +195,19 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const setPoseModel = (value: poseDetection.SupportedModels) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseModel: value } }));
   };
+  const setPoseInitDelayMs = (value: number) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseInitDelayMs: value } }));
+  };
+  const setVideoEndThresholdSec= (value: number) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, videoEndThresholdSec: value } }));
+  };
   const resetPoseSettings = () => {
     setSettings(prev => ({
       ...prev,
       pose: {
-        ...prev.pose,
-        angularHistorySize: defaultConfig.pose.angularHistorySize,
+        ...defaultConfig.pose,
+        selectedJoints: prev.pose.selectedJoints,
       },
-    }));
-  };
-  const resetPoseGraphSettings = () => {
-    setSettings(prev => ({
-      ...prev, pose: {...prev.pose,
-        angularHistorySize: defaultConfig.pose.angularHistorySize,
-      }
     }));
   };
 
@@ -282,8 +286,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setAngularHistorySize,
         setHigherFrequency,
         setPoseModel,
+        setPoseInitDelayMs,
+        setVideoEndThresholdSec,
         resetPoseSettings,
-        resetPoseGraphSettings,
         setRedHueLower1,
         setRedHueUpper1,
         setRedHueLower2,

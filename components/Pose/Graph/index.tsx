@@ -519,8 +519,6 @@ const Index = ({
   }, [chartConfig]);
 
   useEffect(() => {
-    if (verticalLineValue === undefined) return;
-
     const chart = chartRef.current as ChartJS;
     if (!chart || verticalLineValue === undefined) return;
   
@@ -569,7 +567,7 @@ const Index = ({
       chart.update();
       chart.draw();
     }
-  }, [verticalLineValue]); 
+  }, [verticalLineValue, chartData]); 
  
   return (
     <div 

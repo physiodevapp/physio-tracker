@@ -19,12 +19,16 @@ const Index = ({
     setAngularHistorySize,
     setPoseModel,
     setHigherFrequency,
-    resetPoseGraphSettings,
+    setPoseInitDelayMs,
+    setVideoEndThresholdSec,
+    resetPoseSettings,
   } = useSettings();
   const {
     angularHistorySize,
     poseModel,
     higherFrequency,
+    poseInitDelayMs,
+    videoEndThresholdSec,
   } = settings.pose;
 
   const handleAngleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,7 +46,7 @@ const Index = ({
       >
       <div
         className="w-full h-9 flex justify-end text-white italic font-bold cursor-pointer"
-        onClick={resetPoseGraphSettings}
+        onClick={resetPoseSettings}
         >
         Set default values{" "}
         <ArrowPathIcon className="ml-2 w-6 h-6" />
@@ -93,8 +97,7 @@ const Index = ({
                 rounded-full peer dark:bg-gray-700 peer-checked:bg-[#5dadec] transition-all duration-200"
               ></div>
               <div
-                className={`absolute left-0.5 top-0.5 w-5 h-5rounded-full shadow
-                peer-checked:translate-x-full transform transition-all duration-200 ${
+                className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full shadow peer-checked:translate-x-full transform transition-all duration-200 ${
                   videoProcessed ? "bg-white/40" : "bg-white"
                 }`}
               ></div>
@@ -109,8 +112,8 @@ const Index = ({
           </div>
           <div className="flex-1 flex flex-col justify-end gap-2">
             <label 
-            className="relative inline-flex items-center cursor-pointer"
-            >
+              className="relative inline-flex items-center cursor-pointer"
+              >
               <input 
                 type="checkbox" 
                 value="" 
@@ -139,6 +142,48 @@ const Index = ({
             </label>
           </div>
         </div>
+        <div className='flex w-full gap-6'> 
+          <div className='flex-1 flex flex-col justify-between gap-2'>
+            <label
+              htmlFor='pose-init-delay'
+              className={`${
+                videoProcessed || poseModel === poseDetection.SupportedModels.MoveNet ? "text-white/60" : "text-white"
+              }`}
+              >
+              Processing<span className='align-sub uppercase text-[0.6rem]'> Speed</span>: {poseInitDelayMs}
+            </label>
+            <input
+              id='pose-init-delay'
+              type='range'
+              value={poseInitDelayMs}
+              min="100"
+              max="800"
+              step="100"
+              onChange={(e) => setPoseInitDelayMs(Number(e.target.value))}
+              disabled={videoProcessed || poseModel === poseDetection.SupportedModels.MoveNet}
+              />
+          </div>
+          <div className='flex-1 flex flex-col justify-between gap-2'>
+            <label
+              htmlFor='video-end-detection'
+              className={`${
+                videoProcessed ? "text-white/60" : "text-white"
+              }`}
+              >
+              End<span className='align-sub uppercase text-[0.6rem]'> Detection</span>: {videoEndThresholdSec.toFixed(2)} s
+            </label>
+            <input
+              id='video-end-detection'
+              type='range'
+              value={videoEndThresholdSec}
+              min="0.01"
+              max="0.10"
+              step="0.01"
+              onChange={(e) => setVideoEndThresholdSec(Number(e.target.value))}
+              disabled={videoProcessed}
+              />
+          </div>
+        </div> 
       </form>
     </div>
   ) : null;

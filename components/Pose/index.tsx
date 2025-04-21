@@ -31,6 +31,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     selectedJoints,
     angularHistorySize,
     poseModel,
+    poseInitDelayMs,
+    videoEndThresholdSec,
   } = settings.pose;
 
   const [showOrthogonalOption, setShowOrthogonalOption] = useState(false);
@@ -63,6 +65,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const videoProcessedRef = useRef(videoProcessed);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const [isUploadedVideo, setIsUploadedVideo] = useState(false);
+  const [isCancellationRequested, setIsCancellationRequested] = useState<boolean>(false);
+  const cancelProcessingRef = useRef(false);
+  const isVideoRemoved = useRef(false);
   
   const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
   
@@ -357,7 +362,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         }
       }
       else if (!videoProcessed) {
-        video.pause();
+        if (!videoRef.current?.paused) {
+          video.pause();
+        }
         setIsFrozen(false);
 
         let frameCount = 0;
@@ -397,9 +404,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         // 🔄 Bucle principal del análisis
         const loop = async () => {
           const video = videoRef.current;
-          if (!video || video.ended || isFrozen) return;
+          if (!video || video.ended || isFrozen || cancelProcessingRef.current) return;
           
-          const isEnded = video.duration - video.currentTime < 0.04;
+          const isEnded = video.duration - video.currentTime < videoEndThresholdSec;
 
           if (isEnded) {
             // console.log("✅ Análisis terminado");          
@@ -418,7 +425,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           
               // 🔄 Espera adicional si usas BlazePose
               if (detectorModel === poseDetection.SupportedModels.BlazePose) {
-                await new Promise((resolve) => setTimeout(resolve, 600));
+                await new Promise((resolve) => setTimeout(resolve, poseInitDelayMs));
               }
           
               // ✅ Analizar el primer frame real (posicionamiento)
@@ -455,7 +462,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               });
               
               removeDuplicateTimestamps(recordedPositionsRef);
-              console.log('✅ Análisis terminado y filtrado ', recordedPositionsRef.current);
+              // console.log('✅ Análisis terminado y filtrado ', recordedPositionsRef.current);
 
               handleEnded();
               setVideoCurrentTime(firstTimeInSeconds);
@@ -465,16 +472,22 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           }                           
 
           video.onseeked = async () => {
+            if (cancelProcessingRef.current) return;
+
             video.onseeked = null;
           
             // 🕒 Esperar hasta que el vídeo haya cargado completamente el frame
             await waitForFrameReady(video);
           
             const actualTimestamp = video.currentTime * 1000;
+
+            if (cancelProcessingRef.current) return;
           
             // 🧠 Espera extra si usas BlazePose
             if (detectorModel === poseDetection.SupportedModels.BlazePose) {
-              await new Promise((resolve) => setTimeout(resolve, 600));
+              await new Promise((resolve) => setTimeout(resolve, poseInitDelayMs));
+
+              if (cancelProcessingRef.current) return;
             }
           
             await analyzeSingleFrame(actualTimestamp);
@@ -534,6 +547,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       setVideoProcessed(true);
 
       setIsProcessingVideo(false);
+
+      setIsCancellationRequested(false);
+      cancelProcessingRef.current = false;
     }
 
     setIsFrozen(true);
@@ -640,18 +656,26 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   };
   
 
-  const handleRemoveRecord = () => {
+  const handleRemoveRecord = () => { 
+    isVideoRemoved.current = true;
+
     if (videoProcessed) {
       setVideoProcessed(false);
-
+      
       togglePlayback({action: "pause", restart: true});
-
-      setTimeout(() => {
+      
+      setTimeout(() => {  
         setIsFrozen(false);
       }, 100);
-
+      
       setDisplayGraphs(false);
     } else {
+      if (cancelProcessingRef.current) {
+        setIsCancellationRequested(false);
+
+        setIsProcessingVideo(false);
+      }
+
       setIsCameraReady(false);
       clearCanvas();
   
@@ -776,14 +800,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   useEffect(() => { 
     if (videoRef.current && isProcessingVideo) {
       setDisplayGraphs(false);
-
-      // isSeekingFromChartRef.current = {
-      //   isSeeking: false,
-      //   newValue: null
-      // };
       
       videoProcessedRef.current = false;
       setVideoProcessed(false);
+
+      cancelProcessingRef.current = false;
 
       togglePlayback({restart: true});
     }
@@ -792,11 +813,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   useEffect(() => {
     if (videoUrl === null) {
       setDisplayGraphs(false);
-
-      // isSeekingFromChartRef.current = {
-      //   isSeeking: false,
-      //   newValue: null
-      // };
   
       jointDataRef.current = {};
       recordedPositionsRef.current = {};
@@ -806,37 +822,39 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       videoProcessedRef.current = false;
       setVideoProcessed(false);
     }
-    else if (videoUrl && videoRef.current && capturedChunks.length > 0) {
-      const video = videoRef.current;
-  
-      const handleSeeked = () => {
-        const duration = video.currentTime;
-  
-        if (duration <= 10) {
-          setIsPoseModalOpen(true);
-        } else {
-          handleRemoveRecord();
-          setInfoMessage({
-            show: true,
-            message: "Max. 10 seconds",
-          });
-        }
-  
-        // Limpieza
-        video.removeEventListener("seeked", handleSeeked);
-      };
-  
-      const handleLoadedMetadata = () => {
-        video.currentTime = 999999; // Forzamos un seek al final
-      };
-  
-      video.addEventListener("loadedmetadata", handleLoadedMetadata);
-      video.addEventListener("seeked", handleSeeked);
-  
-      return () => {
-        video.removeEventListener("loadedmetadata", handleLoadedMetadata);
-        video.removeEventListener("seeked", handleSeeked);
-      };
+    else if (videoUrl) {
+      if (videoRef.current && capturedChunks.length > 0) {
+        const video = videoRef.current;
+    
+        const handleSeeked = () => {
+          const duration = video.currentTime;
+    
+          if (duration <= 10) {
+            setIsPoseModalOpen(true);
+          } else {
+            handleRemoveRecord();
+            setInfoMessage({
+              show: true,
+              message: "Max. 10 seconds",
+            });
+          }
+    
+          // Limpieza
+          video.removeEventListener("seeked", handleSeeked);
+        };
+    
+        const handleLoadedMetadata = () => {
+          video.currentTime = 999999; // Forzamos un seek al final
+        };
+    
+        video.addEventListener("loadedmetadata", handleLoadedMetadata);
+        video.addEventListener("seeked", handleSeeked);
+    
+        return () => {
+          video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+          video.removeEventListener("seeked", handleSeeked);
+        };
+      }
     }
   }, [videoUrl]);
 
@@ -1026,26 +1044,48 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   }, [poseModel]);
 
   useEffect(() => {    
-    if (!detector || (videoUrl ? !videoRef.current : !webcamRef.current)) return;
+    if (
+      !detector || 
+      (videoUrl ? !videoRef.current : !webcamRef.current)
+    ) return;
 
     let poseModelChanged = prevPoseModel.current !== poseModel;
     let isMounted = true;
     
     const analyzeFrame = async () => {
       if (isFrozen || !isMounted) {
-        if (animationRef.current && !poseModelChanged) {
+        if (
+          animationRef.current && 
+          !poseModelChanged && 
+          !isVideoRemoved.current
+        ) {
           cancelAnimationFrame(animationRef.current);
           animationRef.current = null;
         }
 
-        if (webcamRef.current && webcamRef.current.video && !poseModelChanged) {
-          webcamRef.current.video.pause(); 
+        if (
+          webcamRef.current && 
+          webcamRef.current.video && 
+          !poseModelChanged &&
+          !isVideoRemoved.current
+        ) {
+          webcamRef.current.video.pause();  
+        }
+        
+        if (isVideoRemoved.current) {
+          clearCanvas(); 
+
+          isVideoRemoved.current = false;
         }
 
         return;
       }
 
-      if (!detector || !canvasRef.current || (videoUrl ? !videoRef.current : !webcamRef.current)) return;
+      if (
+        !detector || 
+        !canvasRef.current 
+        || (videoUrl ? !videoRef.current : !webcamRef.current)
+      ) return;
       
       try {
         // Captura el fotograma actual de la webcam
@@ -1137,7 +1177,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       if (!isFrozen) {
         animationRef.current = requestAnimationFrame(analyzeFrame);
 
-        if (webcamRef.current && webcamRef.current.video && webcamRef.current.video.paused) {
+        if (
+          webcamRef.current && 
+          webcamRef.current.video && 
+          webcamRef.current.video.paused
+        ) {
           webcamRef.current.video.play(); 
         }
       }
@@ -1296,7 +1340,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           }`} 
           onClick={handleClickOnCanvas}/>
 
-        {/**(!videoUrl || (videoProcessed || videoRef.current?.paused)) */}
         {!isProcessingVideo ? (
           <>
             <section 
@@ -1393,9 +1436,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 />
               <Cog6ToothIcon 
                 className={`h-6 w-6 text-white cursor-pointer ${
-                  recording ? "text-white/60" : "text-white"
+                  (recording || videoProcessed) ? "text-white/60" : "text-white"
                 }`}
-                onClick={() => !recording && handleSettingsModal({})}
+                onClick={() => !recording && !videoProcessed && handleSettingsModal({})}
                 />
             </section>
           </> ) : null
@@ -1416,12 +1459,37 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           ) : null
         }
         {(videoUrl && isProcessingVideo) ? (
-            <section 
-              data-element="non-swipeable"
-              className={`absolute bottom-2 z-10 flex gap-4 bg-[#5dadec] dark:bg-black/40 rounded-full p-2 left-1/2 -translate-x-1/2`}
-              >
-                <CubeTransparentIcon className="w-8 h-8 text-white animate-spin"/>
-            </section>
+            <>
+              <section 
+                data-element="non-swipeable"
+                className={`absolute bottom-2 z-10 flex gap-4 bg-[#5dadec] dark:bg-black/40 rounded-full p-2 left-1/2 -translate-x-1/2`}
+                onClick={() => setIsCancellationRequested(true)}
+                >
+                  <CubeTransparentIcon className="w-8 h-8 text-white animate-spin"/>
+              </section>
+              {isCancellationRequested ? (
+                  <div 
+                  data-element="non-swipeable"
+                  className="absolute top-0 h-dvh w-full z-50 flex items-center justify-center bg-black/60"
+                  onClick={() => setIsCancellationRequested(false)}
+                  >
+                    <div className=" dark:bg-gray-800 rounded-lg px-10 py-6 flex flex-col gap-2">
+                      <p className="text-xl">Are you sure?</p>
+                      <button 
+                        className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl p-2"
+                        onClick={() => {
+                          cancelProcessingRef.current = true;
+
+                          handleRemoveRecord();
+                        }}
+                        >
+                          Cancel now
+                        </button>
+                    </div>
+                  </div>
+                ) : null
+              }
+            </>
           ) : null
         }
         {isCameraReady && !(videoUrl && !videoProcessed) ? (
@@ -1464,7 +1532,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             onVerticalLineChange={handleChartValueX}
             parentStyles="relative z-0 h-[50dvh] bg-white"
             verticalLineValue={(videoCurrentTime * 1000)}
-            // ignoreExternalTriggerRef={ignoreNextVerticalLineChangeRef}
             />
         </div> ) : null
       }
