@@ -4,9 +4,8 @@ import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "re
 import Webcam from "react-webcam";
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import * as tf from '@tensorflow/tfjs-core';
-import { JointDataMap, JointConfigMap, CanvasKeypointName, PoseSettings, Kinematics, JointColors } from "@/interfaces/pose";
+import { JointDataMap, JointConfigMap, CanvasKeypointName, PoseSettings, Kinematics, JointColors, JointData } from "@/interfaces/pose";
 import { drawKeypointConnections, drawKeypoints } from "@/utils/draw";
-import { updateJoint } from "@/utils/joint";
 import PoseGraph from "./Graph";
 import { VideoConstraints } from "@/interfaces/camera";
 import { DetectorType, usePoseDetector } from "@/providers/PoseDetector";
@@ -16,6 +15,7 @@ import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
 import { motion } from "framer-motion";
+//import { updateJoint } from "@/utils/joint";
 
 interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
@@ -427,8 +427,20 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             // console.log("✅ Análisis terminado");          
             const allTimestamps = Object.values(recordedPositionsRef.current)
               .flatMap((arr) => arr?.map((entry) => entry.timestamp) ?? []);
-            const minTimestamp = Math.min(...allTimestamps);
-            const firstTimeInSeconds = minTimestamp / 1000;
+
+            let firstTimeInSeconds = 0; // fallback por defecto
+
+            if (allTimestamps.length > 0) {
+              const minTimestamp = Math.min(...allTimestamps);
+              const calculated = minTimestamp / 1000;
+              if (Number.isFinite(calculated)) {
+                firstTimeInSeconds = calculated;
+              } else {
+                console.warn("⚠️ El timestamp mínimo no es válido. Usando fallback 0.");
+              }
+            } else {
+              console.warn("⚠️ No hay timestamps. Usando fallback 0.");
+            }
           
             video.currentTime = firstTimeInSeconds;
           
@@ -725,20 +737,28 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     return `${sideShort} ${capitalizedPart}`;
   };
 
+  const jointWorkerRef = useRef<Worker | null>(null);
+  useEffect(() => {
+    jointWorkerRef.current = new Worker('/workers/jointWorker.js');
+
+    return () => {
+      jointWorkerRef.current?.terminate();
+    };
+  }, []);
+
+  /**
   const updateMultipleJoints = ({
     keypoints, 
     jointNames, 
     jointDataRef, 
     jointConfigMap, 
-    actualTimestamp, 
-    // ctx,
+    actualTimestamp,
   }: {
     keypoints: poseDetection.Keypoint[],
     jointNames: CanvasKeypointName[],
     jointDataRef: RefObject<JointDataMap>,
     jointConfigMap: JointConfigMap,
     actualTimestamp?: number,
-    ctx?: CanvasRenderingContext2D,
   }) => {
     const anglesToDisplay: string[] = [];
     if (videoRef.current) {
@@ -763,7 +783,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         angleHistorySize: jointAngleHistorySizeRef.current,
         graphAngle: null,
         orthogonalReference: orthogonalReferenceRef.current,
-        mirror: videoConstraintsRef.current.facingMode === "user",
+        // mirror: videoConstraintsRef.current.facingMode === "user",
         // ctx,
       });
 
@@ -796,6 +816,83 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       setAnglesToDisplay(anglesToDisplay);
     }
   };
+  */
+  const updateMultipleJoints = ({
+    keypoints,
+    jointNames,
+    jointDataRef,
+    jointConfigMap,
+    actualTimestamp,
+  }: {
+    keypoints: poseDetection.Keypoint[];
+    jointNames: CanvasKeypointName[];
+    jointDataRef: RefObject<JointDataMap>;
+    jointConfigMap: JointConfigMap;
+    actualTimestamp?: number;
+  }) => {
+    if (!visibleJointsRef.current.length || !jointWorkerRef.current) return;
+  
+    const video = videoRef.current;
+    const currentVideoTime = video?.currentTime ?? 0;
+  
+    if (video) {
+      anglesToDisplayRef.current = [];
+    } else {
+      setAnglesToDisplay([]);
+    }
+  
+    // Construir mapa de históricos actuales
+    const jointDataMap = jointNames.reduce((acc, jointName) => {
+      const data = jointDataRef.current[jointName];
+      acc[jointName] = {
+        angleHistory: data?.angleHistory ?? [],
+      };
+      return acc;
+    }, {} as Record<string, { angleHistory: number[] }>);
+  
+    // Enviar datos al Worker
+    jointWorkerRef.current.postMessage({
+      keypoints,
+      jointNames,
+      jointConfigMap,
+      jointDataMap,
+      angleHistorySize: jointAngleHistorySizeRef.current,
+      orthogonalReference: orthogonalReferenceRef.current,
+    });
+  
+    // Esperar respuesta del Worker
+    jointWorkerRef.current.onmessage = (e: MessageEvent<{ updatedJointData: Record<string, JointData> }>) => {
+      const updatedJointData = e.data.updatedJointData;
+      const anglesToDisplay: string[] = [];
+  
+      Object.entries(updatedJointData).forEach(([jointName, updatedData]) => {
+        jointDataRef.current[jointName as CanvasKeypointName] = updatedData;
+  
+        const label = formatJointName(jointName);
+        const angle = `${label}: ${updatedData.angle.toFixed(0)}°`;
+        anglesToDisplay.push(angle);
+        if (video) {
+          anglesToDisplayRef.current.push(angle);
+        }
+  
+        if (video && !videoProcessedRef.current) {
+          if (!recordedPositionsRef.current[jointName as CanvasKeypointName]) {
+            recordedPositionsRef.current[jointName as CanvasKeypointName] = [];
+          }
+  
+          recordedPositionsRef.current[jointName as CanvasKeypointName]!.push({
+            timestamp: actualTimestamp ?? currentVideoTime * 1000,
+            angle: updatedData.angle,
+            color: updatedData.color,
+          });
+        }
+      });
+  
+      if (!video) {
+        setAnglesToDisplay(anglesToDisplay);
+      }
+    };
+  };  
 
   const showMyWebcam = () => {
     if (
@@ -1003,6 +1100,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             !excludedParts.includes(kp.name!)
         );
   
+        // Dibujar keypoints en el canvas
         drawKeypoints({
           ctx,
           keypoints,
@@ -1010,6 +1108,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           pointRadius: 4 * (referenceScale / scaleFactor),
         });
   
+        // Dibujar conexiones entre puntos clave
         drawKeypointConnections({
           ctx,
           keypoints,
@@ -1017,6 +1116,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           mirror: videoConstraints.facingMode === "user",
           lineWidth: 2 * (referenceScale / scaleFactor),
         });
+        // if (!isProcessingVideo) {
+        // }
   
         updateMultipleJoints({
           keypoints,
@@ -1024,7 +1125,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           jointDataRef,
           jointConfigMap,
           actualTimestamp,
-          ctx,
         });
       }
     }
@@ -1193,9 +1293,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 mirror: videoConstraintsRef.current.facingMode === "user", 
                 lineWidth: 2 * (referenceScale / scaleFactor), 
               });
+              // if (!isProcessingVideo) {
+              // }
 
               // Calcular ángulo entre tres keypoints
-              updateMultipleJoints({keypoints, jointNames: visibleJointsRef.current, jointDataRef, jointConfigMap, ctx});
+              updateMultipleJoints({
+                keypoints, 
+                jointNames: visibleJointsRef.current, 
+                jointDataRef, 
+                jointConfigMap
+              });
             }
           }
         }
@@ -1363,12 +1470,21 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             />
         )}
         <canvas ref={inputCanvasRef} style={{ display: "none" }} />
+        {/* {!isProcessingVideo ? (
+          <canvas 
+            ref={canvasRef} 
+            className={`absolute object-cover h-full w-full ${
+              !isCameraReady || isProcessingVideo ? "hidden" : ""
+            }`} 
+            onClick={handleClickOnCanvas}/> 
+          ) : null
+        } */}
         <canvas 
           ref={canvasRef} 
           className={`absolute object-cover h-full w-full ${
             !isCameraReady ? "hidden" : ""
           }`} 
-          onClick={handleClickOnCanvas}/>
+          onClick={handleClickOnCanvas}/> 
 
         {!isProcessingVideo ? (
           <>
