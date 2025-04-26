@@ -5,8 +5,8 @@ import * as poseDetection from '@tensorflow-models/pose-detection';
 
 interface IndexProps {
   isModalOpen: boolean;
-  displayGraphs: boolean;
-  videoUrl: string | null;
+  displayGraphs?: boolean;
+  videoUrl?: string | null;
   videoProcessed?: boolean;
 }
 
@@ -19,18 +19,11 @@ const Index = ({
     setAngularHistorySize,
     setPoseModel,
     setHigherFrequency,
-    setPoseInitDelayMs,
-    setVideoEndThresholdSec,
-    setPoseModelLatency,
     resetPoseSettings,
   } = useSettings();
   const {
     angularHistorySize,
     poseModel,
-    higherFrequency,
-    poseInitDelayMs,
-    videoEndThresholdSec,
-    poseModelLatency,
   } = settings.pose;
 
   const handleAngleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,8 +67,6 @@ const Index = ({
               disabled={videoProcessed}
               />
           </div>
-        </div> 
-        <div className='flex w-full gap-2'>
           <div className="flex-1 flex flex-col justify-end gap-2">
             <label className="relative inline-flex items-center cursor-pointer">
               <input 
@@ -108,104 +99,9 @@ const Index = ({
                   videoProcessed ? "text-white/60" : "text-white"
                 }`}
                 >
-                  Model: {poseModel === poseDetection.SupportedModels.BlazePose ? poseDetection.SupportedModels.BlazePose : poseDetection.SupportedModels.MoveNet}
+                  {poseModel === poseDetection.SupportedModels.BlazePose ? poseDetection.SupportedModels.BlazePose : poseDetection.SupportedModels.MoveNet}
               </span>
             </label>
-          </div>
-          <div className="flex-1 flex flex-col justify-end gap-2">
-            <label 
-              className="relative inline-flex items-center cursor-pointer"
-              >
-              <input 
-                type="checkbox" 
-                value="" 
-                className="sr-only peer" 
-                checked={higherFrequency}
-                onChange={() => setHigherFrequency(!higherFrequency)}
-                disabled={videoProcessed || poseModel === poseDetection.SupportedModels.MoveNet}
-                />
-              <div
-                className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-0 peer-focus:ring-[#5dadec]
-                rounded-full peer dark:bg-gray-700 peer-checked:bg-[#5dadec] transition-all duration-200"
-              ></div>
-              <div
-                className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full shadow
-                peer-checked:translate-x-full transform transition-all duration-200 ${
-                  videoProcessed || poseModel === poseDetection.SupportedModels.MoveNet ? "bg-white/40" : "bg-white"
-                }`}
-              ></div>
-              <span 
-                className={`text-white text-sm pl-2 ${
-                  videoProcessed || poseModel === poseDetection.SupportedModels.MoveNet ? "text-white/60" : "text-white"
-                }`}
-                >
-                  {poseModel === poseDetection.SupportedModels.BlazePose ? higherFrequency ? "Accuracy" : "Performance" : "N/A"}
-              </span>
-            </label>
-          </div>
-        </div>
-        <div className='flex w-full gap-6'> 
-          <div className='flex-1 flex flex-col justify-between gap-2'>
-            <label
-              htmlFor='pose-init-delay'
-              className={`${
-                videoProcessed || poseModel === poseDetection.SupportedModels.MoveNet ? "text-white/60" : "text-white"
-              }`}
-              >
-              Processing<span className='align-sub uppercase text-[0.6rem]'> Speed</span>: {poseInitDelayMs}
-            </label>
-            <input
-              id='pose-init-delay'
-              type='range'
-              value={poseInitDelayMs}
-              min="0"
-              max="800"
-              step="50"
-              onChange={(e) => setPoseInitDelayMs(Number(e.target.value))}
-              disabled={videoProcessed || poseModel === poseDetection.SupportedModels.MoveNet}
-              />
-          </div>
-          <div className='flex-1 flex flex-col justify-between gap-2'>
-            <label
-              htmlFor='model-latency'
-              className={`${
-                videoProcessed ? "text-white/60" : "text-white"
-              }`}
-              >
-              Latency: {poseModelLatency.toFixed(2)} ms
-            </label>
-            <input
-              id='model-latency'
-              type='range'
-              value={poseModelLatency}
-              min="0.15"
-              max="0.40"
-              step="0.01"
-              onChange={(e) => setPoseModelLatency(Number(e.target.value))}
-              disabled={videoProcessed}
-              />
-          </div>
-        </div>
-        <div className='flex w-full gap-6'>
-          <div className='flex-1 flex flex-col justify-between gap-2'>
-            <label
-              htmlFor='video-end-detection'
-              className={`${
-                videoProcessed ? "text-white/60" : "text-white"
-              }`}
-              >
-              End<span className='align-sub uppercase text-[0.6rem]'> Detection</span>: {videoEndThresholdSec.toFixed(3)} s
-            </label>
-            <input
-              id='video-end-detection'
-              type='range'
-              value={videoEndThresholdSec}
-              min="0.01"
-              max="0.10"
-              step="0.001"
-              onChange={(e) => setVideoEndThresholdSec(Number(e.target.value))}
-              disabled={videoProcessed}
-              />
           </div>
         </div>
       </form>
