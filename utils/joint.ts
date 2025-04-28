@@ -1,6 +1,28 @@
 import * as poseDetection from "@tensorflow-models/pose-detection";
-import { JointColors, JointData, CanvasKeypointName, UpdateJointParams } from "../interfaces/pose";
+import { JointColors, JointData, CanvasKeypointName, UpdateJointParams, JointConfigMap } from "../interfaces/pose";
 // import { drawAngle } from "./draw";
+
+export const jointConfigMap: JointConfigMap = {
+    [CanvasKeypointName.RIGHT_ELBOW]: { invert: true },
+    [CanvasKeypointName.RIGHT_SHOULDER]: { invert: false },
+    [CanvasKeypointName.RIGHT_HIP]: { invert: false },
+    [CanvasKeypointName.RIGHT_KNEE]: { invert: true },
+    [CanvasKeypointName.LEFT_ELBOW]: { invert: true },
+    [CanvasKeypointName.LEFT_SHOULDER]: { invert: false },
+    [CanvasKeypointName.LEFT_HIP]: { invert: false },
+    [CanvasKeypointName.LEFT_KNEE]: { invert: true },
+  };
+
+export const jointOptions = [
+  { label: "Right Shoulder", value: CanvasKeypointName.RIGHT_SHOULDER },
+  { label: "Right Elbow", value: CanvasKeypointName.RIGHT_ELBOW },
+  { label: "Right Hip", value: CanvasKeypointName.RIGHT_HIP },
+  { label: "Right Knee", value: CanvasKeypointName.RIGHT_KNEE },
+  { label: "Left Shoulder", value: CanvasKeypointName.LEFT_SHOULDER },
+  { label: "Left Elbow", value: CanvasKeypointName.LEFT_ELBOW },
+  { label: "Left Hip", value: CanvasKeypointName.LEFT_HIP },
+  { label: "Left Knee", value: CanvasKeypointName.LEFT_KNEE },
+]
 
 const calculateJointAngleDegrees = (
   A: poseDetection.Keypoint,

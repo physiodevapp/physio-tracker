@@ -1,20 +1,22 @@
 "use client";
 
-import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import * as tf from '@tensorflow/tfjs-core';
-import { JointDataMap, JointConfigMap, CanvasKeypointName, PoseSettings, Kinematics, JointData } from "@/interfaces/pose";
-import { drawKeypointConnections, drawKeypoints } from "@/utils/draw";
+import { motion } from "framer-motion";
+import { JointDataMap, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
-import { CameraIcon, UserIcon, Cog6ToothIcon, CloudArrowDownIcon, Bars3Icon, XMarkIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/solid";
-import { PauseIcon } from "@heroicons/react/24/outline";
 import { useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
-import { motion } from "framer-motion";
-//import { updateJoint } from "@/utils/joint";
+import { drawKeypointConnections, drawKeypoints } from "@/utils/draw";
+import { updateMultipleJoints } from "@/utils/pose";
+import { keypointPairs } from '@/utils/pose';
+import { jointConfigMap, jointOptions } from '@/utils/joint';
+import { PauseIcon } from "@heroicons/react/24/outline";
+import { CameraIcon, UserIcon, Cog6ToothIcon, CloudArrowDownIcon, Bars3Icon, XMarkIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/solid";
 
 interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
@@ -45,11 +47,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     facingMode: "user",
   });
   
-  const [poseSettings] = useState<PoseSettings>({ scoreThreshold: 0.3 });
-  
-  const [
-    visibleKinematics, 
-  ] = useState<Kinematics[]>([Kinematics.ANGLE]);
+  const [visibleKinematics] = useState<Kinematics[]>([Kinematics.ANGLE]);
   
   const [isPoseModalOpen, setIsPoseModalOpen] = useState(false);
   const [isPoseSettingsModalOpen, setIsPoseSettingsModalOpen] = useState(false);
@@ -80,27 +78,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     return visibleKinematics.length === 2 ? 3 : 6;
   }, [visibleKinematics]);
   
-  const { detector, detectorModel } = usePoseDetector();
+  const { detector, detectorModel, minPoseScore } = usePoseDetector();
   const prevPoseModel = useRef<poseDetection.SupportedModels>(detectorModel);
-
-  const keypointPairs: [CanvasKeypointName, CanvasKeypointName][] = [
-    [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.RIGHT_SHOULDER],
-    [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.LEFT_ELBOW],
-    [CanvasKeypointName.LEFT_ELBOW, CanvasKeypointName.LEFT_WRIST],
-    [CanvasKeypointName.RIGHT_SHOULDER, CanvasKeypointName.RIGHT_ELBOW],
-    [CanvasKeypointName.RIGHT_ELBOW, CanvasKeypointName.RIGHT_WRIST],
-    [CanvasKeypointName.LEFT_HIP, CanvasKeypointName.RIGHT_HIP],
-    [CanvasKeypointName.LEFT_HIP, CanvasKeypointName.LEFT_KNEE],
-    [CanvasKeypointName.LEFT_KNEE, CanvasKeypointName.LEFT_ANKLE],
-    [CanvasKeypointName.LEFT_ANKLE, CanvasKeypointName.LEFT_HEEL],
-    [CanvasKeypointName.LEFT_ANKLE, CanvasKeypointName.LEFT_FOOT_INDEX],
-    [CanvasKeypointName.LEFT_HEEL, CanvasKeypointName.LEFT_FOOT_INDEX],
-    [CanvasKeypointName.RIGHT_HIP, CanvasKeypointName.RIGHT_KNEE],
-    [CanvasKeypointName.RIGHT_KNEE, CanvasKeypointName.RIGHT_ANKLE],
-    [CanvasKeypointName.RIGHT_ANKLE, CanvasKeypointName.RIGHT_HEEL],
-    [CanvasKeypointName.RIGHT_ANKLE, CanvasKeypointName.RIGHT_FOOT_INDEX],
-    [CanvasKeypointName.RIGHT_HEEL, CanvasKeypointName.RIGHT_FOOT_INDEX],
-  ];
 
   const excludedParts = [
     'left_eye', 'right_eye',
@@ -113,28 +92,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     'left_index', 'right_index', 
     'left_pinky', 'right_pinky', 
   ];
-
-  const jointConfigMap: JointConfigMap = {
-    [CanvasKeypointName.RIGHT_ELBOW]: { invert: true },
-    [CanvasKeypointName.RIGHT_SHOULDER]: { invert: false },
-    [CanvasKeypointName.RIGHT_HIP]: { invert: false },
-    [CanvasKeypointName.RIGHT_KNEE]: { invert: true },
-    [CanvasKeypointName.LEFT_ELBOW]: { invert: true },
-    [CanvasKeypointName.LEFT_SHOULDER]: { invert: false },
-    [CanvasKeypointName.LEFT_HIP]: { invert: false },
-    [CanvasKeypointName.LEFT_KNEE]: { invert: true },
-  };
-
-  const jointOptions = useMemo(() => [
-    { label: "Right Shoulder", value: CanvasKeypointName.RIGHT_SHOULDER },
-    { label: "Right Elbow", value: CanvasKeypointName.RIGHT_ELBOW },
-    { label: "Right Hip", value: CanvasKeypointName.RIGHT_HIP },
-    { label: "Right Knee", value: CanvasKeypointName.RIGHT_KNEE },
-    { label: "Left Shoulder", value: CanvasKeypointName.LEFT_SHOULDER },
-    { label: "Left Elbow", value: CanvasKeypointName.LEFT_ELBOW },
-    { label: "Left Hip", value: CanvasKeypointName.LEFT_HIP },
-    { label: "Left Knee", value: CanvasKeypointName.LEFT_KNEE },
-  ], []);
 
   const handleClickOnCanvas = () => { 
     if (isPoseSettingsModalOpen || isMainMenuOpen) {
@@ -195,70 +152,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     return () => {
       jointWorkerRef.current?.terminate();
     };
-  }, []);
-
-  const updateMultipleJoints = ({
-    keypoints,
-    jointNames,
-    jointDataRef,
-    jointConfigMap,
-    // actualTimestamp,
-  }: {
-    keypoints: poseDetection.Keypoint[];
-    jointNames: CanvasKeypointName[];
-    jointDataRef: RefObject<JointDataMap>;
-    jointConfigMap: JointConfigMap;
-    actualTimestamp?: number;
-  }) => {
-    if (!selectedJointsRef.current.length || !jointWorkerRef.current) return;
-  
-    // Construir mapa de históricos actuales
-    const jointDataMap = jointNames.reduce((acc, jointName) => {
-      const data = jointDataRef.current[jointName];
-      acc[jointName] = {
-        angleHistory: data?.angleHistory ?? [],
-      };
-      return acc;
-    }, {} as Record<string, { angleHistory: number[] }>);
-  
-    // Enviar datos al Worker
-    jointWorkerRef.current.postMessage({
-      keypoints,
-      jointNames,
-      jointConfigMap,
-      jointDataMap,
-      angleHistorySize: jointAngleHistorySizeRef.current,
-      orthogonalReference: orthogonalReferenceRef.current,
-    });
-  
-    // Esperar respuesta del Worker
-    jointWorkerRef.current.onmessage = (e: MessageEvent<{ updatedJointData: Record<string, JointData> }>) => {
-      const updatedJointData = e.data.updatedJointData;
-      const anglesToDisplay: string[] = [];
-  
-      selectedJointsRef.current.forEach((jointName) => {
-        const updatedData = updatedJointData[jointName];
-        const label = formatJointName(jointName);
-    
-        if (updatedData) {
-          jointDataRef.current[jointName as CanvasKeypointName] = updatedData;
-          const angle = `${label}: ${updatedData.angle.toFixed(0)}°`;
-          anglesToDisplay.push(angle);
-        } else {
-          anglesToDisplay.push(`${label}: -`);
-        }
-      });
-    
-      setAnglesToDisplay(prev => {
-        const hasChanged =
-          prev.length !== anglesToDisplay.length ||
-          prev.some((val, i) => val !== anglesToDisplay[i]);
-    
-        return hasChanged ? anglesToDisplay : prev;
-      });
-    
-    };
-  };  
+  }, []); 
 
   const getCanvasScaleFactor = ({canvas, video}: {
     canvas: HTMLCanvasElement | null,
@@ -317,7 +211,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   useEffect(() => {    
     if (
       !detector || 
-      !webcamRef.current
+      !webcamRef.current || 
+      !canvasRef.current
     ) return;
 
     let poseModelChanged = prevPoseModel.current !== poseModel;
@@ -343,12 +238,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
         return;
       }
-
-      if (
-        !detector || 
-        !canvasRef.current || 
-        !webcamRef.current
-      ) return;
       
       try {
         // Captura el fotograma actual de la webcam
@@ -427,28 +316,38 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               const keypoints = poses[0].keypoints.filter(
                 (kp) => 
                   kp.score && 
-                  kp.score > poseSettings.scoreThreshold &&
+                  kp.score > minPoseScore &&
                   !excludedParts.includes(kp.name!)
               );
 
               // Dibujar keypoints en el canvas
-              drawKeypoints({ctx, keypoints, 
+              drawKeypoints({
+                ctx, 
+                keypoints, 
                 mirror: videoConstraintsRef.current.facingMode === "user", 
                 pointRadius: 4 * (referenceScale / scaleFactor),
               });
 
               // Dibujar conexiones entre puntos clave
-              drawKeypointConnections({ctx, keypoints, keypointPairs, 
+              drawKeypointConnections({
+                ctx, 
+                keypoints, 
+                keypointPairs, 
                 mirror: videoConstraintsRef.current.facingMode === "user", 
                 lineWidth: 2 * (referenceScale / scaleFactor), 
               });
 
               // Calcular ángulo entre tres keypoints
               updateMultipleJoints({
-                keypoints, 
-                jointNames: selectedJointsRef.current, 
-                jointDataRef, 
-                jointConfigMap
+                keypoints,
+                selectedJoints: selectedJointsRef.current,
+                jointDataRef,
+                jointConfigMap,
+                jointWorker: jointWorkerRef.current!,
+                jointAngleHistorySize: jointAngleHistorySizeRef.current,
+                orthogonalReference: orthogonalReferenceRef.current,
+                formatJointName,
+                setAnglesToDisplay,
               });
             }
           }

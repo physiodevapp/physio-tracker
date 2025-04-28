@@ -22,7 +22,7 @@ interface DataPoint {
   y: number; // Valor medido (por ejemplo, ángulo o velocidad angular)
 }
 
-type RecordedPositions = {
+export type RecordedPositions = {
   [joint in CanvasKeypointName]?: {
     timestamp: number;
     angle: number;
