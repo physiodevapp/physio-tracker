@@ -21,10 +21,16 @@ self.onmessage = (e) => {
     const [kpA, kpB, kpC] = jointKeypoints;
     const angleNow = calculateJointAngleDegrees(kpA, kpB, kpC, jointConfig.invert, orthogonalReference);
 
-    const newHistory = [...history, angleNow];
-    if (newHistory.length > angleHistorySize) newHistory.shift();
+    const newHistory = angleHistorySize > 0 
+      ? [...history, angleNow]
+      : [];
+    if (newHistory.length > angleHistorySize) {
+      newHistory.shift();
+    } 
 
-    const smoothedAngle = newHistory.reduce((a, b) => a + b, 0) / newHistory.length;
+    const smoothedAngle = angleHistorySize > 0 
+      ? newHistory.reduce((a, b) => a + b, 0) / newHistory.length
+      : angleNow;
 
     updatedJointData[jointName] = {
       angle: smoothedAngle,
