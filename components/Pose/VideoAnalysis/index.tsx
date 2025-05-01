@@ -1,4 +1,7 @@
-import { useRef, useState, useEffect } from 'react';
+"use client";
+// VideoAnalysis component
+
+import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
 import { CanvasKeypointName, JointDataMap, Kinematics } from '@/interfaces/pose';
@@ -9,11 +12,45 @@ import { jointConfigMap } from '@/utils/joint';
 import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import { drawKeypointConnections, drawKeypoints } from '@/utils/draw';
 import { keypointPairs } from '@/utils/pose';
+import { CubeTransparentIcon } from '@heroicons/react/24/solid';
 
-const Index = () => {
+export type VideoAnalysisHandle = {
+  handleVideoProcessing: () => void;
+  isVideoLoaded: () => boolean;
+  isVideoProcessed: () => boolean;  
+  downloadJSON: () => void;
+  removeVideo: () => void;
+  handleNewVideo: () => void;
+};
+
+interface IndexProps {
+  orthogonalReference: 'vertical' | 'horizontal' | undefined;
+  jointWorkerRef: React.RefObject<Worker | null>;
+  jointDataRef: React.RefObject<JointDataMap>;
+  onExit?: () => void;
+  onWorkerInit?: () => void;
+  onProcessed?: (value: boolean) => void;
+  onLoaded?: (value: boolean) => void;
+  onProcessing?: (value: boolean) => void;
+}
+
+const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
+  orthogonalReference,
+  jointWorkerRef,
+  jointDataRef,
+  onExit,
+  onWorkerInit,
+  onProcessed,
+  onLoaded,
+  onProcessing,
+}, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const hasTriggeredRef = useRef(false);
 
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [videoProcessed, setVideoProcessed] = useState(false);
@@ -26,23 +63,19 @@ const Index = () => {
 
   const [processingProgress, setProcessingProgress] = useState<number>(0);
 
-  const jointWorkerRef = useRef<Worker | null>(null);
-
-  const jointDataRef = useRef<JointDataMap>({});
   const allFramesDataRef = useRef<VideoFrame[]>([]);
   const nearestFrameRef = useRef<VideoFrame>(null);
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && videoRef.current) {
-      console.log('handleVideoUpload');
-  
+    if (file && videoRef.current) { 
       const video = videoRef.current;
-      video.src = URL.createObjectURL(file);
+      video.src = URL.createObjectURL(file); 
   
       video.onloadedmetadata = () => {
-        console.log('✅ Metadata cargada');
+        // console.log('✅ Metadata cargada');
         setVideoLoaded(true);
+        onLoaded?.(true);
       };
   
       video.load();
@@ -56,7 +89,10 @@ const Index = () => {
 
   const processFrames = async () => {
     setProcessingProgress(0);
+    onProcessing?.(true);
+
     setVideoProcessed(false);
+    onProcessed?.(false);    
   
     if (!videoRef.current || !canvasRef.current || !detector) return;
   
@@ -69,8 +105,6 @@ const Index = () => {
     const duration = video.duration;
     const frameInterval = smartFrameInterval(duration, 400);
     const steps = Math.floor(duration / frameInterval);
-
-    console.log('smartFrameInterval ', frameInterval)
   
     for (let i = 0; i < steps; i++) {
       await new Promise<void>((resolve) => {
@@ -143,12 +177,12 @@ const Index = () => {
       });
   
       if (i < steps - 1) {
-        await new Promise<void>((resolve) => setTimeout(resolve, Math.max(100, frameInterval * 1000)));
+        await new Promise<void>((resolve) => setTimeout(resolve, Math.max(60, frameInterval * 1000)));
       }
     }
   };
 
-  const analyzeAllFrames = async () => {
+  const analyzeAllFrames = async () => {  
     for (const frame of allFramesDataRef.current) {
       const updatedData = await updateMultipleJoints({
         keypoints: frame.keypoints,
@@ -156,7 +190,7 @@ const Index = () => {
         jointDataRef,
         jointConfigMap,
         jointWorker: jointWorkerRef.current!,
-        orthogonalReference: 'vertical',
+        orthogonalReference: orthogonalReference,
         formatJointName: (jointName) => jointName,
         jointAngleHistorySize: angularHistorySize,
         ignoreHistorySize: true,
@@ -166,7 +200,6 @@ const Index = () => {
     }
   };
   
-
   const handleVideoProcessing = async () => {
     await processFrames();         // Primero captura frames + keypoints
     await analyzeAllFrames();      // Luego calcula ángulos
@@ -181,7 +214,28 @@ const Index = () => {
     allFramesDataRef.current = reducedFrames;
 
     setVideoProcessed(true);
+    onProcessed?.(true);
+
+    setProcessingProgress(0);
+    onProcessing?.(false);
   };
+
+  const removeVideo = () => {
+    allFramesDataRef.current = [];
+
+    if (videoProcessed) {
+      setVideoProcessed(false);
+      onProcessed?.(false);
+    }
+    else if (videoLoaded) {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+  
+      setVideoLoaded(false)
+      onLoaded?.(false);
+    }
+  }
   
   const downloadJSON = () => {
     const dataStr = JSON.stringify(allFramesDataRef.current, null, 2);
@@ -251,7 +305,7 @@ const Index = () => {
           drawKeypointConnections({
             ctx,
             keypoints: nearestFrame.keypoints,
-            keypointPairs, // asegúrate de tenerlo accesible o pásalo como prop
+            keypointPairs,
             mirror: false,
             lineWidth: 2,
           });
@@ -261,6 +315,10 @@ const Index = () => {
 
     }
   };   
+
+  const handleNewVideo = () => {
+    fileInputRef.current?.click();
+  }
 
   useEffect(() => {
     if (videoLoaded && videoRef.current && canvasRef.current) {
@@ -282,28 +340,41 @@ const Index = () => {
   }, [videoLoaded]);
 
   useEffect(() => {
-    jointWorkerRef.current = new Worker('/workers/jointWorker.js');
-  
-    return () => {
-      jointWorkerRef.current?.terminate();
-    };
+    if (!hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
+
+      onWorkerInit?.();
+
+      handleNewVideo();
+    }
+
   }, []);
+
+  useImperativeHandle(ref, () => ({
+    handleVideoProcessing,
+    isVideoLoaded: () => videoLoaded,
+    isVideoProcessed: () => videoProcessed,
+    downloadJSON,
+    removeVideo,
+    handleNewVideo,
+  }));
 
   return (
     <>
-      <div className='fixed top-0 flex flex-col z-10'>
-        <input type="file" accept="video/*" onChange={handleVideoUpload} />
-        <div className='flex flex-row'>
-          <button onClick={handleVideoProcessing} className={`flex-1 p-2 bg-blue-500 text-white rounded ${videoLoaded ? '' : 'none'}`}>Procesar Vídeo</button>
-          <button onClick={downloadJSON} className="flex-1 bg-green-500 text-white px-4 py-2 rounded">
-            Descargar JSON
-          </button>
-        </div>
+      <div className='absolute top-0 flex flex-col z-10'>
+        <input ref={fileInputRef} type="file" accept="video/*" onChange={handleVideoUpload} className='hidden' />
       </div>
 
       <div className='relative w-full h-dvh flex flex-col'>
         <div className="flex-1 w-full bg-black flex justify-center items-center">
-          <video ref={videoRef} className="hidden" muted />
+          <video 
+            ref={videoRef} 
+            className={`${!videoLoaded || processingProgress > 0 || videoProcessed
+              ? 'hidden'
+              : ''
+            }`} 
+            muted 
+            />
           <canvas ref={inputCanvasRef} className="hidden" />
           <canvas
             ref={canvasRef}
@@ -329,13 +400,14 @@ const Index = () => {
       </div>
 
       {!videoProcessed && processingProgress > 0 && processingProgress < 100 ? (
-        <div className="fixed bottom-0 w-full max-w-5xl mx-auto text-center my-4">
-          <div className="text-sm text-gray-600 mb-2">
-            Procesando: {processingProgress.toFixed(0)}%
+        <div className="fixed top-1/2 w-full max-w-5xl mx-auto text-center px-12 flex flex-col items-center">
+          <CubeTransparentIcon className='w-8 h-8 animate-spin mb-8'/>
+          <div className="text-sm text-gray-400 mb-2">
+            Processing... {processingProgress.toFixed(0)}%
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
-              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+              className="bg-[#5dadec] h-2 rounded-full transition-all duration-300"
               style={{ width: `${processingProgress}%` }}
             ></div>
           </div>
@@ -343,6 +415,8 @@ const Index = () => {
       ) : null }
     </>
   );
-}; 
+}); 
+
+Index.displayName = 'VideoAnalysis';
 
 export default Index;

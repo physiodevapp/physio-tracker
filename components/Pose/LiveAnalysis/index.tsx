@@ -1,0 +1,397 @@
+"use client";
+// LiveAnalysis component
+
+import React, { useEffect, useRef, useState } from "react";
+import Webcam from "react-webcam";
+import * as poseDetection from "@tensorflow-models/pose-detection";
+import * as tf from '@tensorflow/tfjs-core';
+import { JointDataMap, Kinematics } from "@/interfaces/pose";
+import { VideoConstraints } from "@/interfaces/camera";
+import { usePoseDetector } from "@/providers/PoseDetector";
+import { useSettings } from "@/providers/Settings";
+import { drawKeypointConnections, drawKeypoints } from "@/utils/draw";
+import { updateMultipleJoints } from "@/utils/pose";
+import { keypointPairs } from '@/utils/pose';
+import { jointConfigMap } from '@/utils/joint';
+import { CloudArrowDownIcon, ArrowPathIcon } from "@heroicons/react/24/solid";
+import { formatJointName } from '@/utils/joint';
+
+interface IndexProps {
+  handleMainMenu: (visibility?: boolean) => void;
+  isMainMenuOpen: boolean;
+  orthogonalReference: 'vertical' | 'horizontal' | undefined;
+  videoConstraints: VideoConstraints;
+  anglesToDisplay: string[];
+  setAnglesToDisplay: React.Dispatch<React.SetStateAction<string[]>>;
+  isPoseSettingsModalOpen: boolean;
+  setIsPoseSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  jointWorkerRef: React.RefObject<Worker | null>;
+  jointDataRef: React.RefObject<JointDataMap>;
+  onChangeIsFrozen: (isFrozen: boolean) => void;
+  onWorkerInit?: () => void;
+}
+
+const Index = ({ 
+  handleMainMenu, 
+  isMainMenuOpen ,
+  orthogonalReference,
+  videoConstraints,
+  anglesToDisplay,
+  setAnglesToDisplay,
+  isPoseSettingsModalOpen,
+  setIsPoseSettingsModalOpen,
+  jointWorkerRef,
+  jointDataRef,
+  onChangeIsFrozen,
+  onWorkerInit,
+}: IndexProps) => {
+  const { 
+    settings,
+  } = useSettings();
+  const {
+    selectedJoints,
+    angularHistorySize,
+    poseModel,
+  } = settings.pose;
+
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  
+  const [visibleKinematics] = useState<Kinematics[]>([Kinematics.ANGLE]);
+  
+  const jointAngleHistorySizeRef = useRef(angularHistorySize);
+    
+  const selectedJointsRef = useRef(selectedJoints);
+  const visibleKinematicsRef = useRef(visibleKinematics);
+  
+  const [isFrozen, setIsFrozen] = useState(false);
+  const animationRef = useRef<number | null>(null);
+
+  const hasTriggeredRef = useRef(false);
+
+  const referenceScaleRef = useRef<number | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const inputCanvasRef = useRef<HTMLCanvasElement>(null);
+  const webcamRef = useRef<Webcam>(null);
+
+  const orthogonalReferenceRef = useRef(orthogonalReference);
+  const videoConstraintsRef = useRef(videoConstraints);
+  
+  const { detector, detectorModel, minPoseScore } = usePoseDetector();
+  const prevPoseModel = useRef<poseDetection.SupportedModels>(detectorModel);
+
+  const excludedParts = [
+    'left_eye', 'right_eye',
+    'left_eye_inner', 'right_eye_inner', 
+    'left_eye_outer', 'right_eye_outer',
+    'left_ear', 'right_ear',
+    'nose', 
+    'mouth_left', 'mouth_right',
+    'left_thumb', 'right_thumb',
+    'left_index', 'right_index', 
+    'left_pinky', 'right_pinky', 
+  ];
+
+  const handleClickOnCanvas = () => { 
+    if (isPoseSettingsModalOpen || isMainMenuOpen) {
+      setIsPoseSettingsModalOpen(false);
+  
+      handleMainMenu(false);
+    }
+    else {
+      setIsFrozen(prev => !prev);
+    }
+  }
+
+  const getCanvasScaleFactor = ({canvas, video}: {
+    canvas: HTMLCanvasElement | null,
+    video: HTMLVideoElement | null
+  }): number => {
+    if (!canvas || !video) return 1;
+  
+    const canvasDisplayWidth = canvas.clientWidth;
+    const canvasDisplayHeight = canvas.clientHeight;
+  
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+  
+    if (!videoWidth || !videoHeight) return 1;
+  
+    const scaleX = canvasDisplayWidth / videoWidth;
+    const scaleY = canvasDisplayHeight / videoHeight;
+  
+    return (scaleX + scaleY) / 2;
+  };
+
+  const showMyWebcam = () => {
+    if (
+      webcamRef.current !== null &&
+      webcamRef.current.video?.readyState === 4
+    ) {
+      const myVideoWidth = webcamRef.current.video.videoWidth;
+      const myVideoHeight = webcamRef.current.video.videoHeight;
+
+      webcamRef.current.video.width = myVideoWidth;
+      webcamRef.current.video.height = myVideoHeight;
+    }
+  };
+  
+  useEffect(() => {
+    jointAngleHistorySizeRef.current = angularHistorySize;
+    selectedJointsRef.current = selectedJoints;
+  }, [settings])
+
+  useEffect(() => {
+    visibleKinematicsRef.current = visibleKinematics;
+  }, [visibleKinematics])
+
+  useEffect(() => {
+    prevPoseModel.current = poseModel;
+  }, [poseModel]);
+
+  useEffect(() => {
+    orthogonalReferenceRef.current = orthogonalReference
+  }, [orthogonalReference]);
+
+  useEffect(() => {
+    videoConstraintsRef.current = videoConstraints;
+  }, [videoConstraints]);
+
+  useEffect(() => {    
+    if (
+      !detector || 
+      !webcamRef.current || 
+      !canvasRef.current
+    ) return;
+
+    let poseModelChanged = prevPoseModel.current !== poseModel;
+    let isMounted = true;
+    
+    const analyzeFrame = async () => {
+      if (isFrozen || !isMounted) {
+        if (
+          animationRef.current && 
+          !poseModelChanged 
+        ) {
+          cancelAnimationFrame(animationRef.current);
+          animationRef.current = null;
+        }
+
+        if (
+          webcamRef.current && 
+          webcamRef.current.video && 
+          !poseModelChanged
+        ) {
+          webcamRef.current.video.pause();  
+        }
+
+        return;
+      }
+      
+      try {
+        // Captura el fotograma actual de la webcam
+        let videoElement;
+        if ( webcamRef.current) {
+          videoElement = webcamRef.current.video;
+        }
+        
+        if (videoElement &&
+            videoElement.readyState === 4 &&
+            videoElement.videoWidth > 0 &&
+            videoElement.videoHeight > 0
+        ) {    
+          let poses = [];
+          if (detectorModel === poseDetection.SupportedModels.BlazePose) {
+            const inputCanvas = inputCanvasRef.current;
+            if (!inputCanvas) return;
+
+            const realWidth = videoElement.videoWidth;
+            const realHeight = videoElement.videoHeight;
+
+            const maxInputSize = 320;
+            const scale = realWidth > realHeight
+              ? maxInputSize / realWidth
+              : maxInputSize / realHeight;
+
+            const reducedWidth = Math.round(realWidth * scale);
+            const reducedHeight = Math.round(realHeight * scale);
+
+            inputCanvas.width = reducedWidth;
+            inputCanvas.height = reducedHeight;
+
+            const ctx = inputCanvas.getContext("2d");
+            ctx?.drawImage(videoElement, 0, 0, reducedWidth, reducedHeight);
+
+            const inputTensor = tf.browser.fromPixels(inputCanvas);
+            poses = await detector.estimatePoses(inputTensor);
+            inputTensor.dispose();
+
+            // 🔥 Ahora debes escalar de nuevo las coordenadas de BlazePose
+            poses.forEach(pose => {
+              pose.keypoints.forEach(kp => {
+                kp.x = kp.x / scale;
+                kp.y = kp.y / scale;
+              });
+            });
+          } else {
+            poses = await detector!.estimatePoses(videoElement, {
+              maxPoses: 1,
+              flipHorizontal: false,
+            });
+          }
+
+          if (!canvasRef.current) return;
+
+          canvasRef.current.width = videoElement.videoWidth;
+          canvasRef.current.height = videoElement.videoHeight;
+
+          // ---------------------------------------------------
+          const scaleFactor = getCanvasScaleFactor({
+            canvas: canvasRef.current, 
+            video: videoElement
+          });
+
+          referenceScaleRef.current = scaleFactor;
+          const referenceScale = referenceScaleRef.current ?? 1;
+          // ---------------------------------------------------
+
+          if (poses.length > 0) {
+            const ctx = canvasRef.current.getContext("2d");
+
+            if (ctx) {
+              ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+              // Filtrar keypoints con score mayor a scoreThreshold
+              const keypoints = poses[0].keypoints.filter(
+                (kp) => 
+                  kp.score && 
+                  kp.score > minPoseScore &&
+                  !excludedParts.includes(kp.name!)
+              );
+
+              // Dibujar keypoints en el canvas
+              drawKeypoints({
+                ctx, 
+                keypoints, 
+                mirror: videoConstraintsRef.current.facingMode === "user", 
+                pointRadius: 4 * (referenceScale / scaleFactor),
+              });
+
+              // Dibujar conexiones entre puntos clave
+              drawKeypointConnections({
+                ctx, 
+                keypoints, 
+                keypointPairs, 
+                mirror: videoConstraintsRef.current.facingMode === "user", 
+                lineWidth: 2 * (referenceScale / scaleFactor), 
+              });
+
+              // Calcular ángulo entre tres keypoints
+              updateMultipleJoints({
+                keypoints,
+                selectedJoints: selectedJointsRef.current,
+                jointDataRef,
+                jointConfigMap,
+                jointWorker: jointWorkerRef.current!,
+                jointAngleHistorySize: jointAngleHistorySizeRef.current,
+                orthogonalReference: orthogonalReferenceRef.current,
+                formatJointName,
+                setAnglesToDisplay,
+              });
+            }
+          }
+        }
+
+      } catch (error) {
+        console.error("Error analyzing frame:", error);
+      }
+
+      if (!isFrozen) {
+        animationRef.current = requestAnimationFrame(analyzeFrame);
+
+        if (
+          webcamRef.current && 
+          webcamRef.current.video && 
+          webcamRef.current.video.paused
+        ) {
+          webcamRef.current.video.play(); 
+        }
+      }
+    };
+
+    animationRef.current = requestAnimationFrame(analyzeFrame);
+
+    return () => {
+      isMounted = false;
+      poseModelChanged = prevPoseModel.current !== poseModel;
+
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+    };
+
+  }, [detector, isFrozen]);
+
+  useEffect(() => {
+    onChangeIsFrozen(isFrozen);
+  }, [isFrozen]);
+
+  useEffect(() => {
+    if (!hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
+      
+      onWorkerInit?.();
+      
+      showMyWebcam();
+    }
+
+  }, []);
+
+  return (
+    <>
+      {(!detector && !isCameraReady) ? (
+          <div className="fixed w-full h-dvh z-50 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
+            <p>{(!isCameraReady && detector) ? "Initializing camera..." : "Setting up Tensorflow..."}</p>
+            {(!isCameraReady && detector) ? 
+              <ArrowPathIcon className="w-8 h-8 animate-spin"/>
+              : <CloudArrowDownIcon className="w-8 h-8 animate-bounce"/>
+            }
+          </div>
+        ) : null
+      }
+      <>
+        <Webcam
+          ref={webcamRef}
+          className={`relative object-cover h-full w-full`}
+          videoConstraints={videoConstraints}
+          muted
+          mirrored={videoConstraints.facingMode === "user"}
+          onUserMedia={() => setIsCameraReady(true)}
+          />
+        <canvas ref={inputCanvasRef} style={{ display: "none" }} />
+        <canvas 
+          ref={canvasRef} 
+          className={`absolute top-0 object-cover h-full w-full ${
+            !isCameraReady ? "hidden" : ""
+          }`} 
+          onClick={handleClickOnCanvas}/> 
+
+        {isCameraReady && anglesToDisplay.length > 0 ? (
+          <section 
+            className="absolute z-10 bottom-2 right-0 font-bold w-40 p-2"
+            style={{
+              background: `linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
+            }}
+            >{
+            anglesToDisplay.map((angle, index) => (
+              <p key={index} className="text-white">{angle}</p>
+            ))
+          }
+          </section> ) : null
+        }
+      </> 
+    </>
+  );
+};
+
+export default Index;

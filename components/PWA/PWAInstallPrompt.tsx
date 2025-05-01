@@ -30,14 +30,14 @@ export default function PWAInstallPrompt() {
     if (!deferredPrompt) return;
     // console.log("🛠️ Calling prompt()...");
     deferredPrompt.prompt();
-    const choice = await deferredPrompt.userChoice;
-    console.log("✅ User choice:", choice.outcome);
+    // const choice = await deferredPrompt.userChoice;
+    // console.log("✅ User choice:", choice.outcome);
     setDeferredPrompt(null);
     setShowPrompt(false);
   };
 
   const handleCancelClick = () => {
-    console.log("❌ User dismissed the PWA prompt.");
+    // console.log("❌ User dismissed the PWA prompt.");
     setShowPrompt(false);
   };
 

@@ -18,7 +18,6 @@ const Index = ({
     settings,
     setAngularHistorySize,
     setPoseModel,
-    setHigherFrequency,
     resetPoseSettings,
   } = useSettings();
   const {
@@ -78,10 +77,6 @@ const Index = ({
                   const next: poseDetection.SupportedModels = poseModel === poseDetection.SupportedModels.MoveNet ? poseDetection.SupportedModels.BlazePose : poseDetection.SupportedModels.MoveNet;
 
                   setPoseModel(next);
-
-                  if (next === poseDetection.SupportedModels.MoveNet) {
-                    setHigherFrequency(false);
-                  }
                 }}
                 disabled={videoProcessed}
                 />

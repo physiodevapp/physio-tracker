@@ -12,7 +12,7 @@ const Force = dynamic(() => import('../components/Force').then(mod => mod.defaul
 const ColorAnalyzer = dynamic(() => import('../components/ColorAnalyzer').then(mod => mod.default), { ssr: false });
 const Balance = dynamic(() => import('../components/Balance').then(mod => mod.default), { ssr: false });
 
-const Test = dynamic(() => import('../components/Pose/VideoAnalysis').then(mod => mod.default), { ssr: false });
+// const Test = dynamic(() => import('../components/Pose/VideoAnalysis').then(mod => mod.default), { ssr: false });
 
 export default function Home() {
   const [page, setPage] = useState<MainMenuOption>('pose');
@@ -63,9 +63,7 @@ export default function Home() {
         {(() => {
           switch (page) {
             case 'pose':
-              return (
-                <Test/>
-              )
+              // return <Test/>
               return (
                 <motion.div
                   key="pose"

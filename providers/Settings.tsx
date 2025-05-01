@@ -5,14 +5,13 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import * as poseDetection from '@tensorflow-models/pose-detection';
 
 // Definimos interfaces para cada grupo de settings
+export type OrthogonalReference = 'vertical' | 'horizontal' | undefined;
+
 interface PoseSettings {
   selectedJoints: CanvasKeypointName[];
   angularHistorySize: number;
-  higherFrequency: boolean;
   poseModel: poseDetection.SupportedModels;
-  poseInitDelayMs: number;
-  videoEndThresholdSec: number;
-  poseModelLatency: number;
+  orthogonalReference: OrthogonalReference;
 }
 
 interface ColorSettings {
@@ -71,11 +70,8 @@ interface SettingsContextProps {
   // Setters para pose
   setSelectedJoints: (joints: CanvasKeypointName[]) => void;
   setAngularHistorySize: (size: number) => void;
-  setHigherFrequency: (value: boolean) => void;
   setPoseModel: (value: poseDetection.SupportedModels) => void;
-  setPoseInitDelayMs: (value: number) => void;
-  setVideoEndThresholdSec: (value: number) => void;
-  setPoseModelLatency: (value: number) => void;
+  setOrthogonalReference: (value: OrthogonalReference) => void;
   // Setters para color
   setRedHueLower1: (value: number) => void;
   setRedHueUpper1: (value: number) => void;
@@ -129,11 +125,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     pose: {
       selectedJoints: [],
       angularHistorySize: 5,
-      higherFrequency: false,
       poseModel: poseDetection.SupportedModels.MoveNet,
-      poseInitDelayMs: 500,
-      videoEndThresholdSec: 0.05,
-      poseModelLatency: 0.20,
+      orthogonalReference: undefined,
     },
     color: {
       redHueLower1: 0,
@@ -192,20 +185,11 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       setSettings(prev => ({ ...prev, pose: { ...prev.pose, angularHistorySize: size } }));
     }
   };
-  const setHigherFrequency = (value: boolean) => {
-    setSettings(prev => ({ ...prev, pose: { ...prev.pose, higherFrequency: value } }));
-  };
   const setPoseModel = (value: poseDetection.SupportedModels) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseModel: value } }));
   };
-  const setPoseInitDelayMs = (value: number) => {
-    setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseInitDelayMs: value } }));
-  };
-  const setVideoEndThresholdSec = (value: number) => {
-    setSettings(prev => ({ ...prev, pose: { ...prev.pose, videoEndThresholdSec: value } }));
-  };
-  const setPoseModelLatency = (value: number) => {
-    setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseModelLatency: value } }));
+  const setOrthogonalReference = (value: OrthogonalReference) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, orthogonalReference: value } }));
   };
   const resetPoseSettings = () => {
     setSettings(prev => ({
@@ -290,11 +274,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         settings,
         setSelectedJoints,
         setAngularHistorySize,
-        setHigherFrequency,
         setPoseModel,
-        setPoseInitDelayMs,
-        setVideoEndThresholdSec,
-        setPoseModelLatency,
+        setOrthogonalReference,
         resetPoseSettings,
         setRedHueLower1,
         setRedHueUpper1,

@@ -279,3 +279,17 @@ export const updateJoint = ({
 
   return jointData;
 };
+
+export const formatJointName = (jointName: string): string => {
+  const sideMap: Record<string, string> = {
+    left: "L",
+    right: "R",
+  };
+
+  const [side, part] = jointName.split("_");
+
+  const sideShort = sideMap[side] ?? side;
+  const capitalizedPart = part.charAt(0).toUpperCase() + part.slice(1);
+
+  return `${sideShort} ${capitalizedPart}`;
+};
