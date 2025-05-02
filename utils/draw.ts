@@ -113,3 +113,26 @@ export const drawAngle = ({
   ctx.fillText(textAngle, rectX + padding, rectY + 4);
 };
 
+
+export const getCanvasScaleFactor = ({
+  canvas,
+  sourceDimensions,
+}: {
+  canvas: HTMLCanvasElement | null;
+  sourceDimensions?: { width: number; height: number };
+}): number => {
+  if (!canvas || !sourceDimensions) return 1;
+
+  const canvasDisplayWidth = canvas.clientWidth;
+  const canvasDisplayHeight = canvas.clientHeight;
+
+  const { width, height } = sourceDimensions;
+
+  if (!width || !height) return 1;
+
+  const scaleX = canvasDisplayWidth / width;
+  const scaleY = canvasDisplayHeight / height;
+
+  return (scaleX + scaleY) / 2;
+};
+

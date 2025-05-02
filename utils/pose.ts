@@ -7,6 +7,8 @@ export interface VideoFrame {
   frameImage: HTMLCanvasElement;
   keypoints: poseDetection.Keypoint[];
   jointData?: JointDataMap; // Datos de las articulaciones para ese frame
+  videoWidth: number;
+  videoHeight: number;
 }
 
 export  const keypointPairs: [CanvasKeypointName, CanvasKeypointName][] = [

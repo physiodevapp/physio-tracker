@@ -5,13 +5,13 @@ import * as poseDetection from '@tensorflow-models/pose-detection';
 
 interface IndexProps {
   isModalOpen: boolean;
-  displayGraphs?: boolean;
-  videoUrl?: string | null;
+  videoLoaded?: boolean;
   videoProcessed?: boolean;
 }
 
 const Index = ({
   isModalOpen,
+  videoLoaded = false,
   videoProcessed = false,
 }: IndexProps) => {
   const {
@@ -51,7 +51,7 @@ const Index = ({
             <label
               htmlFor='angular-history'
               className={`${
-                videoProcessed ? "text-white/60" : "text-white"
+                videoLoaded ? "text-white/60" : "text-white"
               }`}
               >
               Angle<span className='align-sub uppercase text-[0.6rem]'> Smooth</span>: {angularHistorySize}
@@ -63,7 +63,7 @@ const Index = ({
               min="5"
               max="20"
               onChange={handleAngleChange}
-              disabled={videoProcessed}
+              disabled={videoLoaded}
               />
           </div>
           <div className="flex-1 flex flex-col justify-end gap-2">

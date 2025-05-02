@@ -135,10 +135,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             className="absolute top-0 h-dvh w-full z-50 flex items-center justify-center bg-black/60"
             onClick={() => setIsCancellationRequested(false)}
             >
-            <div className="dark:bg-gray-800 rounded-lg px-10 py-6 flex flex-col gap-2 rotate-90">
+            <div className="dark:bg-gray-800 rounded-lg px-12 py-6 flex flex-col gap-2 rotate-90">
               <p className="text-xl">Are you sure?</p>
               <button 
-                className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl p-2"
+                className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg p-2"
                 onClick={() => setIsRecording(false)}
                 >
                   Cancel now

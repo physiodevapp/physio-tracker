@@ -9,7 +9,7 @@ import { JointDataMap, Kinematics } from "@/interfaces/pose";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
 import { useSettings } from "@/providers/Settings";
-import { drawKeypointConnections, drawKeypoints } from "@/utils/draw";
+import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from "@/utils/draw";
 import { updateMultipleJoints } from "@/utils/pose";
 import { keypointPairs } from '@/utils/pose';
 import { jointConfigMap } from '@/utils/joint';
@@ -68,7 +68,6 @@ const Index = ({
 
   const hasTriggeredRef = useRef(false);
 
-  const referenceScaleRef = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputCanvasRef = useRef<HTMLCanvasElement>(null);
   const webcamRef = useRef<Webcam>(null);
@@ -101,26 +100,6 @@ const Index = ({
       setIsFrozen(prev => !prev);
     }
   }
-
-  const getCanvasScaleFactor = ({canvas, video}: {
-    canvas: HTMLCanvasElement | null,
-    video: HTMLVideoElement | null
-  }): number => {
-    if (!canvas || !video) return 1;
-  
-    const canvasDisplayWidth = canvas.clientWidth;
-    const canvasDisplayHeight = canvas.clientHeight;
-  
-    const videoWidth = video.videoWidth;
-    const videoHeight = video.videoHeight;
-  
-    if (!videoWidth || !videoHeight) return 1;
-  
-    const scaleX = canvasDisplayWidth / videoWidth;
-    const scaleY = canvasDisplayHeight / videoHeight;
-  
-    return (scaleX + scaleY) / 2;
-  };
 
   const showMyWebcam = () => {
     if (
@@ -247,11 +226,11 @@ const Index = ({
           // ---------------------------------------------------
           const scaleFactor = getCanvasScaleFactor({
             canvas: canvasRef.current, 
-            video: videoElement
+            sourceDimensions: {
+              width: videoElement.videoWidth,
+              height: videoElement.videoHeight,
+            },
           });
-
-          referenceScaleRef.current = scaleFactor;
-          const referenceScale = referenceScaleRef.current ?? 1;
           // ---------------------------------------------------
 
           if (poses.length > 0) {
@@ -273,7 +252,7 @@ const Index = ({
                 ctx, 
                 keypoints, 
                 mirror: videoConstraintsRef.current.facingMode === "user", 
-                pointRadius: 4 * (referenceScale / scaleFactor),
+                pointRadius: 4 * scaleFactor,
               });
 
               // Dibujar conexiones entre puntos clave
@@ -282,7 +261,7 @@ const Index = ({
                 keypoints, 
                 keypointPairs, 
                 mirror: videoConstraintsRef.current.facingMode === "user", 
-                lineWidth: 2 * (referenceScale / scaleFactor), 
+                lineWidth: 2 * scaleFactor, 
               });
 
               // Calcular ángulo entre tres keypoints

@@ -14,7 +14,7 @@ import { jointOptions, formatJointName } from '@/utils/joint';
 import { PauseIcon } from "@heroicons/react/24/outline";
 import { CameraIcon, UserIcon, Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, VideoCameraIcon, CubeTransparentIcon, DocumentArrowDownIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/solid";
 import LiveAnalysis from "@/components/Pose/LiveAnalysis";
-import VideoAnalysis, { VideoAnalysisHandle } from "@/components/Pose/VideoAnalysis";
+import VideoAnalysis, { ProcessingStatus, VideoAnalysisHandle } from "@/components/Pose/VideoAnalysis";
 
 interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
@@ -38,9 +38,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const [mode, setMode] = useState<'live' | 'video'>('live');
 
-  const [videoProcessed, setVideoProcessed] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
-  const [videoProcessing, setVideoProcessing] = useState(false);
+  // const [videoProcessed, setVideoProcessed] = useState(false);
+  // const [videoProcessing, setVideoProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('idle');
 
   const [isFrozen, setIsFrozen] = useState(false);
 
@@ -175,24 +176,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               jointDataRef={jointDataRef}
               orthogonalReference={orthogonalReference}
               onLoaded={(value) => setVideoLoaded(value)}
-              onProcessed={(value) => setVideoProcessed(value)}
-              onProcessing={(value) => setVideoProcessing(value)}
-              onExit={() => {
-                if (jointWorkerRef.current) {
-                  handleWorkerLifecycle(false);
-                }
-
-                setMode('live');
-              }}
+              onStatusChange={(value) => setProcessingStatus(value)}
               onWorkerInit={() => {
                 handleWorkerLifecycle(true);
 
-                setVideoProcessed(false);
+                setProcessingStatus("idle");
               }} />
           )}
         </div>
 
-        {!videoProcessing && (
+        {processingStatus !== "processing" && (
           <>
             <section 
             data-element="non-swipeable"
@@ -220,7 +213,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               <>
                 {videoLoaded ? (
                   <TrashIcon 
-                    className={`w-6 h-6 ${videoProcessed 
+                    className={`w-6 h-6 ${processingStatus === "processed" 
                       ? "text-orange-300"
                       : "text-red-500"
                     }`}
@@ -249,7 +242,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                       />
                   </>    
                 )}
-                {videoLoaded && !videoProcessed && ( 
+                {videoLoaded && processingStatus !== "processed" && ( 
                   <CubeTransparentIcon
                     className="w-6 h-6 text-white"
                     onClick={() => {
@@ -258,7 +251,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                       }
                     }} /> 
                 )}
-                {videoProcessed && (
+                {processingStatus === "processed" && (
                   <DocumentArrowDownIcon
                     className="w-6 h-6 text-white"
                     onClick={() => {
@@ -287,18 +280,18 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 text-[#5dadec] dark:text-white bg-white/80 dark:bg-black/80 rounded-full p-[0.1rem]"/>
               </div>
               <UserIcon 
-                className={`h-6 w-6 cursor-pointer text-white ${videoProcessed 
+                className={`h-6 w-6 cursor-pointer text-white ${processingStatus === "processed" 
                   ? "opacity-40"
                   : "opacity-100"
                 }`}
-                onClick={() => !videoProcessed && setIsPoseModalOpen((prev) => !prev)}
+                onClick={() => processingStatus !== "processed" && setIsPoseModalOpen((prev) => !prev)}
                 />
               <Cog6ToothIcon 
-                className={`h-6 w-6 cursor-pointer text-white ${videoProcessed 
+                className={`h-6 w-6 cursor-pointer text-white ${processingStatus === "processed" 
                   ? "opacity-40"
                   : "opacity-100"
                 }`}
-                onClick={() => !videoProcessed && setIsPoseSettingsModalOpen(prev => !prev)}
+                onClick={() => processingStatus !== "processed" && setIsPoseSettingsModalOpen(prev => !prev)}
                 />
             </section>
           </>
@@ -316,9 +309,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
       <PoseSettingsModal 
         isModalOpen={isPoseSettingsModalOpen}
+        videoLoaded={videoLoaded}
+        videoProcessed={processingStatus === "processed"}
         />
 
-      {!videoProcessing && (
+      {processingStatus === "idle" && (
         <ArrowTopRightOnSquareIcon 
           className={`absolute bottom-2 left-1 z-30 w-8 h-8 text-white transition-transform ${(!showOrthogonalOption || orthogonalReference === undefined)
             ? '-rotate-0 opacity-50'
