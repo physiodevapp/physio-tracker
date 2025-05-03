@@ -12,6 +12,8 @@ interface PoseSettings {
   angularHistorySize: number;
   poseModel: poseDetection.SupportedModels;
   orthogonalReference: OrthogonalReference;
+  pointsPerSecond: number;
+  minAngleDiff: number;
 }
 
 interface ColorSettings {
@@ -72,6 +74,8 @@ interface SettingsContextProps {
   setAngularHistorySize: (size: number) => void;
   setPoseModel: (value: poseDetection.SupportedModels) => void;
   setOrthogonalReference: (value: OrthogonalReference) => void;
+  setPointsPerSecond: (value: number) => void;
+  setMinAngleDiff: (value: number) => void;
   // Setters para color
   setRedHueLower1: (value: number) => void;
   setRedHueUpper1: (value: number) => void;
@@ -127,6 +131,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       angularHistorySize: 5,
       poseModel: poseDetection.SupportedModels.MoveNet,
       orthogonalReference: undefined,
+      pointsPerSecond: 20,
+      minAngleDiff: 2,
     },
     color: {
       redHueLower1: 0,
@@ -184,6 +190,12 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     if (size >= 1 && size <= 20) {
       setSettings(prev => ({ ...prev, pose: { ...prev.pose, angularHistorySize: size } }));
     }
+  };
+  const setPointsPerSecond = (value: number) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, pointsPerSecond: value } }));
+  };
+  const setMinAngleDiff = (value: number) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, minAngleDiff: value } }));
   };
   const setPoseModel = (value: poseDetection.SupportedModels) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseModel: value } }));
@@ -276,6 +288,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setAngularHistorySize,
         setPoseModel,
         setOrthogonalReference,
+        setPointsPerSecond,
+        setMinAngleDiff,
         resetPoseSettings,
         setRedHueLower1,
         setRedHueUpper1,

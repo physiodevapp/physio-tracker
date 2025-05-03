@@ -33,7 +33,7 @@ interface IndexProps {
 
 const Index = ({ 
   handleMainMenu, 
-  isMainMenuOpen ,
+  isMainMenuOpen,
   orthogonalReference,
   videoConstraints,
   anglesToDisplay,

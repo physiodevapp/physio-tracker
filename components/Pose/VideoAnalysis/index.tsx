@@ -13,7 +13,6 @@ import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/utils/draw';
 import { keypointPairs } from '@/utils/pose';
 import { CubeTransparentIcon, PhotoIcon } from '@heroicons/react/24/solid';
-import { PauseIcon, PlayIcon } from '@heroicons/react/24/outline';
 import { createPortal } from 'react-dom';
 
 export type VideoAnalysisHandle = {
@@ -25,25 +24,33 @@ export type VideoAnalysisHandle = {
   handleNewVideo: () => void;
 };
 
-export type ProcessingStatus = 'idle' | 'processing' | 'cancelRequested' | 'cancelled' | 'processed';
+export type ProcessingStatus = 'idle' | 'processing' | 'cancelRequested' | 'cancelled' | 'processed' | 'durationExceeded';
 
 interface IndexProps {
+  handleMainMenu: (visibility?: boolean) => void;
+  isMainMenuOpen: boolean;
   orthogonalReference: OrthogonalReference;
+  isPoseSettingsModalOpen: boolean;
+  setIsPoseSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   jointWorkerRef: React.RefObject<Worker | null>;
   jointDataRef: React.RefObject<JointDataMap>;
+  onPause: (value: boolean) => void;
   onWorkerInit?: () => void;
   onLoaded?: (value: boolean) => void;
   onStatusChange?: (status: ProcessingStatus) => void;
 }
 
 const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
+  handleMainMenu, 
+  isMainMenuOpen,
   orthogonalReference,
+  isPoseSettingsModalOpen,
+  setIsPoseSettingsModalOpen,
   jointWorkerRef,
   jointDataRef,
+  onPause,
   onWorkerInit,
   onLoaded,
-  // onProcessed,
-  // onProcessing,
   onStatusChange,
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -53,6 +60,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const currentFrameIndexRef = useRef(0);
   const frameResolveRef = useRef<(() => void) | null>(null);
   const totalStepsRef = useRef(0);
+  const frameIntervalRef = useRef(60);
 
   const hasTriggeredRef = useRef(false);
 
@@ -60,23 +68,35 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   
   const processingCancelledRef = useRef(false);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('idle');
-  // const [videoProcessed, setVideoProcessed] = useState(false);
-  // const [processingCancelled, setProcessingCancelled] = useState(false);
-  // const [cancelProcessingRequested, setCancelProcessingRequested] = useState<boolean>(false);
 
   const [aspectRatio, setAspectRatio] = useState(1);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const isPlayingRef = useRef(isPlaying);
+  const isPlayingUpdateRef = useRef(false);
+  const [verticalLineValue, setVerticalLineValue] = useState(0);
 
   const { detector, detectorModel, minPoseScore } = usePoseDetector();
   const { settings } = useSettings();
-  const { selectedJoints, angularHistorySize } = settings.pose;
+  const { 
+    selectedJoints, 
+    angularHistorySize,
+    pointsPerSecond, 
+    minAngleDiff,
+  } = settings.pose;
 
   const [processingProgress, setProcessingProgress] = useState<number>(0);
 
   const allFramesDataRef = useRef<VideoFrame[]>([]);
   const nearestFrameRef = useRef<VideoFrame>(null);
+
+  const handleClickOnCanvas = () => { 
+    if (isPoseSettingsModalOpen || isMainMenuOpen) {
+      setIsPoseSettingsModalOpen(false);
+  
+      handleMainMenu(false);
+    }
+  }
 
   const handleVideoUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -85,8 +105,14 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       video.src = URL.createObjectURL(file); 
   
       video.onloadedmetadata = () => {
-        setVideoLoaded(true);
-        onLoaded?.(true);
+        if (video.duration > 10) {
+          setProcessingStatus('durationExceeded');
+          removeVideo();
+        }
+        else {
+          setVideoLoaded(true);
+          onLoaded?.(true);
+        }
       };
   
       video.load();
@@ -217,8 +243,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   
     const i = currentFrameIndexRef.current;
     const video = videoRef.current;
-    const ctx = canvasRef.current.getContext('2d');
-    if (!ctx) return;
   
     await handleSeekedFrame({
       video,
@@ -246,7 +270,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     if (!ctx) return;
   
     const duration = video.duration;
-    const frameInterval = smartFrameInterval(duration, 200);
+    const desiredPoints = Math.floor(duration * pointsPerSecond);
+    const frameInterval = smartFrameInterval(duration, desiredPoints);
+    frameIntervalRef.current = frameInterval;
     const steps = Math.floor(duration / frameInterval);
     totalStepsRef.current = steps;
   
@@ -271,25 +297,35 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   }; 
 
   const analyzeAllFrames = async () => {  
-    for (const frame of allFramesDataRef.current) {
+    if (!jointWorkerRef.current) {
+      console.warn("⚠️ jointWorkerRef is null. Joint analysis aborted.");
+      return;
+    }
+  
+    for (const [index, frame] of allFramesDataRef.current.entries()) {
       if (processingCancelledRef.current) {
-        // console.warn('🛑 Análisis angular abortado.');
+        // console.warn('🛑 Joint analysis aborted by user.');
         return;
       }
-
-      const updatedData = await updateMultipleJoints({
-        keypoints: frame.keypoints,
-        selectedJoints,
-        jointDataRef,
-        jointConfigMap,
-        jointWorker: jointWorkerRef.current!,
-        orthogonalReference: orthogonalReference,
-        formatJointName: (jointName) => jointName,
-        jointAngleHistorySize: angularHistorySize,
-        ignoreHistorySize: true,
-      });
+    
+      try {
+        const updatedData = await updateMultipleJoints({
+          keypoints: frame.keypoints,
+          selectedJoints,
+          jointDataRef,
+          jointConfigMap,
+          jointWorker: jointWorkerRef.current,
+          orthogonalReference,
+          formatJointName: (jointName) => jointName,
+          jointAngleHistorySize: angularHistorySize,
+          ignoreHistorySize: true,
+        });
   
-      frame.jointData = structuredClone(updatedData);
+        frame.jointData = structuredClone(updatedData);
+  
+      } catch (err) {
+        console.error(`❌ Error analyzing frame ${index + 1}:`, err);
+      }
     }
   };
   
@@ -298,6 +334,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     setProcessingStatus('processing');
     onStatusChange?.("processing")
     setProcessingProgress(0);
+
+    currentFrameIndexRef.current = 0;
 
     await processFrames();         // Primero captura frames + keypoints
     
@@ -318,19 +356,34 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     const framesWithJointData = allFramesDataRef.current.filter(
       (frame): frame is VideoFrame => !!frame.jointData
     );    
-    const reducedFrames = filterRepresentativeFrames(framesWithJointData, 2); // umbral de grados
+    const reducedFrames = filterRepresentativeFrames(framesWithJointData, minAngleDiff); // umbral de grados
 
     // console.log("🟢 Frames representativos:", reducedFrames.length, "de", allFramesDataRef.current.length);
+    // console.log(allFramesDataRef.current)
 
     allFramesDataRef.current = reducedFrames;
 
     setProcessingStatus("processed");
     onStatusChange?.("processed");
     setProcessingProgress(0);
+
+    const firstFrame = allFramesDataRef.current[0];
+    if (canvasRef.current && firstFrame) {
+      const ctx = canvasRef.current.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        ctx.drawImage(firstFrame.frameImage, 0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+      nearestFrameRef.current = firstFrame;
+      currentFrameIndexRef.current = 0;
+      setVerticalLineValue(firstFrame.videoTime * 1_000);
+    }
   };
 
   const removeVideo = () => {
     allFramesDataRef.current = [];
+
+    onPause?.(false);
 
     if (processingStatus === "processed") {
       setProcessingStatus("idle");
@@ -400,6 +453,17 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       const nearestFrame = findNearestFrame(allFramesDataRef.current, newValue.x);
       nearestFrameRef.current = nearestFrame;
   
+      // Solo sincronizamos el índice si no viene del "play"
+      if (!isPlayingUpdateRef.current) {
+        const index = allFramesDataRef.current.findIndex(f => f === nearestFrame);
+        if (index !== -1) {
+          currentFrameIndexRef.current = index;
+        }
+      } else {
+        isPlayingUpdateRef.current = false;
+      }
+  
+      // Redibujar siempre
       if (canvasRef.current && nearestFrame) {
         const ctx = canvasRef.current.getContext('2d');
         ctx?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
@@ -429,46 +493,79 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     fileInputRef.current?.click();
   };
 
+  const nextTick = () => new Promise(resolve => setTimeout(resolve, 0));
+
   const playFrames = useCallback(async () => {
     if (!allFramesDataRef.current.length) return;
-
+  
     isPlayingRef.current = true;
     setIsPlaying(true);
-
+    onPause?.(false);
+  
     for (
       let i = currentFrameIndexRef.current;
       i < allFramesDataRef.current.length;
       i++
     ) {
-      if (!isPlayingRef.current) {
-        currentFrameIndexRef.current = i;
-        return;
-      }
-
       const frame = allFramesDataRef.current[i];
       nearestFrameRef.current = frame;
 
+      if (!isPlayingRef.current) {
+        currentFrameIndexRef.current = i;
+
+        // Redibujar frame con keypoints antes de salir
+        const ctx = canvasRef.current?.getContext("2d");
+        if (ctx && frame) {
+          ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
+          ctx.drawImage(frame.frameImage, 0, 0, canvasRef.current!.width, canvasRef.current!.height);
+
+          if (frame.keypoints) {
+            drawKeypoints({
+              ctx,
+              keypoints: frame.keypoints,
+              mirror: false,
+              pointRadius: 4 * scaleFactor!,
+            });
+
+            drawKeypointConnections({
+              ctx,
+              keypoints: frame.keypoints,
+              keypointPairs,
+              mirror: false,
+              lineWidth: 2 * scaleFactor!,
+            });
+          }
+        }
+
+        onPause?.(true);
+              
+        return;
+      }
+
+      isPlayingUpdateRef.current = true;
+      currentFrameIndexRef.current = i;
+      setVerticalLineValue(frame.videoTime * 1_000);
+      await nextTick(); // Permite que handleVerticalLineChange se dispare primero
+      isPlayingUpdateRef.current = false;
+  
       if (canvasRef.current) {
         const ctx = canvasRef.current.getContext("2d");
         if (ctx) {
           ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-          ctx.drawImage(
-            frame.frameImage,
-            0,
-            0,
-            canvasRef.current.width,
-            canvasRef.current.height
-          );
+          ctx.drawImage(frame.frameImage, 0, 0, canvasRef.current.width, canvasRef.current.height);
         }
       }
-
-      await new Promise((resolve) => setTimeout(resolve, 60));
+  
+      await new Promise((resolve) =>
+        setTimeout(resolve, frameIntervalRef.current * 1000)
+      );
+      
     }
-
+  
     currentFrameIndexRef.current = 0;
     isPlayingRef.current = false;
     setIsPlaying(false);
-  }, []);
+  }, []);  
 
   useEffect(() => {
     const updateScale = () => {
@@ -534,7 +631,11 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     <>
       {fileInputPortal}
 
-      <div className='relative w-full h-dvh flex flex-col'>
+      <div 
+        {...(processingStatus !== "idle" && { "data-element": "non-swipeable" })}
+        onClick={handleClickOnCanvas}
+        className='relative w-full h-dvh flex flex-col'>
+
         {!videoLoaded && (
           <div 
             onClick={handleNewVideo}
@@ -544,9 +645,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           </div>
         )}
 
-        <div 
-          {...((processingStatus === "processing" || processingStatus === "cancelRequested") && { "data-element": "non-swipeable" })}
-          className="relative flex-1 w-full bg-black flex justify-center items-center" >
+        <div className="relative flex-1 w-full bg-black flex justify-center items-center" >
           <video 
             ref={videoRef} 
             className={`${
@@ -556,36 +655,37 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                 ? 'hidden'
                 : ''
             }`} 
-            muted 
-            />
+            muted />
           <canvas ref={inputCanvasRef} className="hidden" />
           <canvas
             ref={canvasRef}
+            onClick={() => {
+              if (processingStatus !== "processed") return;
+              
+              if (isPlaying) {
+                isPlayingRef.current = false;
+                setIsPlaying(false);
+              }
+              else {
+                playFrames();
+              }
+            }}
             className="h-full"
             style={{
               display: processingStatus === "processed" ? 'block' : 'none',
               aspectRatio, // aquí sin comillas ni template string
               maxHeight: '50dvh',
               objectFit: 'contain', // Opcional: para que el contenido no se deforme
-            }}
-          />
-          {processingStatus === "processed" && ( 
-            <section className='absolute bottom-1 left-1 w-10 h-10'>
-              {!isPlaying && <PlayIcon onClick={playFrames} />} 
-              {isPlaying && <PauseIcon onClick={() => {
-                isPlayingRef.current = false;
-                setIsPlaying(false);
-              }}/>}
-            </section>
-          )}
+            }} />
         </div>
 
         {processingStatus === "processed" && allFramesDataRef.current.length > 0 ? (
           <PoseChart
-            joints={selectedJoints} // o los joints que quieras mostrar
+            joints={selectedJoints}
             valueTypes={[Kinematics.ANGLE]} // Solo queremos ángulos
             recordedPositions={transformToRecordedPositions(allFramesDataRef.current)} // Tus datos
             onVerticalLineChange={handleVerticalLineChange}
+            verticalLineValue={verticalLineValue}
             parentStyles="flex-1 w-full max-w-5xl mx-auto" // Opcional
           />
         ) : null }
@@ -609,7 +709,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             </div>
           </div>
           <button 
-            className="bg-black/0 border-white/40 border-2 text-white font-light rounded-lg px-4 py-2"
+            className="bg-black/0 border-white/40 hover:border-white border-2 text-white font-light rounded-lg px-4 py-2"
             onClick={() => setProcessingStatus('cancelRequested')} >
               Cancel Analysis
           </button> 
@@ -632,6 +732,23 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                 setProcessingProgress(0);
               }} >
                 Cancel now
+              </button>
+          </div>
+        </div>
+      ) : null }
+
+      {processingStatus === 'durationExceeded' ? (
+        <div 
+          data-element="non-swipeable"
+          className="absolute top-0 h-dvh w-full z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setProcessingStatus('idle')}
+          >
+          <div className="dark:bg-gray-800 rounded-lg px-12 py-6 flex flex-col gap-2">
+            <p className="text-xl">Max. 10 seconds</p>
+            <button 
+              className="bg-[#5dadec] hover:bg-gray-600 text-white font-bold rounded-lg p-2"
+              onClick={() => setProcessingStatus('idle')} >
+                Got it!
               </button>
           </div>
         </div>

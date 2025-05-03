@@ -662,6 +662,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         onLoad={() => setScriptLoaded(true)}
         />
       <motion.h1
+        data-element="non-swipeable"
         initial={{ y: 0, opacity: 1 }}
         animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 100, damping: 15 }}

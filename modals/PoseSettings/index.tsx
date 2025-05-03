@@ -5,23 +5,27 @@ import * as poseDetection from '@tensorflow-models/pose-detection';
 
 interface IndexProps {
   isModalOpen: boolean;
-  videoLoaded?: boolean;
+  videoMode?: boolean;
   videoProcessed?: boolean;
 }
 
 const Index = ({
   isModalOpen,
-  videoLoaded = false,
+  videoMode = false,
   videoProcessed = false,
 }: IndexProps) => {
   const {
     settings,
     setAngularHistorySize,
+    setPointsPerSecond,
+    setMinAngleDiff,
     setPoseModel,
     resetPoseSettings,
   } = useSettings();
   const {
     angularHistorySize,
+    pointsPerSecond,
+    minAngleDiff,
     poseModel,
   } = settings.pose;
 
@@ -51,7 +55,7 @@ const Index = ({
             <label
               htmlFor='angular-history'
               className={`${
-                videoLoaded ? "text-white/60" : "text-white"
+                videoMode ? "text-white/60" : "text-white"
               }`}
               >
               Angle<span className='align-sub uppercase text-[0.6rem]'> Smooth</span>: {angularHistorySize}
@@ -63,7 +67,7 @@ const Index = ({
               min="5"
               max="20"
               onChange={handleAngleChange}
-              disabled={videoLoaded}
+              disabled={videoMode}
               />
           </div>
           <div className="flex-1 flex flex-col justify-end gap-2">
@@ -97,6 +101,48 @@ const Index = ({
                   {poseModel === poseDetection.SupportedModels.BlazePose ? poseDetection.SupportedModels.BlazePose : poseDetection.SupportedModels.MoveNet}
               </span>
             </label>
+          </div>
+        </div>
+        <div className='flex w-full gap-6'>
+          <div className='flex-1 flex flex-col justify-between gap-2'>
+            <label
+              htmlFor='points-per-second'
+              className={`${
+                !videoMode ? "text-white/60" : "text-white"
+              }`}
+              >
+              Sampling<span className='align-sub uppercase text-[0.6rem]'> Rate</span>: {pointsPerSecond} / s
+            </label>
+            <input
+              id='points-per-second'
+              type='range'
+              value={pointsPerSecond}
+              min="5"
+              max="30"
+              step="1"              
+              onChange={(e) => setPointsPerSecond(Number(e.target.value))}
+              disabled={!videoMode}
+              />
+          </div>
+          <div className='flex-1 flex flex-col justify-between gap-2'>
+            <label
+              htmlFor='points-per-second'
+              className={`${
+                !videoMode ? "text-white/60" : "text-white"
+              }`}
+              >
+              Δ Angle<span className='align-sub uppercase text-[0.6rem]'> Min</span>: {minAngleDiff} º
+            </label>
+            <input
+              id='points-per-second'
+              type='range'
+              value={minAngleDiff}
+              min="1"
+              max="5"
+              step="1"              
+              onChange={(e) => setMinAngleDiff(Number(e.target.value))}
+              disabled={!videoMode}
+              />
           </div>
         </div>
       </form>

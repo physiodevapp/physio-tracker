@@ -39,8 +39,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [mode, setMode] = useState<'live' | 'video'>('live');
 
   const [videoLoaded, setVideoLoaded] = useState(false);
-  // const [videoProcessed, setVideoProcessed] = useState(false);
-  // const [videoProcessing, setVideoProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('idle');
 
   const [isFrozen, setIsFrozen] = useState(false);
@@ -139,6 +137,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       <div
         className={`relative z-30 flex flex-col items-center justify-start h-dvh`}>
         <motion.h1
+          data-element="non-swipeable"
           initial={{ y: 0, opacity: 1 }}
           animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 100, damping: 15 }}
@@ -172,16 +171,21 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           {mode === "video" && (
             <VideoAnalysis
               ref={videoAnalysisRef}
+              handleMainMenu={handleMainMenu}
+              isMainMenuOpen={isMainMenuOpen}
               jointWorkerRef={jointWorkerRef}
               jointDataRef={jointDataRef}
               orthogonalReference={orthogonalReference}
+              isPoseSettingsModalOpen={isPoseSettingsModalOpen}
+              setIsPoseSettingsModalOpen={setIsPoseSettingsModalOpen}
               onLoaded={(value) => setVideoLoaded(value)}
               onStatusChange={(value) => setProcessingStatus(value)}
               onWorkerInit={() => {
                 handleWorkerLifecycle(true);
 
                 setProcessingStatus("idle");
-              }} />
+              }} 
+              onPause={(value) => setIsFrozen(value)} />
           )}
         </div>
 
@@ -246,8 +250,13 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   <CubeTransparentIcon
                     className="w-6 h-6 text-white"
                     onClick={() => {
-                      if (videoAnalysisRef.current?.isVideoLoaded()) {
-                        videoAnalysisRef.current.handleVideoProcessing();
+                      if (selectedJoints.length) {
+                        if (videoAnalysisRef.current?.isVideoLoaded()) {
+                          videoAnalysisRef.current.handleVideoProcessing();
+                        }
+                      }
+                      else {
+                        setIsPoseModalOpen(true);
                       }
                     }} /> 
                 )}
@@ -309,7 +318,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
       <PoseSettingsModal 
         isModalOpen={isPoseSettingsModalOpen}
-        videoLoaded={videoLoaded}
+        videoMode={mode === "video"}
         videoProcessed={processingStatus === "processed"}
         />
 
