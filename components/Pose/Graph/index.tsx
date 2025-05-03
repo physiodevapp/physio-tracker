@@ -170,7 +170,6 @@ const Index = ({
   const [chartData, setChartData] = useState<{
     [joint: string]: {
       anglePoints: DataPoint[];
-      // angularVelocityPoints: DataPoint[];
       color: JointColors;
     };
   }>({});

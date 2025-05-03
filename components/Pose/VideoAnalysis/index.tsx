@@ -12,7 +12,7 @@ import { jointConfigMap } from '@/utils/joint';
 import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/utils/draw';
 import { keypointPairs } from '@/utils/pose';
-import { CubeTransparentIcon, PhotoIcon } from '@heroicons/react/24/solid';
+import { CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
 import { createPortal } from 'react-dom';
 
 export type VideoAnalysisHandle = {
@@ -57,6 +57,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputCanvasRef = useRef<HTMLCanvasElement>(null);
 
+  const [zoomStatus, setZoomStatus] = useState<'in' | 'out'>('in')
+
   const currentFrameIndexRef = useRef(0);
   const frameResolveRef = useRef<(() => void) | null>(null);
   const totalStepsRef = useRef(0);
@@ -89,6 +91,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
   const allFramesDataRef = useRef<VideoFrame[]>([]);
   const nearestFrameRef = useRef<VideoFrame>(null);
+  const [recordedPositions, setRecordedPositions] = useState<RecordedPositions>();
 
   const handleClickOnCanvas = () => { 
     if (isPoseSettingsModalOpen || isMainMenuOpen) {
@@ -145,6 +148,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     onStatusChange?.('idle');
   
     allFramesDataRef.current = [];
+    setRecordedPositions(undefined);
   
     if (videoRef.current) {
       videoRef.current.currentTime = 0;
@@ -264,6 +268,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     if (!videoRef.current || !canvasRef.current || !inputCanvasRef.current || !detector || !detectorModel) return;
   
     allFramesDataRef.current = [];
+    setRecordedPositions(undefined);
   
     const video = videoRef.current;
     const ctx = canvasRef.current.getContext('2d');
@@ -337,7 +342,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
     currentFrameIndexRef.current = 0;
 
-    await processFrames();         // Primero captura frames + keypoints
+    await processFrames();  // Primero captura frames + keypoints
     
     if (processingCancelledRef.current) {
       console.warn('🛑 Análisis abortado por el usuario.');
@@ -345,7 +350,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       return;
     }
     
-    await analyzeAllFrames();      // Luego calcula ángulos
+    await analyzeAllFrames(); // Luego calcula ángulos
 
     if (processingCancelledRef.current) {
       console.warn('🛑 Análisis abortado por el usuario.');
@@ -354,14 +359,18 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     }
 
     const framesWithJointData = allFramesDataRef.current.filter(
-      (frame): frame is VideoFrame => !!frame.jointData
-    );    
+      (frame): frame is VideoFrame =>
+        !!frame.jointData &&
+        Object.values(frame.jointData).some(joint => typeof joint.angle === "number")
+    );       
     const reducedFrames = filterRepresentativeFrames(framesWithJointData, minAngleDiff); // umbral de grados
 
     // console.log("🟢 Frames representativos:", reducedFrames.length, "de", allFramesDataRef.current.length);
-    // console.log(allFramesDataRef.current)
+    // console.log(transformToRecordedPositions(allFramesDataRef.current))
 
     allFramesDataRef.current = reducedFrames;
+    const transformed = transformToRecordedPositions(reducedFrames);
+    setRecordedPositions(transformed);
 
     setProcessingStatus("processed");
     onStatusChange?.("processed");
@@ -377,11 +386,13 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       nearestFrameRef.current = firstFrame;
       currentFrameIndexRef.current = 0;
       setVerticalLineValue(firstFrame.videoTime * 1_000);
+      onPause?.(true);
     }
   };
 
   const removeVideo = () => {
     allFramesDataRef.current = [];
+    setRecordedPositions(undefined);
 
     onPause?.(false);
 
@@ -424,7 +435,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           if (!recordedPositions[jointName as CanvasKeypointName]) {
             recordedPositions[jointName as CanvasKeypointName] = [];
           }
-
+          
           recordedPositions[jointName as CanvasKeypointName]?.push({
             timestamp: videoTime * 1_000,
             angle,
@@ -445,49 +456,60 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     );
   }  
 
-  const handleVerticalLineChange = useCallback(async (newValue: { 
-    x: number; 
-    values: { label: string; y: number }[] 
+  const handleVerticalLineChange = useCallback(async (newValue: {
+    x: number;
+    values: { label: string; y: number }[];
   }) => {
-    if (processingStatus === "processed") {
-      const nearestFrame = findNearestFrame(allFramesDataRef.current, newValue.x);
-      nearestFrameRef.current = nearestFrame;
+    if (isPlayingRef.current) {
+      // 🔴 Detener animación
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+      onPause?.(true);
+    }
   
-      // Solo sincronizamos el índice si no viene del "play"
-      if (!isPlayingUpdateRef.current) {
-        const index = allFramesDataRef.current.findIndex(f => f === nearestFrame);
-        if (index !== -1) {
-          currentFrameIndexRef.current = index;
-        }
-      } else {
-        isPlayingUpdateRef.current = false;
-      }
+    if (processingStatus !== "processed") return;
   
-      // Redibujar siempre
-      if (canvasRef.current && nearestFrame) {
-        const ctx = canvasRef.current.getContext('2d');
-        ctx?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-        ctx?.drawImage(nearestFrame.frameImage, 0, 0, canvasRef.current.width, canvasRef.current.height);
+    const nearestFrame = findNearestFrame(allFramesDataRef.current, newValue.x);
+    nearestFrameRef.current = nearestFrame;
   
-        if (ctx && nearestFrame.keypoints) {  
-          drawKeypoints({
-            ctx,
-            keypoints: nearestFrame.keypoints,
-            mirror: false,
-            pointRadius: 4 * scaleFactor!,
-          });
+    if (!isPlayingUpdateRef.current) {
+      const index = allFramesDataRef.current.findIndex(f => f === nearestFrame);
+      if (index !== -1) currentFrameIndexRef.current = index;
+    } else {
+      isPlayingUpdateRef.current = false;
+    }
   
-          drawKeypointConnections({
-            ctx,
-            keypoints: nearestFrame.keypoints,
-            keypointPairs,
-            mirror: false,
-            lineWidth: 2 * scaleFactor!,
-          });
-        }
+    // 🖼 Redibuja frame seleccionado
+    const ctx = canvasRef.current?.getContext("2d");
+    if (ctx && nearestFrame) {
+      ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
+      ctx.drawImage(
+        nearestFrame.frameImage,
+        0,
+        0,
+        canvasRef.current!.width,
+        canvasRef.current!.height
+      );
+  
+      if (nearestFrame.keypoints) {
+        drawKeypoints({
+          ctx,
+          keypoints: nearestFrame.keypoints,
+          mirror: false,
+          pointRadius: 4 * scaleFactor!,
+        });
+  
+        drawKeypointConnections({
+          ctx,
+          keypoints: nearestFrame.keypoints,
+          keypointPairs,
+          mirror: false,
+          lineWidth: 2 * scaleFactor!,
+        });
       }
     }
-  }, [processingStatus]);     
+  }, [processingStatus]);
+     
 
   const handleNewVideo = () => {
     fileInputRef.current?.click();
@@ -509,16 +531,22 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     ) {
       const frame = allFramesDataRef.current[i];
       nearestFrameRef.current = frame;
-
+  
       if (!isPlayingRef.current) {
         currentFrameIndexRef.current = i;
-
-        // Redibujar frame con keypoints antes de salir
+  
+        // Redibuja el frame en pausa
         const ctx = canvasRef.current?.getContext("2d");
-        if (ctx && frame) {
+        if (ctx) {
           ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
-          ctx.drawImage(frame.frameImage, 0, 0, canvasRef.current!.width, canvasRef.current!.height);
-
+          ctx.drawImage(
+            frame.frameImage,
+            0,
+            0,
+            canvasRef.current!.width,
+            canvasRef.current!.height
+          );
+  
           if (frame.keypoints) {
             drawKeypoints({
               ctx,
@@ -526,7 +554,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               mirror: false,
               pointRadius: 4 * scaleFactor!,
             });
-
+  
             drawKeypointConnections({
               ctx,
               keypoints: frame.keypoints,
@@ -536,36 +564,40 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             });
           }
         }
-
+  
         onPause?.(true);
-              
         return;
       }
-
+  
+      // Bloquea handleVerticalLineChange mientras cambia verticalLineValue
       isPlayingUpdateRef.current = true;
       currentFrameIndexRef.current = i;
-      setVerticalLineValue(frame.videoTime * 1_000);
-      await nextTick(); // Permite que handleVerticalLineChange se dispare primero
+      setVerticalLineValue(frame.videoTime * 1000);
+      await nextTick();
       isPlayingUpdateRef.current = false;
   
-      if (canvasRef.current) {
-        const ctx = canvasRef.current.getContext("2d");
-        if (ctx) {
-          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-          ctx.drawImage(frame.frameImage, 0, 0, canvasRef.current.width, canvasRef.current.height);
-        }
+      const ctx = canvasRef.current?.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
+        ctx.drawImage(
+          frame.frameImage,
+          0,
+          0,
+          canvasRef.current!.width,
+          canvasRef.current!.height
+        );
       }
   
-      await new Promise((resolve) =>
+      await new Promise(resolve =>
         setTimeout(resolve, frameIntervalRef.current * 1000)
       );
-      
     }
   
     currentFrameIndexRef.current = 0;
     isPlayingRef.current = false;
     setIsPlaying(false);
-  }, []);  
+  }, []);
+   
 
   useEffect(() => {
     const updateScale = () => {
@@ -580,7 +612,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       }) ?? 1;
   
       if (!scaleFactor) {
-        console.log('scale ', scale)
         setScaleFactor(scale);
         referenceScaleRef.current = scale;
       }
@@ -606,7 +637,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         canvasRef.current!.height = video.videoHeight;
       });
     }
-  }, [videoLoaded]);
+  }, [videoLoaded]);  
 
   useEffect(() => {
     if (!hasTriggeredRef.current) {
@@ -677,16 +708,43 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               maxHeight: '50dvh',
               objectFit: 'contain', // Opcional: para que el contenido no se deforme
             }} />
+
+          {processingStatus === "processed" && zoomStatus === "in" ? (
+            <MagnifyingGlassPlusIcon 
+              onClick={() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+
+                const scaleX = window.innerWidth / canvas.getBoundingClientRect().width;
+                canvas.style.transform = `scale(${scaleX})`;
+
+                setZoomStatus('out');
+              }}  
+              className='absolute left-0 bottom-0 pl-2 pb-2 w-10 h-10 text-white'/> 
+          ) : null }
+          {processingStatus === "processed" && zoomStatus === "out" ? (
+            <MagnifyingGlassMinusIcon 
+              onClick={() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+
+                canvas.style.transform = `scale(${1})`;
+
+                setZoomStatus('in');
+              }}  
+              className='absolute left-0 bottom-0 pl-2 pb-2 w-10 h-10 text-white'/>
+          ) : null }          
+
         </div>
 
-        {processingStatus === "processed" && allFramesDataRef.current.length > 0 ? (
+        {processingStatus === "processed" && recordedPositions ? (
           <PoseChart
             joints={selectedJoints}
             valueTypes={[Kinematics.ANGLE]} // Solo queremos ángulos
-            recordedPositions={transformToRecordedPositions(allFramesDataRef.current)} // Tus datos
+            recordedPositions={recordedPositions} // Tus datos
             onVerticalLineChange={handleVerticalLineChange}
             verticalLineValue={verticalLineValue}
-            parentStyles="flex-1 w-full max-w-5xl mx-auto" // Opcional
+            parentStyles="z-10 flex-1 w-full max-w-5xl mx-auto" // Opcional
           />
         ) : null }
       </div>
