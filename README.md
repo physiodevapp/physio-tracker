@@ -2,6 +2,8 @@
 
 **PhysiQ** is an application developed with [Next.js](https://nextjs.org), specifically designed for **physiotherapists** looking for advanced digital tools for clinical assessment and patient monitoring.
 
+<img src="https://github.com/physiodevapp/physio-tracker/blob/main/public/landing-page.png" alt="PhysiQ app screenshot" width="300"/>
+
 The project includes four main utilities:
 
 - ⚖️ **Balance Assessment**: measures and analyses postural stability using dynamic data.
