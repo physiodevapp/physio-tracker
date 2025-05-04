@@ -7,6 +7,7 @@ import { useSwipeable } from 'react-swipeable';
 import MainMenu from "@/components/MainMenu";
 import Start from "@/components/Start";
 import { MainMenuOption } from '@/interfaces/menu';
+import { useDevice } from '@/providers/Device';
 
 const Pose = dynamic(() => import('../components/Pose').then(mod => mod.default), { ssr: false });
 const Force = dynamic(() => import('../components/Force').then(mod => mod.default), { ssr: false });
@@ -14,6 +15,8 @@ const ColorAnalyzer = dynamic(() => import('../components/ColorAnalyzer').then(m
 const Balance = dynamic(() => import('../components/Balance').then(mod => mod.default), { ssr: false });
 
 export default function Home() {
+  const deviceSize = useDevice();
+
   const [page, setPage] = useState<MainMenuOption>('pose');
 
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
@@ -56,6 +59,12 @@ export default function Home() {
 
   const handleMainMenu = (visibility?: boolean) => {
     setIsMainMenuOpen(visibility === undefined ? !isMainMenuOpen : false);
+  }
+
+  if (deviceSize !== "mobile" ) {
+    return (
+      <p>Not a mobile</p>
+    )
   }
 
   if (!hasStarted) {

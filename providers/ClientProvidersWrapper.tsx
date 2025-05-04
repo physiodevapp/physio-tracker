@@ -5,7 +5,9 @@ import { TensorFlowProvider, useTensorFlow } from "@/providers/TensorFlow";
 import { PoseDetectorProvider } from "@/providers/PoseDetector";
 import { SettingsProvider } from "@/providers/Settings";
 import { ThemeProvider } from "next-themes";
-import { BluetoothProvider } from "./Bluetooth";
+import { BluetoothProvider } from "@/providers/Bluetooth";
+import { DeviceProvider } from "@/providers/Device";
+
 
 // Este componente se encarga de consumir el estado de TensorFlow y envolver a los demás providers
 const TensorFlowDetectorWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -22,15 +24,17 @@ const TensorFlowDetectorWrapper: React.FC<{ children: React.ReactNode }> = ({ ch
 const ClientProvidersWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <ThemeProvider attribute={"class"} defaultTheme="system" enableSystem>
-      <SettingsProvider>
-        <BluetoothProvider>
-          <TensorFlowProvider>
-            <TensorFlowDetectorWrapper>
-              {children}
-            </TensorFlowDetectorWrapper>
-          </TensorFlowProvider>
-        </BluetoothProvider>
-      </SettingsProvider>
+      <DeviceProvider>
+        <SettingsProvider>
+          <BluetoothProvider>
+            <TensorFlowProvider>
+              <TensorFlowDetectorWrapper>
+                {children}
+              </TensorFlowDetectorWrapper>
+            </TensorFlowProvider>
+          </BluetoothProvider>
+        </SettingsProvider>
+      </DeviceProvider>
     </ThemeProvider>
   );
 };
