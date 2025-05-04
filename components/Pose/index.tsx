@@ -71,7 +71,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     return visibleKinematics.length === 2 ? 3 : 6;
   }, [visibleKinematics]);
   
-  const { detectorModel } = usePoseDetector();
+  const { 
+    detectorModel, 
+  } = usePoseDetector();
   const prevPoseModel = useRef<poseDetection.SupportedModels>(detectorModel);
 
   const jointDataRef = useRef<JointDataMap>({});
@@ -305,6 +307,22 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 onClick={() => processingStatus !== "processed" && setIsPoseSettingsModalOpen(prev => !prev)}
                 />
             </section>
+            {processingStatus === "idle" && (
+              <ArrowTopRightOnSquareIcon 
+                className={`absolute bottom-2 right-1 z-30 w-8 h-8 text-white transition-transform ${(!showOrthogonalOption || orthogonalReference === undefined)
+                  ? 'scale-x-[-1] -rotate-0 opacity-50'
+                  : orthogonalReference === 'horizontal'
+                  ? 'scale-x-[-1] rotate-45'
+                  : 'scale-x-[-1] -rotate-45'
+                }`}
+                onClick={() => { 
+                  if (!showOrthogonalOption) return;
+                            
+                  const next: OrthogonalReference = orthogonalReference === "vertical" ? "horizontal" : orthogonalReference === "horizontal" ? undefined : "vertical";
+
+                  setOrthogonalReference(next);
+                }} /> 
+            )}
           </>
         )}
       </div> 
@@ -323,22 +341,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         videoMode={mode === "video"}
         videoProcessed={processingStatus === "processed"}
         />
-
-      {processingStatus === "idle" && (
-        <ArrowTopRightOnSquareIcon 
-          className={`absolute bottom-2 right-1 z-30 w-8 h-8 text-white transition-transform ${(!showOrthogonalOption || orthogonalReference === undefined)
-            ? '-rotate-0 opacity-50'
-            : orthogonalReference === 'horizontal'
-            ? 'rotate-45'
-            : '-rotate-45'
-          }`}
-          onClick={() => { 
-            if (!showOrthogonalOption) return;
-                      
-            const next: OrthogonalReference = orthogonalReference === "vertical" ? "horizontal" : orthogonalReference === "horizontal" ? undefined : "vertical";
-
-            setOrthogonalReference(next);
-          }} /> )}
     </>
   );
 };

@@ -10,6 +10,7 @@ interface PoseDetectorContextType {
   detector: DetectorType;
   detectorModel: poseDetection.SupportedModels | null;
   minPoseScore: number;
+  isDetectorReady: boolean;
 }
 
 // Creamos el contexto con un valor inicial nulo
@@ -23,6 +24,8 @@ interface PoseDetectorProviderProps {
 export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTfReady, children }) => {
   const [detector, setDetector] = useState<DetectorType>(null);
   const [detectorModel, setDetectorModel] = useState<poseDetection.SupportedModels | null>(null);
+  const [isDetectorReady, setIsDetectorReady] = useState(false);
+
   const [minPoseScore] = useState(0.3);
 
   const { settings } = useSettings(); 
@@ -37,6 +40,8 @@ export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTf
         // Si ya existe el detector, no se vuelve a crear
         if (detectorModel === poseModel) return;
 
+        setIsDetectorReady(false);
+
         let detectorInstance;
 
         if (poseModel === poseDetection.SupportedModels.MoveNet) {
@@ -47,8 +52,6 @@ export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTf
               minPoseScore,
             },      
           );
-          setDetector(detectorInstance);
-          setDetectorModel(poseDetection.SupportedModels.MoveNet);
         } 
         else if (poseModel === poseDetection.SupportedModels.BlazePose) {
           detectorInstance = await poseDetection.createDetector(
@@ -59,9 +62,11 @@ export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTf
               modelType: 'lite', // 'lite', 'full' or 'heavy'
             },   
           );
-          setDetector(detectorInstance);
-          setDetectorModel(poseDetection.SupportedModels.BlazePose);
         }
+
+        setDetector(detectorInstance!);
+        setDetectorModel(poseModel);
+        setIsDetectorReady(true);
       } catch (error) {
         console.error("Error al inicializar el detector:", error);
       }
@@ -71,7 +76,7 @@ export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTf
   }, [isTfReady, detector, poseModel]);
 
   return (
-    <PoseDetectorContext.Provider value={{detector, detectorModel, minPoseScore}}>
+    <PoseDetectorContext.Provider value={{detector, detectorModel, minPoseScore, isDetectorReady }}>
       {children}
     </PoseDetectorContext.Provider>
   );

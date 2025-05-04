@@ -75,7 +75,12 @@ const Index = ({
   const orthogonalReferenceRef = useRef(orthogonalReference);
   const videoConstraintsRef = useRef(videoConstraints);
   
-  const { detector, detectorModel, minPoseScore } = usePoseDetector();
+  const { 
+    detector, 
+    detectorModel, 
+    minPoseScore,
+    isDetectorReady, 
+  } = usePoseDetector();
   const prevPoseModel = useRef<poseDetection.SupportedModels>(detectorModel);
 
   const excludedParts = [
@@ -135,8 +140,15 @@ const Index = ({
     videoConstraintsRef.current = videoConstraints;
   }, [videoConstraints]);
 
+  useEffect(() => {
+    if (!isDetectorReady) {
+      setIsPoseSettingsModalOpen(false);
+    }
+  }, [isDetectorReady]);
+
   useEffect(() => {    
     if (
+      !isDetectorReady || 
       !detector || 
       !webcamRef.current || 
       !canvasRef.current
@@ -309,7 +321,7 @@ const Index = ({
       }
     };
 
-  }, [detector, isFrozen]);
+  }, [detector, isFrozen, isDetectorReady]);
 
   useEffect(() => {
     onChangeIsFrozen(isFrozen);
@@ -328,16 +340,20 @@ const Index = ({
 
   return (
     <>
-      {(!detector && !isCameraReady) ? (
-          <div className="fixed w-full h-dvh z-50 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
-            <p>{(!isCameraReady && detector) ? "Initializing camera..." : "Setting up Tensorflow..."}</p>
-            {(!isCameraReady && detector) ? 
-              <ArrowPathIcon className="w-8 h-8 animate-spin"/>
-              : <CloudArrowDownIcon className="w-8 h-8 animate-bounce"/>
-            }
-          </div>
-        ) : null
-      }
+      {(!isCameraReady || !isDetectorReady || !detector) && (
+        <div className="fixed w-full h-dvh z-50 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
+          <p>
+            {!detector 
+              ? "Setting up Tensorflow..."
+              : !isDetectorReady 
+              ? "Setting up the model..."
+              : "Initializing camera..."}
+          </p>
+          {!detector 
+            ? <CloudArrowDownIcon className="w-8 h-8 animate-bounce"/>
+            : <ArrowPathIcon className="w-8 h-8 animate-spin"/>}
+        </div>
+      )}
       <>
         <Webcam
           ref={webcamRef}

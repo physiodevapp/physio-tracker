@@ -12,7 +12,7 @@ import { formatJointName, jointConfigMap } from '@/utils/joint';
 import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/utils/draw';
 import { keypointPairs } from '@/utils/pose';
-import { CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
+import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
 import { createPortal } from 'react-dom';
 
 export type VideoAnalysisHandle = {
@@ -84,7 +84,12 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const hiddenLegendsRef = useRef<Set<number>>(new Set());
   const [, forceUpdateUI] = useReducer(x => x + 1, 0);
 
-  const { detector, detectorModel, minPoseScore } = usePoseDetector();
+  const { 
+    detector, 
+    detectorModel, 
+    minPoseScore, 
+    isDetectorReady,
+  } = usePoseDetector();
   const { settings } = useSettings();
   const { 
     selectedJoints, 
@@ -660,6 +665,12 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   }, [videoLoaded]);  
 
   useEffect(() => {
+      if (!isDetectorReady) {
+        setIsPoseSettingsModalOpen(false);
+      }
+    }, [isDetectorReady]);
+
+  useEffect(() => {
     if (!hasTriggeredRef.current) {
       hasTriggeredRef.current = true;
 
@@ -681,6 +692,21 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   return (
     <>
       {fileInputPortal}
+
+      {(!isDetectorReady || !detector) && (
+        <div className="fixed w-full h-dvh z-50 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
+          <p>
+            {!detector 
+              ? "Setting up Tensorflow..."
+              : !isDetectorReady 
+              ? "Setting up the model..."
+              : ""}
+          </p>
+          {!detector 
+            ? <CloudArrowDownIcon className="w-8 h-8 animate-bounce"/>
+            : <ArrowPathIcon className="w-8 h-8 animate-spin"/>}
+        </div>
+      )}
 
       <div 
         {...(processingStatus !== "idle" && { "data-element": "non-swipeable" })}

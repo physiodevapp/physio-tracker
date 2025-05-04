@@ -41,7 +41,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
     message:""
   })
 
-  const [videoReady, setVideoReady] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   
   const [showSettings, setShowSettings] = useState(false);
   const [showData, setShowData] = useState(false);
@@ -63,7 +63,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   const [aspectRatio, setAspectRatio] = useState<number | null>();
 
   // Estado para OpenCV y análisis
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loadingOpenCV, setLoadingOpenCV] = useState<boolean>(true);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
@@ -77,23 +77,23 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
 
     if (window.cv && typeof window.cv.getBuildInformation === "function") {
       setCvInstance(window.cv);
-      setLoading(false);
+      setLoadingOpenCV(false);
     } else {
       window.cv.onRuntimeInitialized = () => {
         setCvInstance(window.cv);
-        setLoading(false);
+        setLoadingOpenCV(false);
       };
     }
 
     const timeoutId = setTimeout(() => {
-      if (loading) {
+      if (loadingOpenCV) {
         setError("Timeout: OpenCV no se inicializó en el tiempo esperado.");
-        setLoading(false);
+        setLoadingOpenCV(false);
       }
     }, 16_000);
 
     return () => clearTimeout(timeoutId);
-  }, [scriptLoaded, loading]);
+  }, [scriptLoaded, loadingOpenCV]);
 
   // Función para analizar contornos y calcular Areas
   const analyzeContours = (mask: InstanceType<typeof cv.Mat>, colorPixels: number): { 
@@ -282,11 +282,11 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   }, [cvInstance])
 
   const captureAndAnalyze = () => {
-    if (loading) {
+    if (loadingOpenCV) {
       // alert("OpenCV se está cargando");
       setInfoMessage({
         show: true,
-        message: "OpenCV is loading..."
+        message: "OpenCV is loadingOpenCV..."
       });
 
       return;
@@ -295,7 +295,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
       // alert("Error al cargar OpenCV");
       setInfoMessage({
         show: true,
-        message: "Error loading OpenCV"
+        message: "Error loadingOpenCV OpenCV"
       });
       return;
     }
@@ -685,7 +685,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           }`}
           videoConstraints={videoConstraints}
           mirrored={videoConstraints.facingMode === "user"}
-          onUserMedia={() => setVideoReady(true)}
+          onUserMedia={() => setIsCameraReady(true)}
           onClick={() => {
             if (captured) return;
             // console.log('captureAndAnalyze')
@@ -713,18 +713,20 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           style={{ 
             aspectRatio: (captured && aspectRatio) ? aspectRatio.toFixed(3) : "unset",
             height: (captured && aspectRatio) ? 'unset' : 'h-dvh' 
-          }}
-          />
-        {(loading || (!loading && error)) && (
+          }} />
+        {((!isCameraReady || loadingOpenCV) || (!loadingOpenCV && error)) && (
           <div className="absolute top-0 z-50 w-full h-dvh flex flex-col items-center justify-center text-white bg-black/40">
-            {loading && (
+            {(!isCameraReady || loadingOpenCV) && (
               <p className="flex flex-col items-center gap-4">
-                {(!videoReady && !loading) ? "Initializing camera..." : "Loading OpenCV..."} {!error && <ArrowPathIcon className="w-8 h-8 animate-spin"/>}
+                {!isCameraReady
+                  ? "Initializing camera..."
+                  : "Loading OpenCV..."}
+                {!error && <ArrowPathIcon className="w-8 h-8 animate-spin" />}
               </p>
             )}
             {error && <p className="p-4 text-center">Error: {error}</p>}
           </div>
-        )}          
+        )}         
       </div>
       <section 
         data-element="non-swipeable"
@@ -734,27 +736,22 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
           {isMainMenuOpen ?
             <XMarkIcon 
               className="w-6 h-6 text-white"
-              onClick={() => handleMainMenu()}
-              />
+              onClick={() => handleMainMenu()} />
             : <Bars3Icon 
                 className="w-6 h-6 text-white"
-                onClick={() => handleMainMenu()}
-                />
+                onClick={() => handleMainMenu()} />
           }
           {captured && (
             <>
               <TrashIcon 
                 className="w-6 h-6 text-red-500"
-                onClick={clearCanvases}
-                />
+                onClick={clearCanvases} />
               <PresentationChartBarIcon
                 className="w-6 h-6 text-white"
-                onClick={() => toggleShowData()}
-                />
+                onClick={() => toggleShowData()} />
               <DocumentArrowDownIcon 
                 className="w-6 h-6 text-white"
-                onClick={downloadData}
-                />
+                onClick={downloadData} />
             </>
           )}
         </>
@@ -766,15 +763,13 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
         <>
           <div 
             className="relative cursor-pointer"
-            onClick={() => toggleCamera()}
-            >
+            onClick={() => toggleCamera()} >
               <CameraIcon className="h-6 w-6 text-white cursor-pointer"/>
               <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 text-white bg-[#5d91ec] dark:bg-black/80 rounded-full p-[0.1rem]"/>
           </div>
           <Cog6ToothIcon 
             className="w-6 h-6 text-white"
-            onClick={() => toggleSettings()}
-            />
+            onClick={() => toggleSettings()} />
         </> 
       </section>
       {showSettings && (
