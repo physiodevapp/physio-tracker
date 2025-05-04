@@ -5,7 +5,6 @@
 <div style="display: flex; gap: 10px;">
   <img src="https://github.com/physiodevapp/physio-tracker/blob/main/public/landing-page.png" alt="PhysiQ app screenshot" width="300"/>
   <img src="https://github.com/physiodevapp/physio-tracker/blob/main/public/force-screenshot.png" alt="PhysiQ force screenshot" width="300"/>
-  <img src="https://github.com/physiodevapp/physio-tracker/blob/main/public/balance-screenshot.png" alt="PhysiQ balance screenshot" width="260"/>
 </div>
 
 The project includes four main utilities:
