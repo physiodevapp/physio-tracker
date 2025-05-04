@@ -67,11 +67,11 @@ export default function Home() {
     )
   }
 
-  if (!hasStarted) {
+  if (!hasStarted || page === "home") {
     return (
       <Start onSelect={(page) => {
         setHasStarted(true);
-        setPage(page);
+        navigateTo(page);
       }} />
     );
   }
