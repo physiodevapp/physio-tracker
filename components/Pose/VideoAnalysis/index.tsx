@@ -828,7 +828,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         <div 
           data-element="non-swipeable"
           className="fixed top-1/2 -translate-y-1/2 w-full max-w-5xl mx-auto text-center px-12 flex flex-col items-center gap-8" >
-          <div className="h-40 bg-[url('/processing-video-2.png')] bg-center bg-contain bg-no-repeat aspect-[1/1] animate-pulse"></div>
+          <div className="h-40 bg-[url('/processing-video.png')] bg-center bg-contain bg-no-repeat aspect-[1/1] animate-pulse"></div>
           <CubeTransparentIcon className='w-8 h-8 animate-spin'/>
           <div className="w-full">
             <div className="text-sm text-gray-400 mb-4">

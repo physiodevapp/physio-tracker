@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { useSwipeable } from 'react-swipeable';
-import MainMenu from "../components/MainMenu";
+import MainMenu from "@/components/MainMenu";
+import Start from "@/components/Start";
 import { MainMenuOption } from '@/interfaces/menu';
 
 const Pose = dynamic(() => import('../components/Pose').then(mod => mod.default), { ssr: false });
@@ -12,12 +13,12 @@ const Force = dynamic(() => import('../components/Force').then(mod => mod.defaul
 const ColorAnalyzer = dynamic(() => import('../components/ColorAnalyzer').then(mod => mod.default), { ssr: false });
 const Balance = dynamic(() => import('../components/Balance').then(mod => mod.default), { ssr: false });
 
-// const Test = dynamic(() => import('../components/Pose/VideoAnalysis').then(mod => mod.default), { ssr: false });
-
 export default function Home() {
   const [page, setPage] = useState<MainMenuOption>('pose');
 
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
+
+  const [hasStarted, setHasStarted] = useState(false);
 
   const handlers = useSwipeable({ 
     onSwipedLeft: (eventData) => {
@@ -56,6 +57,15 @@ export default function Home() {
   const handleMainMenu = (visibility?: boolean) => {
     setIsMainMenuOpen(visibility === undefined ? !isMainMenuOpen : false);
   }
+
+  if (!hasStarted) {
+    return (
+      <Start onSelect={(page) => {
+        setHasStarted(true);
+        setPage(page);
+      }} />
+    );
+  }
   
   return (
     <main {...handlers} className='h-dvh overflow-hidden relative'>
@@ -63,7 +73,6 @@ export default function Home() {
         {(() => {
           switch (page) {
             case 'pose':
-              // return <Test/>
               return (
                 <motion.div
                   key="pose"

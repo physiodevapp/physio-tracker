@@ -146,7 +146,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
           animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 100, damping: 15 }}
           className={`absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-[#5dadec] dark:bg-black/40 
-          rounded-full py-2 pl-4 font-bold mt-2 whitespace-nowrap transition-[padding] ${
+          rounded-full py-2 pl-4 font-bold mt-2 whitespace-nowrap transition-[padding] select-none ${
             isFrozen ? "pr-8" : "pr-4" // isFrozen
           }`}>
           Kinematics
