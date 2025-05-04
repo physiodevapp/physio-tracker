@@ -1,14 +1,14 @@
 "use client";
 // VideoAnalysis component
 
-import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
+import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo, useReducer } from 'react';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
 import { CanvasKeypointName, JointDataMap, Kinematics } from '@/interfaces/pose';
 import { usePoseDetector } from '@/providers/PoseDetector';
 import { OrthogonalReference, useSettings } from '@/providers/Settings';
 import { filterRepresentativeFrames, updateMultipleJoints, VideoFrame } from '@/utils/pose';
-import { jointConfigMap } from '@/utils/joint';
+import { formatJointName, jointConfigMap } from '@/utils/joint';
 import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/utils/draw';
 import { keypointPairs } from '@/utils/pose';
@@ -30,6 +30,8 @@ interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
   isMainMenuOpen: boolean;
   orthogonalReference: OrthogonalReference;
+  anglesToDisplay: string[];
+  setAnglesToDisplay: React.Dispatch<React.SetStateAction<string[]>>;
   isPoseSettingsModalOpen: boolean;
   setIsPoseSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   jointWorkerRef: React.RefObject<Worker | null>;
@@ -44,6 +46,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   handleMainMenu, 
   isMainMenuOpen,
   orthogonalReference,
+  anglesToDisplay,
+  setAnglesToDisplay,
   isPoseSettingsModalOpen,
   setIsPoseSettingsModalOpen,
   jointWorkerRef,
@@ -77,6 +81,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const isPlayingRef = useRef(isPlaying);
   const isPlayingUpdateRef = useRef(false);
   const [verticalLineValue, setVerticalLineValue] = useState(0);
+  const hiddenLegendsRef = useRef<Set<number>>(new Set());
+  const [, forceUpdateUI] = useReducer(x => x + 1, 0);
 
   const { detector, detectorModel, minPoseScore } = usePoseDetector();
   const { settings } = useSettings();
@@ -366,7 +372,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     const reducedFrames = filterRepresentativeFrames(framesWithJointData, minAngleDiff); // umbral de grados
 
     // console.log("🟢 Frames representativos:", reducedFrames.length, "de", allFramesDataRef.current.length);
-    // console.log(transformToRecordedPositions(allFramesDataRef.current))
 
     allFramesDataRef.current = reducedFrames;
     const transformed = transformToRecordedPositions(reducedFrames);
@@ -471,6 +476,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   
     const nearestFrame = findNearestFrame(allFramesDataRef.current, newValue.x);
     nearestFrameRef.current = nearestFrame;
+
+    updateDisplayedAngles(nearestFrame, selectedJoints);
   
     if (!isPlayingUpdateRef.current) {
       const index = allFramesDataRef.current.findIndex(f => f === nearestFrame);
@@ -483,13 +490,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     const ctx = canvasRef.current?.getContext("2d");
     if (ctx && nearestFrame) {
       ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
-      ctx.drawImage(
-        nearestFrame.frameImage,
-        0,
-        0,
-        canvasRef.current!.width,
-        canvasRef.current!.height
-      );
+      ctx.drawImage(nearestFrame.frameImage, 0, 0, canvasRef.current!.width,canvasRef.current!.height);
   
       if (nearestFrame.keypoints) {
         drawKeypoints({
@@ -508,8 +509,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         });
       }
     }
-  }, [processingStatus]);
-     
+  }, [processingStatus]);     
 
   const handleNewVideo = () => {
     fileInputRef.current?.click();
@@ -531,6 +531,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     ) {
       const frame = allFramesDataRef.current[i];
       nearestFrameRef.current = frame;
+
+      updateDisplayedAngles(frame, selectedJoints);
   
       if (!isPlayingRef.current) {
         currentFrameIndexRef.current = i;
@@ -539,13 +541,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         const ctx = canvasRef.current?.getContext("2d");
         if (ctx) {
           ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
-          ctx.drawImage(
-            frame.frameImage,
-            0,
-            0,
-            canvasRef.current!.width,
-            canvasRef.current!.height
-          );
+          ctx.drawImage(frame.frameImage, 0, 0, canvasRef.current!.width, canvasRef.current!.height);
   
           if (frame.keypoints) {
             drawKeypoints({
@@ -597,7 +593,31 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     isPlayingRef.current = false;
     setIsPlaying(false);
   }, []);
-   
+
+  const updateDisplayedAngles = (frame: VideoFrame, selectedJoints: CanvasKeypointName[]) => {
+    const newAngles: string[] = [];
+  
+    selectedJoints.forEach((jointName) => {
+      const updatedData = frame.jointData?.[jointName];
+      const label = formatJointName(jointName);
+  
+      if (updatedData) {
+        jointDataRef.current[jointName] = updatedData;
+        const angle = `${label}: ${updatedData.angle.toFixed(0)}º`;
+        newAngles.push(angle);
+      } else {
+        newAngles.push(`${label}: -`);
+      }
+    });
+  
+    setAnglesToDisplay((prev) => {
+      const hasChanged =
+        prev.length !== newAngles.length ||
+        prev.some((val, i) => val !== newAngles[i]);
+  
+      return hasChanged ? newAngles : prev;
+    });
+  };     
 
   useEffect(() => {
     const updateScale = () => {
@@ -708,6 +728,21 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               maxHeight: '50dvh',
               objectFit: 'contain', // Opcional: para que el contenido no se deforme
             }} />
+          
+          {processingStatus === "processed" && hiddenLegendsRef.current.size < selectedJoints.length ? (
+          <section 
+            className="absolute z-10 bottom-2 right-0 font-bold w-40 p-2"
+            style={{
+              background: `linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
+            }}
+            >{
+            anglesToDisplay
+              .filter((_, index) => !hiddenLegendsRef.current.has(index))
+              .map((angle, index) => (
+                <p key={index} className="text-white">{angle}</p>
+              ))
+          }
+          </section> ) : null }
 
           {processingStatus === "processed" && zoomStatus === "in" ? (
             <MagnifyingGlassPlusIcon 
@@ -745,7 +780,20 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             onVerticalLineChange={handleVerticalLineChange}
             verticalLineValue={verticalLineValue}
             parentStyles="z-10 flex-1 w-full max-w-5xl mx-auto" // Opcional
-          />
+            hiddenLegendsRef={hiddenLegendsRef}
+            onToggleLegend={(index, hidden) => {
+              if (!hiddenLegendsRef.current) {
+                hiddenLegendsRef.current = new Set();
+              }
+            
+              if (hidden) {
+                hiddenLegendsRef.current.add(index);
+              } else {
+                hiddenLegendsRef.current.delete(index);
+              }   
+
+              forceUpdateUI();
+            }} />
         ) : null }
       </div>
 

@@ -176,6 +176,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               jointWorkerRef={jointWorkerRef}
               jointDataRef={jointDataRef}
               orthogonalReference={orthogonalReference}
+              anglesToDisplay={anglesToDisplay}
+              setAnglesToDisplay={setAnglesToDisplay}
               isPoseSettingsModalOpen={isPoseSettingsModalOpen}
               setIsPoseSettingsModalOpen={setIsPoseSettingsModalOpen}
               onLoaded={(value) => setVideoLoaded(value)}

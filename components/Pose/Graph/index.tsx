@@ -40,6 +40,8 @@ interface IndexProps {
   parentStyles?: string; // Estilos CSS para el contenedor
   recordedPositions?: RecordedPositions;
   verticalLineValue?: number;
+  hiddenLegendsRef?: React.RefObject<Set<number>>;
+  onToggleLegend?: (index: number, hidden: boolean) => void;
 }
 
 const areAllDatasetsHidden = (chart: ChartJS): boolean => {
@@ -49,9 +51,11 @@ const areAllDatasetsHidden = (chart: ChartJS): boolean => {
 const customCrosshairPlugin = ({
   recordedPositions,
   tooltipXRef,
+  hiddenLegendsRef,
 }: {
   recordedPositions: RecordedPositions;
   tooltipXRef: React.RefObject<number>;
+  hiddenLegendsRef: React.RefObject<Set<number>>;
 }) => ({
   id: 'customCrosshair',
   afterDraw(chart: ChartJS) {
@@ -78,6 +82,8 @@ const customCrosshairPlugin = ({
 
     // Línea horizontal + punto exacto
     chart.data.datasets.forEach((dataset, datasetIndex) => {
+      if (hiddenLegendsRef?.current?.has(datasetIndex)) return;
+
       const meta = chart.getDatasetMeta(datasetIndex);
       if (meta.hidden) return;
 
@@ -154,6 +160,8 @@ const Index = ({
   onVerticalLineChange,
   parentStyles = "relative w-full flex flex-col items-center justify-start h-[50vh]",
   verticalLineValue = 0,
+  hiddenLegendsRef,
+  onToggleLegend,
 }: IndexProps) => {
   const [isZoomed, setIsZoomed] = useState(false);
   const tooltipXRef = useRef<number>(0);
@@ -192,6 +200,8 @@ const Index = ({
   // Este bloque se recalcula solo cuando cambian chartData, joints o valueTypes.
   const datasets = useMemo(() => {
     const result: ChartDataset<"line">[] = [];
+    let datasetIndex = 0;
+
     joints.forEach((joint) => {
       const jointData = chartData[joint];
       if (!jointData) return;
@@ -217,7 +227,10 @@ const Index = ({
           pointHitRadius: 0,
           parsing: false,
           cubicInterpolationMode: 'monotone',
+          hidden: hiddenLegendsRef?.current?.has(datasetIndex) ?? false
         });
+
+        datasetIndex++;
       });
     });
 
@@ -276,6 +289,7 @@ const Index = ({
         customCrosshairPlugin({
           recordedPositions: recordedPositions!,
           tooltipXRef,
+          hiddenLegendsRef: hiddenLegendsRef!,
         }),
       ],
       options: {
@@ -382,8 +396,9 @@ const Index = ({
               // Capturamos el valor actual visible antes del update
               const activeTooltipPoint = chart.tooltip?.dataPoints?.[0];
               const xValueBeforeUpdate = tooltipXRef.current ?? activeTooltipPoint?.parsed?.x;
-            
-              chart.update();
+
+              onToggleLegend?.(index, meta.hidden);            
+              // chart.update();
             
               const allHidden = areAllDatasetsHidden(chart);
             
@@ -420,7 +435,7 @@ const Index = ({
             
                 activeElements.push({ datasetIndex, index: closestIndex });
               });
-            
+              
               chart.setActiveElements(activeElements);
               chart.update();
               chart.draw();
@@ -511,6 +526,12 @@ const Index = ({
 
     chartRef.current = new ChartJS(ctx, chartConfig);
 
+    chartRef.current.data.datasets.forEach((_, datasetIndex) => {
+      const meta = chartRef.current!.getDatasetMeta(datasetIndex);
+      meta.hidden = hiddenLegendsRef?.current?.has(datasetIndex) ?? false;
+    });
+    chartRef.current.update();
+
     return () => {
       chartRef.current?.destroy();
       chartRef.current = null;
@@ -521,6 +542,7 @@ const Index = ({
     const chart = chartRef.current as ChartJS;
     if (!chart || verticalLineValue === undefined) return;
   
+    // Actualiza la línea vertical normalmente
     const activeElements: { datasetIndex: number; index: number }[] = [];
   
     chart.data.datasets.forEach((dataset, datasetIndex) => {
@@ -552,16 +574,17 @@ const Index = ({
 
     if (activeElements.length > 0 && !allIndexesAreZero) {
       tooltipXRef.current = verticalLineValue;
-      
+
       chart.setActiveElements(activeElements);
 
       if (anyDatasetVisible) {
         chart.update();
         chart.draw();
       }
-    } else {
+    } else {      
       // Si todos eran 0, entonces limpiar tooltip y línea
       chart.setActiveElements([]);
+
       tooltipXRef.current = 0;
       chart.update();
       chart.draw();
