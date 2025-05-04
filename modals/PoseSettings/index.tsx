@@ -131,7 +131,7 @@ const Index = ({
                 !videoMode ? "text-white/60" : "text-white"
               }`}
               >
-              Δ Angle<span className='align-sub uppercase text-[0.6rem]'> Min</span>: {minAngleDiff} º
+              Δ Angle<span className='align-sub uppercase text-[0.6rem]'> Min</span>: {minAngleDiff}º
             </label>
             <input
               id='points-per-second'

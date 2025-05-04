@@ -12,7 +12,7 @@ import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
 import { jointOptions, formatJointName } from '@/utils/joint';
 import { PauseIcon } from "@heroicons/react/24/outline";
-import { CameraIcon, UserIcon, Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, VideoCameraIcon, CubeTransparentIcon, DocumentArrowDownIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/solid";
+import { CameraIcon, UserIcon, Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, VideoCameraIcon, CubeTransparentIcon, DocumentArrowDownIcon, TrashIcon, PlusIcon, Bars2Icon } from "@heroicons/react/24/solid";
 import LiveAnalysis from "@/components/Pose/LiveAnalysis";
 import VideoAnalysis, { ProcessingStatus, VideoAnalysisHandle } from "@/components/Pose/VideoAnalysis";
 
@@ -40,6 +40,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('idle');
+
+  const [showGrid, setShowGrid] = useState(false);
 
   const [isFrozen, setIsFrozen] = useState(false);
 
@@ -168,6 +170,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               setIsPoseSettingsModalOpen={setIsPoseSettingsModalOpen}
               onChangeIsFrozen={(isFrozen) => setIsFrozen(isFrozen)}
               onWorkerInit={() => handleWorkerLifecycle(true)}
+              showGrid={showGrid}
+              setShowGrid={setShowGrid}
               />
           )}
           {mode === "video" && (
@@ -297,23 +301,29 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   ? "opacity-40"
                   : "opacity-100"
                 }`}
-                onClick={() => processingStatus !== "processed" && setIsPoseModalOpen((prev) => !prev)}
-                />
+                onClick={() => processingStatus !== "processed" && setIsPoseModalOpen((prev) => !prev)} />
               <Cog6ToothIcon 
                 className={`h-6 w-6 cursor-pointer text-white ${processingStatus === "processed" 
                   ? "opacity-40"
                   : "opacity-100"
                 }`}
-                onClick={() => processingStatus !== "processed" && setIsPoseSettingsModalOpen(prev => !prev)}
-                />
+                onClick={() => processingStatus !== "processed" && setIsPoseSettingsModalOpen(prev => !prev)} />
+              {mode === "live" && ( 
+                <div 
+                  className="relative"
+                  onClick={() => setShowGrid((prev) => !prev)}>
+                  <Bars2Icon className="h-6 w-6 text-white"/>
+                  <Bars2Icon className="absolute top-[0.025rem] left-[0.026rem] rotate-90 h-6 w-6 text-white"/>
+                </div> 
+              )}
             </section>
             {processingStatus === "idle" && (
               <ArrowTopRightOnSquareIcon 
                 className={`absolute bottom-2 right-1 z-30 w-8 h-8 text-white transition-transform ${(!showOrthogonalOption || orthogonalReference === undefined)
-                  ? 'scale-x-[-1] -rotate-0 opacity-50'
+                  ? '-rotate-0 opacity-50'
                   : orthogonalReference === 'horizontal'
-                  ? 'scale-x-[-1] rotate-45'
-                  : 'scale-x-[-1] -rotate-45'
+                  ? 'rotate-45'
+                  : '-rotate-45'
                 }`}
                 onClick={() => { 
                   if (!showOrthogonalOption) return;
