@@ -357,9 +357,9 @@ const Index = ({
 
         {isCameraReady && anglesToDisplay.length > 0 ? (
           <section 
-            className="absolute z-10 bottom-2 right-0 font-bold w-40 p-2"
+            className="absolute z-10 bottom-2 left-0 font-bold w-40 p-2"
             style={{
-              background: `linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
+              background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
             }}
             >{
             anglesToDisplay.map((angle, index) => (

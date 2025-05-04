@@ -301,7 +301,7 @@ const Index = ({
           axis: "x",
           intersect: false,
           includeInvisible: false,
-        },       
+        },   
         plugins: {
           zoom: {
             limits: {
@@ -360,8 +360,10 @@ const Index = ({
             position: "top",
             labels: {
               usePointStyle: true,
-              font: { size: 10 },
-              padding: 20,  
+              padding: 12,  
+              font: { 
+                size: 10,
+              },
               generateLabels: (chart) => {
                 const defaultLabels = ChartJS.defaults.plugins.legend.labels.generateLabels(chart);
         
