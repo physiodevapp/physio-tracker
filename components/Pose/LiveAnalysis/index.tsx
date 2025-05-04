@@ -373,19 +373,39 @@ const Index = ({
             !isCameraReady ? "hidden" : ""
           }`} 
           onClick={handleClickOnCanvas}/> 
-        {showGrid && (
-          <div className="pointer-events-none absolute inset-0 z-0">
-            {/* Líneas verticales: dividen en 3 columnas */}
-            <div className="absolute top-0 bottom-0 left-1/4 w-px border-l border-dotted border-white" />
-            <div className="absolute top-0 bottom-0 left-2/4 w-px border-l border-dotted border-white" />
-            <div className="absolute top-0 bottom-0 left-3/4 w-px border-l border-dotted border-white" />
 
-            {/* Líneas horizontales: dividen en 4 filas */}
-            <div className="absolute left-0 right-0 top-1/4 h-px border-t border-dotted border-white" />
-            <div className="absolute left-0 right-0 top-2/4 h-px border-t border-dotted border-white" />
-            <div className="absolute left-0 right-0 top-3/4 h-px border-t border-dotted border-white" />
+        {showGrid && (
+          <div className="pointer-events-none absolute inset-0 z-50 opacity-60">
+            {/* Líneas verticales */}
+            <div
+              className="absolute top-0 bottom-0 left-1/4 w-px"
+              style={{ background: 'linear-gradient(to bottom, transparent 0%, white 10%, white 90%, transparent 100%)' }}
+            />
+            <div
+              className="absolute top-0 bottom-0 left-2/4 w-px"
+              style={{ background: 'linear-gradient(to bottom, transparent 0%, white 10%, white 90%, transparent 100%)' }}
+            />
+            <div
+              className="absolute top-0 bottom-0 left-3/4 w-px"
+              style={{ background: 'linear-gradient(to bottom, transparent 0%, white 10%, white 90%, transparent 100%)' }}
+            />
+
+            {/* Líneas horizontales */}
+            <div
+              className="absolute left-0 right-0 top-1/4 h-px"
+              style={{ background: 'linear-gradient(to right, transparent 0%, white 10%, white 90%, transparent 100%)' }}
+            />
+            <div
+              className="absolute left-0 right-0 top-2/4 h-px"
+              style={{ background: 'linear-gradient(to right, transparent 0%, white 10%, white 90%, transparent 100%)' }}
+            />
+            <div
+              className="absolute left-0 right-0 top-3/4 h-px"
+              style={{ background: 'linear-gradient(to right, transparent 0%, white 10%, white 90%, transparent 100%)' }}
+            />
           </div>
         )}
+
 
         {isCameraReady && anglesToDisplay.length > 0 ? (
           <section 

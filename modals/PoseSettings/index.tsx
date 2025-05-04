@@ -129,8 +129,7 @@ const Index = ({
               htmlFor='points-per-second'
               className={`${
                 !videoMode ? "text-white/60" : "text-white"
-              }`}
-              >
+              }`} >
               Δ Angle<span className='align-sub uppercase text-[0.6rem]'> Min</span>: {minAngleDiff}º
             </label>
             <input
@@ -141,8 +140,7 @@ const Index = ({
               max="5"
               step="1"              
               onChange={(e) => setMinAngleDiff(Number(e.target.value))}
-              disabled={!videoMode}
-              />
+              disabled={!videoMode} />
           </div>
         </div>
       </form>

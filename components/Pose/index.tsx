@@ -219,6 +219,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   setIsFrozen(false);
 
                   handleWorkerLifecycle(false);
+
+                  setShowGrid(false);
                   
                   setMode("video");
                 }}/> ) : (
@@ -308,30 +310,35 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   : "opacity-100"
                 }`}
                 onClick={() => processingStatus !== "processed" && setIsPoseSettingsModalOpen(prev => !prev)} />
-              {mode === "live" && ( 
-                <div 
-                  className="relative"
-                  onClick={() => setShowGrid((prev) => !prev)}>
-                  <Bars2Icon className="h-6 w-6 text-white"/>
-                  <Bars2Icon className="absolute top-[0.025rem] left-[0.026rem] rotate-90 h-6 w-6 text-white"/>
-                </div> 
-              )}
             </section>
             {processingStatus === "idle" && (
-              <ArrowTopRightOnSquareIcon 
-                className={`absolute bottom-2 right-1 z-30 w-8 h-8 text-white transition-transform ${(!showOrthogonalOption || orthogonalReference === undefined)
-                  ? '-rotate-0 opacity-50'
-                  : orthogonalReference === 'horizontal'
-                  ? 'rotate-45'
-                  : '-rotate-45'
-                }`}
-                onClick={() => { 
-                  if (!showOrthogonalOption) return;
-                            
-                  const next: OrthogonalReference = orthogonalReference === "vertical" ? "horizontal" : orthogonalReference === "horizontal" ? undefined : "vertical";
+              <div className="absolute bottom-2 right-1 z-30 flex flex-row-reverse items-center gap-2">
+                <ArrowTopRightOnSquareIcon 
+                  className={`w-8 h-8 text-white transition-transform ${(!showOrthogonalOption || orthogonalReference === undefined)
+                    ? '-rotate-0 opacity-50'
+                    : orthogonalReference === 'horizontal'
+                    ? 'rotate-45'
+                    : '-rotate-45'
+                  }`}
+                  onClick={() => { 
+                    if (!showOrthogonalOption) return;
+                              
+                    const next: OrthogonalReference = orthogonalReference === "vertical" ? "horizontal" : orthogonalReference === "horizontal" ? undefined : "vertical";
 
-                  setOrthogonalReference(next);
-                }} /> 
+                    setOrthogonalReference(next);
+                  }} />
+                {mode === "live" && ( 
+                  <div 
+                    className={`relative ${showGrid
+                      ? "opacity-100"
+                      : "opacity-40"
+                    }`}
+                    onClick={() => setShowGrid((prev) => !prev)}>
+                    <Bars2Icon className="h-8 w-8 text-white"/>
+                    <Bars2Icon className="absolute top-[0.025rem] left-[0.026rem] rotate-90 h-8 w-8 text-white"/>
+                  </div> 
+                )}
+              </div>
             )}
           </>
         )}
