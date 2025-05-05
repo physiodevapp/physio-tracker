@@ -53,7 +53,8 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
     greenHueLower, greenHueUpper,
     blueHueLower, blueHueUpper,
     minSaturation, minValue,
-    minVisibleAreaFactor 
+    minVisibleAreaFactor,
+    minContourArea,
   } = settings.color;
   
   const webcamRef = useRef<Webcam>(null);
@@ -104,24 +105,30 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   } => {
     const contours = new cvInstance!.MatVector();
     const hierarchy = new cvInstance!.Mat();
-    cvInstance!.findContours(mask, contours, hierarchy, cvInstance!.RETR_EXTERNAL, cvInstance!.CHAIN_APPROX_SIMPLE);
+    cvInstance!.findContours(mask, contours, hierarchy, cvInstance!.RETR_TREE, cvInstance!.CHAIN_APPROX_SIMPLE);
 
     let totalArea = 0;
     const contourCount = contours.size();
+    let validContours = 0;
     for (let i = 0; i < contourCount; i++) {
       const contour = contours.get(i);
       const area = cvInstance!.contourArea(contour);
-      totalArea += area;
+    
+      if (area >= minContourArea) {
+        totalArea += area;
+        validContours++; // Solo cuenta los contornos significativos
+      }
+    
       contour.delete();
     }
-    const averageArea = contourCount > 0 ? totalArea / contourCount : 0;
+    const averageArea = validContours > 0 ? totalArea / validContours : 0;
     const dispersionIndex = colorPixels > 0 ? totalArea / colorPixels : 0;
 
     contours.delete();
     hierarchy.delete();
 
     return { 
-      count: contourCount, 
+      count: validContours, 
       totalArea, 
       averageArea, 
       dispersionIndex 
@@ -195,7 +202,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
 
       const contours = new cvInstance.MatVector();
       const hierarchy = new cvInstance.Mat();
-      cvInstance.findContours(edges, contours, hierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+      cvInstance.findContours(edges, contours, hierarchy, cvInstance.RETR_TREE, cvInstance.CHAIN_APPROX_SIMPLE);
 
       let biggest = null;
       let maxArea = 0;
@@ -352,7 +359,7 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
   
       const contours = new cvInstance.MatVector();
       const hierarchy = new cvInstance.Mat();
-      cvInstance.findContours(edges, contours, hierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+      cvInstance.findContours(edges, contours, hierarchy, cvInstance.RETR_TREE, cvInstance.CHAIN_APPROX_SIMPLE);
   
       let biggest = null;
       let maxArea = 0;
@@ -498,21 +505,21 @@ const Index: React.FC<IndexProps> = ({ handleMainMenu, isMainMenuOpen }) => {
 
       const redContours = new cvInstance.MatVector();
       const redHierarchy = new cvInstance.Mat();
-      cvInstance.findContours(redMask, redContours, redHierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+      cvInstance.findContours(redMask, redContours, redHierarchy, cvInstance.RETR_TREE, cvInstance.CHAIN_APPROX_SIMPLE);
       cvInstance.drawContours(resultImage, redContours, -1, new cvInstance.Scalar(255, 0, 0, 255), 1);
       redContours.delete();
       redHierarchy.delete();
   
       const greenContours = new cvInstance.MatVector();
       const greenHierarchy = new cvInstance.Mat();
-      cvInstance.findContours(greenMask, greenContours, greenHierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+      cvInstance.findContours(greenMask, greenContours, greenHierarchy, cvInstance.RETR_TREE, cvInstance.CHAIN_APPROX_SIMPLE);
       cvInstance.drawContours(resultImage, greenContours, -1, new cvInstance.Scalar(0, 255, 0, 255), 1);
       greenContours.delete();
       greenHierarchy.delete();
   
       const blueContours = new cvInstance.MatVector();
       const blueHierarchy = new cvInstance.Mat();
-      cvInstance.findContours(blueMask, blueContours, blueHierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+      cvInstance.findContours(blueMask, blueContours, blueHierarchy, cvInstance.RETR_TREE, cvInstance.CHAIN_APPROX_SIMPLE);
       cvInstance.drawContours(resultImage, blueContours, -1, new cvInstance.Scalar(0, 0, 255, 255), 1);
       blueContours.delete();
       blueHierarchy.delete();
