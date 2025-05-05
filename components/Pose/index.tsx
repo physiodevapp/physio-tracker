@@ -259,16 +259,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 {videoLoaded && processingStatus !== "processed" && ( 
                   <CubeTransparentIcon
                     className="w-6 h-6 text-white"
-                    onClick={() => {
-                      if (selectedJoints.length) {
-                        if (videoAnalysisRef.current?.isVideoLoaded()) {
-                          videoAnalysisRef.current.handleVideoProcessing();
-                        }
-                      }
-                      else {
-                        setIsPoseModalOpen(true);
-                      }
-                    }} /> 
+                    onClick={videoAnalysisRef.current?.handleVideoProcessing} /> 
                 )}
                 {processingStatus === "processed" && (
                   <DocumentArrowDownIcon
@@ -299,11 +290,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 text-[#5dadec] dark:text-white bg-white/80 dark:bg-black/80 rounded-full p-[0.1rem]"/>
               </div>
               <UserIcon 
-                className={`h-6 w-6 cursor-pointer text-white ${processingStatus === "processed" 
-                  ? "opacity-40"
-                  : "opacity-100"
-                }`}
-                onClick={() => processingStatus !== "processed" && setIsPoseModalOpen((prev) => !prev)} />
+                className={`h-6 w-6 cursor-pointer text-white`}
+                onClick={() => setIsPoseModalOpen((prev) => !prev)} />
               <Cog6ToothIcon 
                 className={`h-6 w-6 cursor-pointer text-white ${processingStatus === "processed" 
                   ? "opacity-40"
