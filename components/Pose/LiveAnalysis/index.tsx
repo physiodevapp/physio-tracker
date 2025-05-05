@@ -10,7 +10,7 @@ import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
 import { useSettings } from "@/providers/Settings";
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from "@/utils/draw";
-import { updateMultipleJoints } from "@/utils/pose";
+import { excludedKeypoints, updateMultipleJoints } from "@/utils/pose";
 import { keypointPairs } from '@/utils/pose';
 import { jointConfigMap } from '@/utils/joint';
 import { CloudArrowDownIcon, ArrowPathIcon } from "@heroicons/react/24/solid";
@@ -85,18 +85,6 @@ const Index = ({
     isDetectorReady, 
   } = usePoseDetector();
   const prevPoseModel = useRef<poseDetection.SupportedModels>(detectorModel);
-
-  const excludedParts = [
-    'left_eye', 'right_eye',
-    'left_eye_inner', 'right_eye_inner', 
-    'left_eye_outer', 'right_eye_outer',
-    'left_ear', 'right_ear',
-    'nose', 
-    'mouth_left', 'mouth_right',
-    'left_thumb', 'right_thumb',
-    'left_index', 'right_index', 
-    'left_pinky', 'right_pinky', 
-  ];
 
   const handleClickOnCanvas = () => { 
     if (isPoseSettingsModalOpen || isMainMenuOpen) {
@@ -255,11 +243,10 @@ const Index = ({
               ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
               // Filtrar keypoints con score mayor a scoreThreshold
-              const keypoints = poses[0].keypoints.filter(
-                (kp) => 
-                  kp.score && 
-                  kp.score > minPoseScore &&
-                  !excludedParts.includes(kp.name!)
+              const keypoints = poses[0].keypoints.filter( kp => 
+                kp.score && 
+                kp.score > minPoseScore &&
+                !excludedKeypoints.includes(kp.name!)
               );
 
               // Dibujar keypoints en el canvas

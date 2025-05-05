@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useDevice } from "@/providers/Device";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => void;
@@ -10,6 +11,7 @@ interface BeforeInstallPromptEvent extends Event {
 export default function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
+  const deviceSize = useDevice();
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -43,7 +45,7 @@ export default function PWAInstallPrompt() {
 
   return (
     <AnimatePresence>
-      {showPrompt && (
+      {showPrompt && deviceSize === "mobile" && (
         <motion.div
           className="fixed bottom-4 left-4 right-4 z-50 dark:bg-gray-800 p-4 rounded-lg shadow-xl flex justify-between items-center gap-2 select-none"
           initial={{ y: "100%", opacity: 0 }}

@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { useSwipeable } from 'react-swipeable';
-import MainMenu from "@/components/MainMenu";
-import Start from "@/components/Start";
 import { MainMenuOption } from '@/interfaces/menu';
 import { useDevice } from '@/providers/Device';
+import Start from "@/components/Start";
+import MainMenu from "@/components/MainMenu";
+import LargeScreenWarning from "@/components/LargeScreenWarning";
 
 const Pose = dynamic(() => import('../components/Pose').then(mod => mod.default), { ssr: false });
 const Force = dynamic(() => import('../components/Force').then(mod => mod.default), { ssr: false });
@@ -63,7 +64,7 @@ export default function Home() {
 
   if (deviceSize !== "mobile" ) {
     return (
-      <p>Not a mobile</p>
+      <LargeScreenWarning/>
     )
   }
 

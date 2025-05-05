@@ -11,6 +11,18 @@ export interface VideoFrame {
   videoHeight: number;
 }
 
+export const excludedKeypoints = [
+  'left_eye', 'right_eye',
+  'left_eye_inner', 'right_eye_inner', 
+  'left_eye_outer', 'right_eye_outer',
+  'left_ear', 'right_ear',
+  'nose', 
+  'mouth_left', 'mouth_right',
+  'left_thumb', 'right_thumb',
+  'left_index', 'right_index', 
+  'left_pinky', 'right_pinky', 
+];
+
 export  const keypointPairs: [CanvasKeypointName, CanvasKeypointName][] = [
   [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.RIGHT_SHOULDER],
   [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.LEFT_ELBOW],
@@ -41,6 +53,7 @@ export const updateMultipleJoints = ({
   jointAngleHistorySize,
   ignoreHistorySize = false,
   setAnglesToDisplay,
+  mode = 'live',
 }: {
   keypoints: poseDetection.Keypoint[];
   selectedJoints: CanvasKeypointName[];
@@ -52,11 +65,19 @@ export const updateMultipleJoints = ({
   jointAngleHistorySize: number;
   ignoreHistorySize?: boolean;
   setAnglesToDisplay?: React.Dispatch<React.SetStateAction<string[]>>;
+  mode?: 'live' | 'video';
 }): Promise<JointDataMap> => {
   return new Promise((resolve) => {
-    if (!selectedJoints.length || !jointWorker) return resolve({} as JointDataMap);
+    if (!jointWorker) return resolve({} as JointDataMap);
 
-    const jointDataMap = selectedJoints.reduce((acc, jointName) => {
+    const jointNamesToUse =
+      mode === 'video'
+        ? (Object.keys(jointConfigMap) as CanvasKeypointName[]) // 👈 usar todas las disponibles
+        : selectedJoints;
+
+    if (!jointNamesToUse.length) return resolve({} as JointDataMap);
+
+    const jointDataMap = jointNamesToUse.reduce((acc, jointName) => {
       const data = jointDataRef.current[jointName];
       acc[jointName] = {
         angleHistory: data?.angleHistory ?? [],
@@ -98,7 +119,7 @@ export const updateMultipleJoints = ({
 
     jointWorker.postMessage({
       keypoints,
-      jointNames: selectedJoints,
+      jointNames: jointNamesToUse,
       jointConfigMap,
       jointDataMap,
       angleHistorySize: ignoreHistorySize ? 0 : jointAngleHistorySize,

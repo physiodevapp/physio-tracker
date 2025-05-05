@@ -7,7 +7,7 @@ import * as tf from '@tensorflow/tfjs-core';
 import { CanvasKeypointName, JointDataMap, Kinematics } from '@/interfaces/pose';
 import { usePoseDetector } from '@/providers/PoseDetector';
 import { OrthogonalReference, useSettings } from '@/providers/Settings';
-import { filterRepresentativeFrames, updateMultipleJoints, VideoFrame } from '@/utils/pose';
+import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame } from '@/utils/pose';
 import { formatJointName, jointConfigMap } from '@/utils/joint';
 import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/utils/draw';
@@ -97,6 +97,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     pointsPerSecond, 
     minAngleDiff,
   } = settings.pose;
+  const selectedJointsRef = useRef(selectedJoints);
 
   const [processingProgress, setProcessingProgress] = useState<number>(0);
 
@@ -188,7 +189,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     minPoseScore: number;
     i: number;
     steps: number;
-    allFramesDataRef: React.MutableRefObject<VideoFrame[]>;
+    allFramesDataRef: React.RefObject<VideoFrame[]>;
     setProcessingProgress: (p: number) => void;
   }) => {
     let poses: poseDetection.Pose[] = [];
@@ -236,9 +237,10 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       // Dibujamos directamente el video en el frame
       frameCtx.drawImage(video, 0, 0, frameCanvas.width, frameCanvas.height);
 
-  
       const keypoints = poses[0].keypoints.filter(kp =>
-        kp.score && kp.score > minPoseScore
+        kp.score && 
+        kp.score > minPoseScore &&
+        !excludedKeypoints.includes(kp.name!)
       );
   
       allFramesDataRef.current.push({
@@ -335,6 +337,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           formatJointName: (jointName) => jointName,
           jointAngleHistorySize: angularHistorySize,
           ignoreHistorySize: true,
+          mode: "video",
         });
   
         frame.jointData = structuredClone(updatedData);
@@ -482,7 +485,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     const nearestFrame = findNearestFrame(allFramesDataRef.current, newValue.x);
     nearestFrameRef.current = nearestFrame;
 
-    updateDisplayedAngles(nearestFrame, selectedJoints);
+    updateDisplayedAngles(nearestFrame, selectedJointsRef.current);
   
     if (!isPlayingUpdateRef.current) {
       const index = allFramesDataRef.current.findIndex(f => f === nearestFrame);
@@ -537,7 +540,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       const frame = allFramesDataRef.current[i];
       nearestFrameRef.current = frame;
 
-      updateDisplayedAngles(frame, selectedJoints);
+      updateDisplayedAngles(frame, selectedJointsRef.current);
   
       if (!isPlayingRef.current) {
         currentFrameIndexRef.current = i;
@@ -689,6 +692,14 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     handleNewVideo,
   }));
 
+  useEffect(() => {
+    selectedJointsRef.current = selectedJoints;
+
+    if (nearestFrameRef.current) {
+      updateDisplayedAngles(nearestFrameRef.current, selectedJointsRef.current);
+    }
+  }, [selectedJoints]);
+
   return (
     <>
       {fileInputPortal}
@@ -725,13 +736,11 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         <div className="relative flex-1 w-full bg-black flex justify-center items-center" >
           <video 
             ref={videoRef} 
-            className={`${
-              !videoLoaded || 
-              (processingStatus === 'processing' || processingStatus === 'cancelRequested') || 
-              processingStatus === "processed"
+            className={
+              !videoLoaded || ['processing', 'cancelRequested', 'processed'].includes(processingStatus)
                 ? 'hidden'
-                : ''
-            }`} 
+                : 'w-full h-dvh object-cover'
+            } 
             muted />
           <canvas ref={inputCanvasRef} className="hidden" />
           <canvas
