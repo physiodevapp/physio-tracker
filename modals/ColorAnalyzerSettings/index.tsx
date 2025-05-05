@@ -18,6 +18,7 @@ const Index: React.FC = () => {
     setMinSaturation,
     setMinValue,
     setMinVisibleAreaFactor,
+    setMinContourArea,
     resetColorSettings,
   } = useSettings();
   const {
@@ -27,6 +28,7 @@ const Index: React.FC = () => {
     blueHueLower, blueHueUpper,
     minSaturation, minValue,
     minVisibleAreaFactor,
+    minContourArea,
   } = settings.color
 
   return (
@@ -58,8 +60,7 @@ const Index: React.FC = () => {
                 onChange={(e) =>
                   setRedHueLower1(parseInt(e.target.value, 10))
                 }
-                className="w-full slider-color"
-              />
+                className="w-full slider-color" />
             </div>
             <div className="flex-1">
               <label className="block text-sm">
@@ -73,8 +74,7 @@ const Index: React.FC = () => {
                 onChange={(e) =>
                   setRedHueUpper1(parseInt(e.target.value, 10))
                 }
-                className="w-full slider-color"
-              />
+                className="w-full slider-color" />
             </div>
           </div>
           <div className="flex justify-around gap-6">
@@ -90,8 +90,7 @@ const Index: React.FC = () => {
                 onChange={(e) =>
                   setRedHueLower2(parseInt(e.target.value, 10))
                 }
-                className="w-full slider-color"
-              />
+                className="w-full slider-color" />
             </div>
             <div className="flex-1">
               <label className="block text-sm">
@@ -105,8 +104,7 @@ const Index: React.FC = () => {
                 onChange={(e) =>
                   setRedHueUpper2(parseInt(e.target.value, 10))
                 }
-                className="w-full slider-color"
-              />
+                className="w-full slider-color" />
             </div>
           </div>
         </div>
@@ -124,8 +122,7 @@ const Index: React.FC = () => {
               onChange={(e) =>
                 setGreenHueLower(parseInt(e.target.value, 10))
               }
-              className="w-full slider-color"
-            />
+              className="w-full slider-color" />
           </div>
           <div className="flex-1">
             <label className="block text-sm">
@@ -139,8 +136,7 @@ const Index: React.FC = () => {
               onChange={(e) =>
                 setGreenHueUpper(parseInt(e.target.value, 10))
               }
-              className="w-full slider-color"
-            />
+              className="w-full slider-color" />
           </div>
         </div>
         {/* Parámetros para Azul */}
@@ -157,8 +153,7 @@ const Index: React.FC = () => {
               onChange={(e) =>
                 setBlueHueLower(parseInt(e.target.value, 10))
               }
-              className="w-full slider-color"
-            />
+              className="w-full slider-color" />
           </div>
           <div className="flex-1">
             <label className="block text-sm">
@@ -172,12 +167,11 @@ const Index: React.FC = () => {
               onChange={(e) =>
                 setBlueHueUpper(parseInt(e.target.value, 10))
               }
-              className="w-full slider-color"
-            />
+              className="w-full slider-color" />
           </div>
         </div>
         {/* Umbrales comunes */}
-        <div className="flex justify-around gap-6 p-2">
+        <div className="flex justify-around gap-6 px-2 py-2 pb-4 border border-white rounded-md">
           <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm">
               Min Sat: {minSaturation}
@@ -190,8 +184,7 @@ const Index: React.FC = () => {
               onChange={(e) =>
                 setMinSaturation(parseInt(e.target.value, 10))
               }
-              className="w-full"
-            />
+              className="w-full" />
           </div>
           <div className="flex-1 flex flex-col gap-2">
             <label className="block text-sm">
@@ -205,8 +198,7 @@ const Index: React.FC = () => {
               onChange={(e) =>
                 setMinValue(parseInt(e.target.value, 10))
               }
-              className="w-full"
-            />
+              className="w-full" />
           </div>
         </div>
         {/* Deteccion de imagen */}
@@ -225,8 +217,23 @@ const Index: React.FC = () => {
               onChange={(e) =>
                 setMinVisibleAreaFactor(parseFloat(e.target.value))
               }
-              className="w-full"
-            />
+              className="w-full" />
+          </div>
+          <div className="flex-1 flex flex-col gap-2">
+            <label className="block text-sm">
+              Countour <span className="align-sub uppercase text-[0.6rem]"> Min</span>:{" "}
+              {minContourArea} px²
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="500"
+              step="1"
+              value={minContourArea}
+              onChange={(e) =>
+                setMinContourArea(parseInt(e.target.value))
+              }
+              className="w-full" />
           </div>
         </div>
       </div>

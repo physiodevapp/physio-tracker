@@ -140,7 +140,7 @@ export default function Home() {
         })()}
       </AnimatePresence>
 
-      <MainMenu isMainMenuOpen={isMainMenuOpen} navigateTo={navigateTo} currentPage={page} />
+      <MainMenu handleMainMenu={handleMainMenu} isMainMenuOpen={isMainMenuOpen} navigateTo={navigateTo} currentPage={page} />
     </main>
   );
 }

@@ -28,6 +28,7 @@ interface ColorSettings {
   minSaturation: number;
   minValue: number;
   minVisibleAreaFactor: number;
+  minContourArea: number;
 }
 
 // Agregamos un nuevo grupo force con variables opcionales
@@ -88,6 +89,7 @@ interface SettingsContextProps {
   setMinSaturation: (value: number) => void;
   setMinValue: (value: number) => void;
   setMinVisibleAreaFactor: (value: number) => void;
+  setMinContourArea: (value: number) => void;
   // Setters para force (todos opcionales)
   setMovingAverageWindow: (value: number) => void;
   setMinAvgAmplitude: (value: number) => void;
@@ -146,6 +148,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       minSaturation: 70,
       minValue: 50,
       minVisibleAreaFactor: 0.8,
+      minContourArea: 100,              // pixels
     },
     force: {
       movingAverageWindow: 3_000,       // 3 segundos por defecto (en ms)
@@ -225,6 +228,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const setMinSaturation = (value: number) => setSettings(prev => ({ ...prev, color: { ...prev.color, minSaturation: value } }));
   const setMinValue = (value: number) => setSettings(prev => ({ ...prev, color: { ...prev.color, minValue: value } }));
   const setMinVisibleAreaFactor = (value: number) => setSettings(prev => ({ ...prev, color: { ...prev.color, minVisibleAreaFactor: value } }));
+  const setMinContourArea  = (value: number) => setSettings(prev => ({ ...prev, color: { ...prev.color, minContourArea: value } }));
   const resetColorSettings = () => {
     setSettings(prev => ({ ...prev, color: defaultConfig.color }));
   };
@@ -302,6 +306,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setMinSaturation,
         setMinValue,
         setMinVisibleAreaFactor,
+        setMinContourArea,
         resetColorSettings,
         setMovingAverageWindow,
         setMinAvgAmplitude,
