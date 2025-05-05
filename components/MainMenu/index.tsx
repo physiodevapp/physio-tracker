@@ -7,18 +7,36 @@ import {
   HomeIcon,
 } from "@heroicons/react/24/solid";
 import { motion } from "framer-motion";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 interface IndexProps {
   isMainMenuOpen: boolean;
+  handleMainMenu: (visibility?: boolean) => void;
   currentPage: MainMenuOption;
   navigateTo: (path: MainMenuOption) => void;
 }
 
-const Index: React.FC<IndexProps> = ({ isMainMenuOpen, navigateTo, currentPage }) => {
+const Index: React.FC<IndexProps> = ({ 
+  isMainMenuOpen, 
+  handleMainMenu,
+  navigateTo, 
+  currentPage 
+}) => {
   const handleClick = (page: MainMenuOption) => {
+    goingToPage.current = page;
+
     navigateTo(page);
   };
+
+  const goingToPage = useRef<MainMenuOption | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (goingToPage.current === "home") {
+        handleMainMenu(false);
+      }
+    };
+  }, []);
 
   return (
     <motion.div
