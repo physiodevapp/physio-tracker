@@ -54,17 +54,26 @@ const customCrosshairPlugin = (isActive: boolean = true) => ({
   afterDraw(chart: ChartJS & { _customCrosshairX?: number }) {
     if (!isActive) return;
 
-    const x = chart._customCrosshairX;
-    if (!x) return;
+    const xPixel = chart._customCrosshairX;
+    if (xPixel == null) return;
+
+    const { ctx, chartArea, scales } = chart;
+    const xScale = scales["x"];
+
+    // ⚠️ Convertimos pixel a valor del eje X
+    const xValue = xScale.getValueForPixel(xPixel);
+    if (xValue === undefined || xValue < xScale.min || xValue > xScale.max) return;
+
+    // ✅ Verificamos si está dentro del rango visible actual
+    if (xValue < xScale.min || xValue > xScale.max) return;
 
     // Línea vertical roja
-    const { ctx, chartArea } = chart;
     ctx.save();
     ctx.strokeStyle = '#F66';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(x, chartArea.top);
-    ctx.lineTo(x, chartArea.bottom);
+    ctx.moveTo(xPixel, chartArea.top);
+    ctx.lineTo(xPixel, chartArea.bottom);
     ctx.stroke();
     ctx.restore();
   },
@@ -87,9 +96,8 @@ const Index: React.FC<IndexProps> = ({
   const { 
     cycles, 
     setCycles,
-    // liveCycles,
     setLiveCycles,
-  } = useBluetooth(); // useContext(BluetoothContext);
+  } = useBluetooth();
 
   
   // Mapeamos los datos para adaptarlos a la función lttbDownsample
