@@ -399,6 +399,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       nearestFrameRef.current = firstFrame;
       currentFrameIndexRef.current = 0;
       setVerticalLineValue(firstFrame.videoTime * 1_000);
+
+      isPlayingRef.current = false;
+      setIsPlaying(false);
       onPause?.(true);
     }
   };
@@ -407,6 +410,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     allFramesDataRef.current = [];
     setRecordedPositions(undefined);
 
+    isPlayingRef.current = true;
+    setIsPlaying(true);
     onPause?.(false);
 
     if (processingStatus === "processed") {
@@ -473,6 +478,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     x: number;
     values: { label: string; y: number }[];
   }) => {
+    if (isPlayingUpdateRef.current) return;
+
     if (isPlayingRef.current) {
       // 🔴 Detener animación
       isPlayingRef.current = false;
@@ -569,7 +576,10 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           }
         }
   
+        isPlayingRef.current = false;
+        setIsPlaying(false);
         onPause?.(true);
+
         return;
       }
   
@@ -598,8 +608,10 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     }
   
     currentFrameIndexRef.current = 0;
+    
     isPlayingRef.current = false;
     setIsPlaying(false);
+    onPause?.(true);
   }, []);
 
   const updateDisplayedAngles = (frame: VideoFrame, selectedJoints: CanvasKeypointName[]) => {
@@ -751,6 +763,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               if (isPlaying) {
                 isPlayingRef.current = false;
                 setIsPlaying(false);
+                onPause?.(true);
               }
               else {
                 playFrames();
@@ -759,7 +772,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             className="h-full"
             style={{
               display: processingStatus === "processed" ? 'block' : 'none',
-              aspectRatio, // aquí sin comillas ni template string
+              aspectRatio,
               maxHeight: '50dvh',
               objectFit: 'contain', // Opcional: para que el contenido no se deforme
             }} />
@@ -902,3 +915,27 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 Index.displayName = 'VideoAnalysis';
 
 export default Index;
+
+// IMPORTANTE:
+// No centralizar esta lógica:
+//
+// isPlayingRef.current = true;
+// setIsPlaying(true);
+// onPause?.(false);
+//
+// ... en un useEffect del tipo:
+// useEffect(() => {
+//   isPlayingRef.current = isPlaying;
+//   onPause?.(!isPlaying);
+// }, [isPlaying])
+//
+// Esa solución reactiva es asíncrona y se ejecuta *después* del render,
+// por lo que `isPlayingRef.current` no se actualiza a tiempo al llamar a `playFrames()`,
+// provocando que el bucle de reproducción se interrumpa inmediatamente.
+//
+// En su lugar, usamos esta secuencia directa y síncrona para garantizar
+// que el ref y el estado estén sincronizados en el mismo ciclo:
+// - actualizamos `isPlayingRef.current`
+// - actualizamos el estado con `setIsPlaying`
+// - notificamos con `onPause(...)` si es necesario
+
