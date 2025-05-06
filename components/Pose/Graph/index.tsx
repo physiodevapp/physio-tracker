@@ -100,6 +100,8 @@ const customCrosshairPlugin = ({
         Math.abs(curr.timestamp - xMs) < Math.abs(prev.timestamp - xMs) ? curr : prev,
       );
 
+      if (nearest.angle < yScale.min || nearest.angle > yScale.max) return;
+
       const yPixel = yScale.getPixelForValue(nearest.angle);
 
       // Línea horizontal discontinua
