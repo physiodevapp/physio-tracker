@@ -519,7 +519,7 @@ const Index = ({
           },
         },
       }
-    }),[datasets]);
+    }),[JSON.stringify(datasets)]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
