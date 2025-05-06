@@ -51,7 +51,6 @@ export const updateMultipleJoints = ({
   orthogonalReference,
   formatJointName,
   jointAngleHistorySize,
-  ignoreHistorySize = false,
   setAnglesToDisplay,
   mode = 'live',
 }: {
@@ -122,7 +121,7 @@ export const updateMultipleJoints = ({
       jointNames: jointNamesToUse,
       jointConfigMap,
       jointDataMap,
-      angleHistorySize: ignoreHistorySize ? 0 : jointAngleHistorySize,
+      angleHistorySize: mode === "video" ? 0 : jointAngleHistorySize,
       orthogonalReference,
     });
   });

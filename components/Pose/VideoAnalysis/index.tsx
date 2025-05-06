@@ -336,7 +336,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           orthogonalReference,
           formatJointName: (jointName) => jointName,
           jointAngleHistorySize: angularHistorySize,
-          ignoreHistorySize: true,
           mode: "video",
         });
   

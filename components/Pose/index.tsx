@@ -302,14 +302,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             {processingStatus === "idle" && (
               <div className="absolute bottom-2 right-1 z-30 flex flex-row-reverse items-center gap-2">
                 <ArrowTopRightOnSquareIcon 
-                  className={`w-8 h-8 text-white transition-transform ${(!showOrthogonalOption || orthogonalReference === undefined)
+                  className={`w-8 h-8 text-white transition-transform ${((!showOrthogonalOption && mode === "live") || orthogonalReference === undefined)
                     ? '-rotate-0 opacity-50'
                     : orthogonalReference === 'horizontal'
                     ? 'rotate-45'
                     : '-rotate-45'
                   }`}
                   onClick={() => { 
-                    if (!showOrthogonalOption) return;
+                    if (!showOrthogonalOption && mode === "live") return;
                               
                     const next: OrthogonalReference = orthogonalReference === "vertical" ? "horizontal" : orthogonalReference === "horizontal" ? undefined : "vertical";
 
