@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { MainMenuOption } from "@/interfaces/menu";
 import Image from "next/image";
 import { HeartIcon } from "@heroicons/react/24/solid";
@@ -17,11 +17,49 @@ const Index: React.FC<IndexProps> = ({ onSelect }) => {
     { label: "Balance", value: "balance" },
   ];
 
+  const [paddingTop, setPaddingTop] = useState(96);
+  const [paddingBottom, setPaddingBottom] = useState(96);
+
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const aspectRatio = 1024 / 1536; // el ratio real de tu imagen
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+
+    const imageHeight = screenWidth / aspectRatio;
+    const blackFranja = Math.max(0, (screenHeight - imageHeight) / 2);
+    console.log('blackFranja ', blackFranja)
+
+    // Añadimos 16px extra para que el degradado tape también el borde visible
+    setPaddingTop(blackFranja + 80);
+    setPaddingBottom(blackFranja + 80);
+
+    setIsReady(true);
+  }, []);
+
+  if (!isReady) {
+    return (
+      <div className="flex items-center justify-center gap-2 h-dvh bg-black select-none">
+        <Image
+          src="/android-chrome-192x192.png"
+          alt="App Icon"
+          width={32}
+          height={32}
+          // priority // si quieres que no se haga lazy load
+          className="w-8 h-8 animate-pulse" />
+        <p className="text-4xl font-bold">PhysiQ</p>
+      </div>
+    );
+  }  
+
   return (
-    <div className="relative w-full h-dvh overflow-hidden text-white bg-black bg-[url('/start-menu.png')] bg-cover bg-center bg-no-repeat">
+    <div className="relative w-full h-dvh overflow-hidden text-white bg-black bg-[url('/start-menu.png')] bg-contain bg-center bg-no-repeat">
       
       {/* Header fader */}
-      <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-black/100 to-transparent z-10 flex justify-center items-center">
+      <div 
+        className="absolute top-0 left-0 w-full bg-gradient-to-b from-black/100 via-black to-transparent z-10 flex justify-center items-center"
+        style={{height: paddingTop}}>
         <div className="flex items-center gap-2 select-none">
           <Image
             src="/android-chrome-192x192.png"
@@ -35,7 +73,9 @@ const Index: React.FC<IndexProps> = ({ onSelect }) => {
       </div>
 
       {/* Footer fader */}
-      <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-black/100 to-transparent z-10 flex justify-center items-center pointer-events-none">
+      <div 
+        className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/100 via-black to-transparent z-10 flex justify-center items-center pointer-events-none"
+        style={{height: paddingBottom}}>
         <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-white flex items-center gap-1 z-20 pointer-events-auto select-none">
           Made with <span><HeartIcon className="h-4 text-white"/></span> by 
           <a

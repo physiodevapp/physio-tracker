@@ -81,6 +81,9 @@ function customCrosshairPlugin(isActive: boolean = true) {
         const closestPoint = data.reduce((prev, curr) =>
           Math.abs(curr.x - xValue!) < Math.abs(prev.x - xValue!) ? curr : prev
         );
+
+        // ⚠️ Ignorar si y está fuera del rango visible
+        if (closestPoint.y < yScale.min || closestPoint.y > yScale.max) return;
     
         const yPixel = yScale.getPixelForValue(closestPoint.y);
 
