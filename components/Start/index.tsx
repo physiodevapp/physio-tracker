@@ -32,8 +32,8 @@ const Index: React.FC<IndexProps> = ({ onSelect }) => {
     console.log('blackFranja ', blackFranja)
 
     // Añadimos 16px extra para que el degradado tape también el borde visible
-    setPaddingTop(blackFranja + 80);
-    setPaddingBottom(blackFranja + 80);
+    setPaddingTop(blackFranja + 100);
+    setPaddingBottom(blackFranja + 100);
 
     setIsReady(true);
   }, []);
