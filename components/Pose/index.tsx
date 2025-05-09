@@ -1,5 +1,5 @@
 "use client";
-// Parent component
+// Pose component
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as poseDetection from "@tensorflow-models/pose-detection";

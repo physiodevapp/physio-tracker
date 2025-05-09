@@ -75,11 +75,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
   const [videoLoaded, setVideoLoaded] = useState(false);
 
-  const [trimStart, setTrimStart] = useState(0);
-  const [trimEnd, setTrimEnd] = useState(0);
-  const [tempTrim, setTempTrim] = useState<[number, number]>([0, 0]);
-  const trimStartRef = useRef(trimStart);
-  const trimEndRef = useRef(trimEnd);
+  const [trimmerRange, setTrimmerRange] = useState<{start: number, end: number}>({start: 0, end: 0});
+  const trimmerRangeRef = useRef<{start: number, end: number}>(trimmerRange);
+  const [trimmerReady, setTrimmerReady] = useState(false);
 
   const processingCancelledRef = useRef(false);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('idle');
@@ -298,14 +296,14 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
   
-    const selectedDuration = trimEndRef.current - trimStartRef.current;
+    const selectedDuration = trimmerRangeRef.current.end - trimmerRangeRef.current.start;
     const desiredPoints = Math.floor(selectedDuration * pointsPerSecond);
     const frameInterval = smartFrameInterval(selectedDuration, desiredPoints);
 
     frameIntervalRef.current = frameInterval;
 
-    const startFrame = Math.floor(trimStartRef.current / frameInterval);
-    const endFrame = Math.floor(trimEndRef.current / frameInterval);
+    const startFrame = Math.floor(trimmerRangeRef.current.start / frameInterval);
+    const endFrame = Math.floor(trimmerRangeRef.current.end / frameInterval);
     
     const steps = endFrame - startFrame;
     totalStepsRef.current = steps;
@@ -438,7 +436,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         fileInputRef.current.value = '';
       }
   
-      setVideoLoaded(false)
+      setTrimmerReady(false);
+      setVideoLoaded(false);
       onLoaded?.(false);
     }
   }
@@ -729,14 +728,11 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
 
   useEffect(() => {
-    const [start, end] = tempTrim;
-    if (start !== trimStart || end !== trimEnd) {
-      trimStartRef.current = start;
-      trimEndRef.current = end;
-      setTrimStart(start);
-      setTrimEnd(end);
+    const {start, end} = trimmerRange;
+    if (start !== trimmerRangeRef.current.start || end !== trimmerRangeRef.current.end) {
+      trimmerRangeRef.current = {start, end};
     }
-  }, [tempTrim]);
+  }, [trimmerRange]);
 
   return (
     <>
@@ -757,6 +753,13 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         </div>
       )}
 
+      {(videoLoaded && !trimmerReady) && (
+        <div className="fixed w-full h-dvh z-50 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
+          <p>Preparing video...</p>
+          <ArrowPathIcon className="w-8 h-8 animate-spin"/>
+        </div>
+      )}
+
       <div 
         {...(processingStatus !== "idle" && { "data-element": "non-swipeable" })}
         onClick={handleClickOnCanvas}
@@ -773,20 +776,23 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
         <div data-element="non-swipeable" className="relative flex-1 w-full bg-black flex justify-center items-center" >
           {videoLoaded && processingStatus === "idle" && (
-            <div className={`absolute left-0 bottom-2 w-[86%] h-20 z-10 px-2 py-3`}
+            <div className={`absolute left-0 bottom-2 w-[86%] h-20 z-10 pl-2 py-3`}
             style={{
               background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
             }}>
               <VideoTrimmer
                 videoRef={videoRef}
                 onTrimChange={(start, end) => { 
-                  if (start !== tempTrim[0] || end !== tempTrim[1]) {
-                    setTempTrim([start, end]);
+                  if (start !== trimmerRange.start || end !== trimmerRange.end) {
+                    setTrimmerRange({start, end});
                   }
                 }}
                 onReady={(start, end) => {
-                  if (start !== tempTrim[0] || end !== tempTrim[1]) {
-                    setTempTrim([start, end]);
+                  if (videoLoaded && !trimmerReady) {
+                    setTrimmerReady(true);
+                  }
+                  if (start !== trimmerRange.start || end !== trimmerRange.end) {
+                    setTrimmerRange({start, end});
                   }
                 }}
               />

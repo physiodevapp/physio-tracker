@@ -1,3 +1,6 @@
+"use client";
+// CustomRangeSlider component
+
 import React, { useState, useRef, useEffect } from 'react';
 
 interface IndexProps {

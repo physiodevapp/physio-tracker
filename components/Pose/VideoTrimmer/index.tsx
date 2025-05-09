@@ -1,6 +1,10 @@
+"use client";
+// VideoTrimmer component
+
 import { useEffect, useRef, useState } from 'react';
 import CustomRangeSlider from "./CustomRangeSlider";
 import { debounce } from '@/utils/video';
+import Image from 'next/image';
 
 interface IndexProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -8,12 +12,12 @@ interface IndexProps {
   onReady?: (start: number, end: number) => void;
 }
 
-const MIN_DISTANCE = 1; // segundos
+const minDistance = 1; // segundos
 
 const Index: React.FC<IndexProps> = ({ videoRef, onTrimChange, onReady }) => {
   const [duration, setDuration] = useState(0);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
-  const [range, setRange] = useState<[number, number]>([0, MIN_DISTANCE]);
+  const [range, setRange] = useState<[number, number]>([0, minDistance]);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -88,16 +92,33 @@ const Index: React.FC<IndexProps> = ({ videoRef, onTrimChange, onReady }) => {
 
       <div
         className="relative w-full h-full"
-        style={{ paddingLeft: '6px', paddingRight: '6px' }} >
+        style={{ paddingLeft: '0px', paddingRight: '0px' }} >
         <div className="flex w-full h-full">
           {thumbnails.map((src, idx) => (
-            <img
+            <div
               key={idx}
-              src={src}
-              alt={`Thumbnail ${idx}`}
-              className="object-cover aspect-[2/1]"
+              className={`relative aspect-[2/1] ${idx === 0
+                ? 'rounded-l-[0.6rem]'
+                : idx === thumbnails.length - 1
+                ? 'rounded-r-[0.6rem]'
+                : ''
+              }`}
               style={{ width: `${100 / thumbnails.length}%` }}
-            />
+            >
+              <Image
+                src={src}
+                alt={`Thumbnail ${idx}`}
+                fill
+                className={`object-cover ${idx === 0
+                  ? 'rounded-l-[0.6rem]'
+                  : idx === thumbnails.length - 1
+                  ? 'rounded-r-[0.6rem]'
+                  : ''
+                }`}
+                sizes={`${100 / thumbnails.length}vw`}
+                quality={80}
+              />
+            </div>
           ))}
         </div>
         {/* Slider superpuesto */}
