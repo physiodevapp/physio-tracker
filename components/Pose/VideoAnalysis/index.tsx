@@ -2,6 +2,7 @@
 // VideoAnalysis component
 
 import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo, useReducer } from 'react';
+import { createPortal } from 'react-dom';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
 import { CanvasKeypointName, JointDataMap, Kinematics } from '@/interfaces/pose';
@@ -9,11 +10,11 @@ import { usePoseDetector } from '@/providers/PoseDetector';
 import { OrthogonalReference, useSettings } from '@/providers/Settings';
 import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame } from '@/utils/pose';
 import { formatJointName, jointConfigMap } from '@/utils/joint';
-import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/utils/draw';
 import { keypointPairs } from '@/utils/pose';
+import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
+import VideoTrimmer from '@/components/Pose/VideoTrimmer';
 import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
-import { createPortal } from 'react-dom';
 
 export type VideoAnalysisHandle = {
   handleVideoProcessing: () => void;
@@ -61,7 +62,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  const [zoomStatus, setZoomStatus] = useState<'in' | 'out'>('in')
+  const keypointRadiusBase = 8;
+
+  const [zoomStatus, setZoomStatus] = useState<'in' | 'out'>('in');
 
   const currentFrameIndexRef = useRef(0);
   const frameResolveRef = useRef<(() => void) | null>(null);
@@ -71,7 +74,13 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const hasTriggeredRef = useRef(false);
 
   const [videoLoaded, setVideoLoaded] = useState(false);
-  
+
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [tempTrim, setTempTrim] = useState<[number, number]>([0, 0]);
+  const trimStartRef = useRef(trimStart);
+  const trimEndRef = useRef(trimEnd);
+
   const processingCancelledRef = useRef(false);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('idle');
 
@@ -99,6 +108,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   } = settings.pose;
   const selectedJointsRef = useRef(selectedJoints);
 
+  const maxDuration = 30; // segundos
+
   const [processingProgress, setProcessingProgress] = useState<number>(0);
 
   const allFramesDataRef = useRef<VideoFrame[]>([]);
@@ -120,7 +131,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       video.src = URL.createObjectURL(file); 
   
       video.onloadedmetadata = () => {
-        if (video.duration > 10) {
+        if (video.duration > maxDuration) {
           setProcessingStatus('durationExceeded');
           removeVideo();
         }
@@ -146,7 +157,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   ), [handleVideoUpload]);
   
   const [scaleFactor, setScaleFactor] = useState<number | null>(null);
-  const referenceScaleRef = useRef(scaleFactor);
+  const scaleFactorRef = useRef(scaleFactor);
 
   const smartFrameInterval = (videoDuration: number, maxFrames: number = 300): number => {
     const idealInterval = videoDuration / maxFrames;
@@ -287,11 +298,16 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
   
-    const duration = video.duration;
-    const desiredPoints = Math.floor(duration * pointsPerSecond);
-    const frameInterval = smartFrameInterval(duration, desiredPoints);
+    const selectedDuration = trimEndRef.current - trimStartRef.current;
+    const desiredPoints = Math.floor(selectedDuration * pointsPerSecond);
+    const frameInterval = smartFrameInterval(selectedDuration, desiredPoints);
+
     frameIntervalRef.current = frameInterval;
-    const steps = Math.floor(duration / frameInterval);
+
+    const startFrame = Math.floor(trimStartRef.current / frameInterval);
+    const endFrame = Math.floor(trimEndRef.current / frameInterval);
+    
+    const steps = endFrame - startFrame;
     totalStepsRef.current = steps;
   
     video.onseeked = handleSeeked;
@@ -511,7 +527,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           ctx,
           keypoints: nearestFrame.keypoints,
           mirror: false,
-          pointRadius: 4 * scaleFactor!,
+          pointRadius: keypointRadiusBase * (scaleFactorRef.current ?? 1),
         });
   
         drawKeypointConnections({
@@ -519,7 +535,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           keypoints: nearestFrame.keypoints,
           keypointPairs,
           mirror: false,
-          lineWidth: 2 * scaleFactor!,
+          lineWidth: 2 * (scaleFactorRef.current ?? 1),
         });
       }
     }
@@ -562,7 +578,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               ctx,
               keypoints: frame.keypoints,
               mirror: false,
-              pointRadius: 4 * scaleFactor!,
+              pointRadius: keypointRadiusBase * (scaleFactorRef.current ?? 1),
             });
   
             drawKeypointConnections({
@@ -570,7 +586,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               keypoints: frame.keypoints,
               keypointPairs,
               mirror: false,
-              lineWidth: 2 * scaleFactor!,
+              lineWidth: 2 * (scaleFactorRef.current ?? 1),
             });
           }
         }
@@ -652,7 +668,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   
       if (!scaleFactor) {
         setScaleFactor(scale);
-        referenceScaleRef.current = scale;
+        scaleFactorRef.current = scale;
       }
     };
   
@@ -711,6 +727,17 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     }
   }, [selectedJoints]);
 
+
+  useEffect(() => {
+    const [start, end] = tempTrim;
+    if (start !== trimStart || end !== trimEnd) {
+      trimStartRef.current = start;
+      trimEndRef.current = end;
+      setTrimStart(start);
+      setTrimEnd(end);
+    }
+  }, [tempTrim]);
+
   return (
     <>
       {fileInputPortal}
@@ -744,8 +771,28 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           </div>
         )}
 
-        <div className="relative flex-1 w-full bg-black flex justify-center items-center" >
-          <video 
+        <div data-element="non-swipeable" className="relative flex-1 w-full bg-black flex justify-center items-center" >
+          {videoLoaded && processingStatus === "idle" && (
+            <div className={`absolute left-0 bottom-2 w-[86%] h-20 z-10 px-2 py-3`}
+            style={{
+              background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
+            }}>
+              <VideoTrimmer
+                videoRef={videoRef}
+                onTrimChange={(start, end) => { 
+                  if (start !== tempTrim[0] || end !== tempTrim[1]) {
+                    setTempTrim([start, end]);
+                  }
+                }}
+                onReady={(start, end) => {
+                  if (start !== tempTrim[0] || end !== tempTrim[1]) {
+                    setTempTrim([start, end]);
+                  }
+                }}
+              />
+            </div>
+          )}
+          <video         
             ref={videoRef} 
             className={
               !videoLoaded || ['processing', 'cancelRequested', 'processed'].includes(processingStatus)
@@ -781,14 +828,14 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               className="absolute z-10 bottom-2 left-0 font-bold w-40 p-2"
               style={{
                 background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
-              }}
-              >{
-              anglesToDisplay
-                .filter((_, index) => !hiddenLegendsRef.current.has(index))
-                .map((angle, index) => (
-                  <p key={index} className="text-white">{angle}</p>
-                ))
-            }
+              }}> 
+              {
+                anglesToDisplay
+                  .filter((_, index) => !hiddenLegendsRef.current.has(index))
+                  .map((angle, index) => (
+                    <p key={index} className="text-white">{angle}</p>
+                  ))
+              }
             </section> 
           ) : null }
 
@@ -898,7 +945,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           onClick={() => setProcessingStatus('idle')}
           >
           <div className="dark:bg-gray-800 rounded-lg px-12 py-6 flex flex-col gap-2">
-            <p className="text-xl">Max. 10 seconds</p>
+            <p className="text-xl">{`Max. ${maxDuration} seconds`}</p>
             <button 
               className="bg-[#5dadec] hover:bg-gray-600 text-white font-bold rounded-lg p-2"
               onClick={() => setProcessingStatus('idle')} >

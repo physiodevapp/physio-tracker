@@ -29,7 +29,6 @@ const Index: React.FC<IndexProps> = ({ onSelect }) => {
 
     const imageHeight = screenWidth / aspectRatio;
     const blackFranja = Math.max(0, (screenHeight - imageHeight) / 2);
-    console.log('blackFranja ', blackFranja)
 
     // Añadimos 16px extra para que el degradado tape también el borde visible
     setPaddingTop(blackFranja + 100);
