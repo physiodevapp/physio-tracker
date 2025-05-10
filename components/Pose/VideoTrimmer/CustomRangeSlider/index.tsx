@@ -8,6 +8,11 @@ export interface RangeProps {
   end: number;
 }
 
+export interface TrimmerProps {
+  range: RangeProps;
+  markerPosition: number;
+}
+
 interface IndexProps {
   min: number;
   max: number;
@@ -16,10 +21,7 @@ interface IndexProps {
   onChange?: ({
     range, 
     markerPosition,
-  }: {
-    range: RangeProps;
-    markerPosition: number;
-  }) => void;
+  }: TrimmerProps) => void;
 }
 
 const Index: React.FC<IndexProps> = ({

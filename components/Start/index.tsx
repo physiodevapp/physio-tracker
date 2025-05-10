@@ -41,13 +41,13 @@ const Index: React.FC<IndexProps> = ({ onSelect }) => {
     return (
       <div className="flex items-center justify-center gap-2 h-dvh bg-black select-none">
         <Image
-          src="/android-chrome-192x192.png"
+          src="/physiq-logo.png"
           alt="App Icon"
           width={32}
           height={32}
           // priority // si quieres que no se haga lazy load
-          className="w-8 h-8 animate-pulse" />
-        <p className="text-4xl font-bold">PhysiQ</p>
+          className="w-32 h-32" />
+        {/* <p className="text-4xl font-bold">PhysiQ</p> */}
       </div>
     );
   }  

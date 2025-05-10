@@ -15,6 +15,7 @@ import { keypointPairs } from '@/utils/pose';
 import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import VideoTrimmer from '@/components/Pose/VideoTrimmer';
 import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
+import { TrimmerProps } from '../VideoTrimmer/CustomRangeSlider';
 
 export type VideoAnalysisHandle = {
   handleVideoProcessing: () => void;
@@ -75,8 +76,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
   const [videoLoaded, setVideoLoaded] = useState(false);
 
-  const [trimmerRange, setTrimmerRange] = useState<{start: number, end: number}>({start: 0, end: 0});
-  const trimmerRangeRef = useRef<{start: number, end: number}>(trimmerRange);
+  const [trimmerRange, setTrimmerRange] = useState<TrimmerProps>({range: {start: 0, end: 0}, markerPosition: 0});
+  const trimmerRangeRef = useRef<TrimmerProps>(trimmerRange);
   const [trimmerReady, setTrimmerReady] = useState(false);
 
   const processingCancelledRef = useRef(false);
@@ -296,14 +297,14 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
   
-    const selectedDuration = trimmerRangeRef.current.end - trimmerRangeRef.current.start;
+    const selectedDuration = trimmerRangeRef.current.range.end - trimmerRangeRef.current.range.start;
     const desiredPoints = Math.floor(selectedDuration * pointsPerSecond);
     const frameInterval = smartFrameInterval(selectedDuration, desiredPoints);
 
     frameIntervalRef.current = frameInterval;
 
-    const startFrame = Math.floor(trimmerRangeRef.current.start / frameInterval);
-    const endFrame = Math.floor(trimmerRangeRef.current.end / frameInterval);
+    const startFrame = Math.floor(trimmerRangeRef.current.range.start / frameInterval);
+    const endFrame = Math.floor(trimmerRangeRef.current.range.end / frameInterval);
     
     const steps = endFrame - startFrame;
     totalStepsRef.current = steps;
@@ -391,8 +392,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         Object.values(frame.jointData).some(joint => typeof joint.angle === "number")
     );       
     const reducedFrames = filterRepresentativeFrames(framesWithJointData, minAngleDiff); // umbral de grados
-
-    // console.log("🟢 Frames representativos:", reducedFrames.length, "de", allFramesDataRef.current.length);
+   //  console.log("🟢 Frames representativos:", reducedFrames.length, "de", allFramesDataRef.current.length);
 
     allFramesDataRef.current = reducedFrames;
     const transformed = transformToRecordedPositions(reducedFrames);
@@ -607,13 +607,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       const ctx = canvasRef.current?.getContext("2d");
       if (ctx) {
         ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
-        ctx.drawImage(
-          frame.frameImage,
-          0,
-          0,
-          canvasRef.current!.width,
-          canvasRef.current!.height
-        );
+        ctx.drawImage(frame.frameImage, 0, 0, canvasRef.current!.width, canvasRef.current!.height);
       }
   
       await new Promise(resolve =>
@@ -728,9 +722,16 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
 
   useEffect(() => {
-    const {start, end} = trimmerRange;
-    if (start !== trimmerRangeRef.current.start || end !== trimmerRangeRef.current.end) {
-      trimmerRangeRef.current = {start, end};
+    const {range: {start, end}, markerPosition} = trimmerRange;
+    if (start !== trimmerRangeRef.current.range.start || 
+        end !== trimmerRangeRef.current.range.end ||
+        markerPosition !== trimmerRangeRef.current.markerPosition
+    ) {
+      trimmerRangeRef.current = {range: {start, end}, markerPosition};
+
+      if (videoRef.current) {
+        videoRef.current.currentTime = markerPosition;
+      }
     }
   }, [trimmerRange]);
 
@@ -761,12 +762,13 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       )}
 
       <div 
-        {...(processingStatus !== "idle" && { "data-element": "non-swipeable" })}
+        {...(videoLoaded && { "data-element": "non-swipeable" })}
         onClick={handleClickOnCanvas}
         className='relative w-full h-dvh flex flex-col'>
 
         {!videoLoaded && (
           <div 
+            data-element="non-swipeable"
             onClick={handleNewVideo}
             className='absolute z-40 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center'>
             <PhotoIcon className='w-16 aspect-square text-white animate-bounce'/>
@@ -774,25 +776,37 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           </div>
         )}
 
-        <div data-element="non-swipeable" className="relative flex-1 w-full bg-black flex justify-center items-center" >
+        <div className="relative flex-1 w-full bg-black flex justify-center items-center" >
           {videoLoaded && processingStatus === "idle" && (
-            <div className={`absolute left-0 bottom-2 w-[86%] h-20 z-10 pl-4 py-3`}
+            <div className={`absolute left-0 bottom-2 w-[84%] h-20 z-10 pl-4 py-3`}
             style={{
               background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
             }}>
               <VideoTrimmer
                 videoRef={videoRef}
-                onTrimChange={(start, end) => { 
-                  if (start !== trimmerRange.start || end !== trimmerRange.end) {
-                    setTrimmerRange({start, end});
+                onTrimChange={({range, markerPosition}) => { 
+                  if (range.start !== trimmerRange.range.start || 
+                    range.end !== trimmerRange.range.end || 
+                    markerPosition !== trimmerRange.markerPosition
+                  ) {
+                    setTrimmerRange({
+                      range: {start: range.start, end: range.end},
+                      markerPosition,
+                    });                    
                   }
                 }}
-                onReady={(start, end) => {
+                onReady={({range, markerPosition}) => {
                   if (videoLoaded && !trimmerReady) {
                     setTrimmerReady(true);
                   }
-                  if (start !== trimmerRange.start || end !== trimmerRange.end) {
-                    setTrimmerRange({start, end});
+                  if (range.start !== trimmerRange.range.start || 
+                    range.end !== trimmerRange.range.end || 
+                    markerPosition !== trimmerRange.markerPosition
+                  ) {
+                    setTrimmerRange({
+                      range: {start: range.start, end: range.end},
+                      markerPosition,
+                    });
                   }
                 }}
               />

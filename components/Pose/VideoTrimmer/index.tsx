@@ -1,15 +1,21 @@
 "use client";
 // VideoTrimmer component
 
-import { useEffect, useRef, useState } from 'react';
-import CustomRangeSlider from "./CustomRangeSlider";
+import { useEffect, useMemo, useRef, useState } from 'react';
+import CustomRangeSlider, { RangeProps, TrimmerProps } from "./CustomRangeSlider";
 import { debounce } from '@/utils/video';
 import Image from 'next/image';
 
 interface IndexProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
-  onTrimChange?: (start: number, end: number) => void;
-  onReady?: (start: number, end: number) => void;
+  onTrimChange?: ({
+    range, 
+    markerPosition,
+  }: TrimmerProps) => void;
+  onReady?: ({
+    range, 
+    markerPosition,
+  }: TrimmerProps) => void;
 }
 
 const minDistance = 1; // segundos
@@ -17,11 +23,13 @@ const minDistance = 1; // segundos
 const Index: React.FC<IndexProps> = ({ videoRef, onTrimChange, onReady }) => {
   const [duration, setDuration] = useState(0);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
-  const [range, setRange] = useState<[number, number]>([0, minDistance]);
+  const [range, setRange] = useState<RangeProps>({start: 0, end: minDistance});
+  const [markerPosition, setMarkerPosition] = useState(0);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isReady, setIsReady] = useState(false);
 
+  const lastThumbnailCount = useRef(0);
   const generateThumbnails = async (video: HTMLVideoElement, maxThumbs: number = 7) => {
     const thumbs: string[] = [];
     const canvas = canvasRef.current ?? document.createElement('canvas');
@@ -36,6 +44,13 @@ const Index: React.FC<IndexProps> = ({ videoRef, onTrimChange, onReady }) => {
     video.pause();
     video.style.display = 'none';
 
+    // 🚀 Limpiamos el array ANTES de generar las nuevas
+    if (thumbnails.length !== count) {
+      // console.log("Limpiando thumbnails...");
+      setThumbnails([]);
+      lastThumbnailCount.current = count;
+    }
+
     for (let i = 0; i < count; i++) {
       const time = i * step;
       await new Promise<void>((resolve) => {
@@ -49,6 +64,7 @@ const Index: React.FC<IndexProps> = ({ videoRef, onTrimChange, onReady }) => {
     }
 
     video.style.display = originalDisplay;
+    setThumbnails(thumbs); // 🔴 Ahora sí, actualizamos el estado
     return thumbs;
   };
 
@@ -59,11 +75,17 @@ const Index: React.FC<IndexProps> = ({ videoRef, onTrimChange, onReady }) => {
 
     const handleLoadedMetadata = async () => {
       setDuration(video.duration);
-      setRange([0, video.duration]);
-      const thumbs = await generateThumbnails(video, 8);
-      setThumbnails(thumbs);
+      setRange({start: 0, end: video.duration});
+      setMarkerPosition(0);
+      if (thumbnails.length === 0) {
+        const thumbs = await generateThumbnails(video, 8);
+        setThumbnails(thumbs);
+      }
       setIsReady(true);
-      onReady?.(0, video.duration);
+      onReady?.({
+        range: {start: 0, end: video.duration},
+        markerPosition: 0,
+      });
     };
 
     if (video.readyState >= 1) {
@@ -76,13 +98,39 @@ const Index: React.FC<IndexProps> = ({ videoRef, onTrimChange, onReady }) => {
     }
   }, [videoRef]);
 
-  const handleTrimChange = debounce((newRange: [number, number]) => {
+  const handleTrimChange = debounce(({range: newRange, markerPosition: newMarkerPosition}: TrimmerProps) => {
     // 🔴 Evitar el bucle si los valores son iguales
-    if (newRange[0] !== range[0] || newRange[1] !== range[1]) {
-      setRange(newRange);
-      onTrimChange?.(newRange[0], newRange[1]);
+    if (newRange.start !== range.start || 
+      newRange.end !== range.end ||
+      newMarkerPosition !== markerPosition
+    ) {
+      setRange({start: newRange.start, end: newRange.end});
+      setMarkerPosition(newMarkerPosition);
+      onTrimChange?.({
+        range: {start: newRange.start, end: newRange.end},
+        markerPosition: newMarkerPosition,
+      });
     }
   }, 100);
+
+  const memoizedThumbnails = useMemo(() => {
+    return thumbnails.map((src, idx) => (
+      <div
+        key={idx}
+        className={`relative aspect-[2/1]`}
+        style={{ width: `${100 / thumbnails.length}%` }}
+      >
+        <Image
+          src={src}
+          alt={`Thumbnail ${idx}`}
+          fill
+          className={`object-cover`}
+          sizes={`${100 / thumbnails.length}vw`}
+          quality={80}
+        />
+      </div>
+    ));
+  }, [thumbnails]);
 
   if (!isReady) return null;
 
@@ -94,22 +142,7 @@ const Index: React.FC<IndexProps> = ({ videoRef, onTrimChange, onReady }) => {
         className="relative w-full h-full"
         style={{ paddingLeft: '0px', paddingRight: '0px' }} >
         <div className="flex w-full h-full">
-          {thumbnails.map((src, idx) => (
-            <div
-              key={idx}
-              className={`relative aspect-[2/1]`}
-              style={{ width: `${100 / thumbnails.length}%` }}
-            >
-              <Image
-                src={src}
-                alt={`Thumbnail ${idx}`}
-                fill
-                className={`object-cover`}
-                sizes={`${100 / thumbnails.length}vw`}
-                quality={80}
-              />
-            </div>
-          ))}
+          {memoizedThumbnails}
         </div>
         {/* Slider superpuesto */}
         <div
@@ -122,11 +155,7 @@ const Index: React.FC<IndexProps> = ({ videoRef, onTrimChange, onReady }) => {
               max={duration}
               initialRange={{start: 0, end:  duration}}
               minDistance={Number((duration * 0.2).toFixed(1))}
-              onChange={({range, markerPosition}) => {
-                // console.log(markerPosition);
-                // console.log(range);
-                handleTrimChange([range.start, range.end]);
-              }}
+              onChange={handleTrimChange}
             />
           </div>
         </div>
