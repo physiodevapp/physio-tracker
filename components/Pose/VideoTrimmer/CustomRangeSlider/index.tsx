@@ -8,7 +8,7 @@ interface IndexProps {
   max: number;
   initialRange: [number, number];
   minDistance?: number;
-  onChange?: (range: [number, number]) => void;
+  onChange?: (range: [number, number], markerPosition: number) => void;
 }
 
 const Index: React.FC<IndexProps> = ({
@@ -20,14 +20,29 @@ const Index: React.FC<IndexProps> = ({
 }) => {
   const [range, setRange] = useState<[number, number]>(initialRange);
   const [isDragging, setIsDragging] = useState(false);
-  const [draggingTarget, setDraggingTarget] = useState<'start' | 'end' | 'range' | null>(null);
+  const [draggingTarget, setDraggingTarget] = useState<'start' | 'end' | 'marker' | null>(null);
   const sliderRef = useRef<HTMLDivElement>(null);
   const lastTouchPosition = useRef<number>(0);
+  const [markerPosition, setMarkerPosition] = useState<number>(initialRange[0]);
+  const [isMarkerAttached, setIsMarkerAttached] = useState<null | 'start' | 'end'>(null);
+  
+  const thumbOffset = 10; // pixels
+  const markerWidth = 0.25 * 16; // pixels
 
-  const handleTouchStart = (target: 'start' | 'end' | 'range', event: React.TouchEvent) => {
+  const handleTouchStart = (target: 'start' | 'end' | 'marker', event: React.TouchEvent) => {
     setIsDragging(true);
     setDraggingTarget(target);
-    lastTouchPosition.current = event.touches[0].clientX; // Guardamos la posición inicial
+    lastTouchPosition.current = event.touches[0].clientX;
+
+    if (target === 'start') {
+      setIsMarkerAttached('start');
+      setMarkerPosition(range[0]);
+    } else if (target === 'end') {
+      setIsMarkerAttached('end');
+      setMarkerPosition(range[1]);
+    } else {
+      setIsMarkerAttached(null);
+    }
   };
 
   const handleTouchMove = (e: TouchEvent) => {
@@ -36,32 +51,82 @@ const Index: React.FC<IndexProps> = ({
     const sliderRect = sliderRef.current.getBoundingClientRect();
     const pixelRange = sliderRect.width;
     const ratio = (max - min) / pixelRange;
-
-    // Calculamos el desplazamiento (diferencia con el último toque)
     const movement = (e.touches[0].clientX - lastTouchPosition.current) * ratio;
     lastTouchPosition.current = e.touches[0].clientX;
 
-    setRange((prev) => {
-      let [start, end] = prev;
+    if (draggingTarget === 'start') {
+      setRange((prev) => {
+        const [start, end] = prev;
+        const newStart = Math.min(Math.max(start + movement, min), end - minDistance);
 
-      if (draggingTarget === 'start') {
-        start = Math.min(Math.max(start + movement, min), end - minDistance);
-      } else if (draggingTarget === 'end') {
-        end = Math.max(Math.min(end + movement, max), start + minDistance);
-      } else if (draggingTarget === 'range') {
-        const rangeSize = end - start;
-        start = Math.max(min, Math.min(start + movement, max - rangeSize));
-        end = start + rangeSize;
-      }
+        if (isMarkerAttached === 'start') {
+          setMarkerPosition(newStart);
+        }
 
-      if (onChange) onChange([start, end]);
-      return [start, end];
-    });
+        if (onChange) onChange([newStart, end], newStart);
+        return [newStart, end];
+      });
+    } else if (draggingTarget === 'end') {
+      setRange((prev) => {
+        const [start, end] = prev;
+        const newEnd = Math.max(Math.min(end + movement, max), start + minDistance);
+
+        if (isMarkerAttached === 'end') {
+          setMarkerPosition(newEnd);
+        }
+
+        if (onChange) onChange([start, newEnd], newEnd);
+        return [start, newEnd];
+      });
+    } else if (draggingTarget === 'marker') {
+      setMarkerPosition((prev) => {
+        const newMarkerPos = Math.max(range[0], Math.min(prev + movement, range[1]));
+
+        if (onChange) onChange([range[0], range[1]], newMarkerPos);
+        return newMarkerPos;
+      });
+    }
   };
 
   const handleTouchUp = () => {
     setIsDragging(false);
     setDraggingTarget(null);
+  };
+
+  const handleMarkerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const sliderRect = sliderRef.current?.getBoundingClientRect();
+    if (!sliderRect) return;
+
+    const pixelRange = sliderRect.width;
+    const ratio = (max - min) / pixelRange;
+    const touchX = e.touches[0].clientX - sliderRect.left;
+    const newMarkerPosition = min + touchX * ratio;
+
+    if (newMarkerPosition >= range[0] && newMarkerPosition <= range[1]) {
+      setMarkerPosition(newMarkerPosition);
+      setIsDragging(true);
+      setDraggingTarget('marker');
+
+      if (onChange) onChange([range[0], range[1]], newMarkerPosition);
+    }
+  };
+
+  const handleMarkerTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isDragging || draggingTarget !== 'marker') return;
+
+    const sliderRect = sliderRef.current?.getBoundingClientRect();
+    if (!sliderRect) return;
+
+    const pixelRange = sliderRect.width;
+    const ratio = (max - min) / pixelRange;
+    const touchX = e.touches[0].clientX - sliderRect.left;
+    const newMarkerPosition = min + touchX * ratio;
+
+    if (newMarkerPosition >= range[0] && newMarkerPosition <= range[1]) {
+      setMarkerPosition(newMarkerPosition);
+
+      if (onChange) onChange([range[0], range[1]], newMarkerPosition);
+    }
   };
 
   useEffect(() => {
@@ -74,28 +139,57 @@ const Index: React.FC<IndexProps> = ({
     };
   }, [isDragging, draggingTarget]);
 
+  useEffect(() => {
+    if (isMarkerAttached === 'start') {
+      setMarkerPosition(range[0]);
+    } else if (isMarkerAttached === 'end') {
+      setMarkerPosition(range[1]);
+    }
+  }, [range, isMarkerAttached]);
+
   return (
     <div className="relative w-full h-full" ref={sliderRef}>
-      {/* Extremidad izquierda */}
       <div
-        className="absolute w-[10px] h-full bg-white cursor-ew-resize z-20 rounded-l-xl rounded-r-none"
-        style={{ left: `${((range[0] - min) / (max - min)) * 100}%` }}
+        className="absolute h-full bg-white cursor-ew-resize z-20 rounded-l-xl"
+        style={{ 
+          left: `calc(${((range[0] - min) / (max - min)) * 100}% - ${thumbOffset}px)`,
+          width: `${thumbOffset}px`,
+        }}
         onTouchStart={(e) => handleTouchStart('start', e)} />
 
-      {/* Track verde: ahora está entre los bordes blancos */}
       <div
-        className="absolute h-full bg-[#4caf4f]/60 z-10 cursor-grab"
+        className="absolute h-full bg-white/20 z-10"
         style={{
-          left: `calc(${((range[0] - min) / (max - min)) * 100}% + 10px)`,
-          width: `calc(${((range[1] - range[0]) / (max - min)) * 100}% - 20px)`,
+          left: `${((range[0] - min) / (max - min)) * 100}%`,
+          width: `${((range[1] - range[0]) / (max - min)) * 100}%`
         }}
-        onTouchStart={(e) => handleTouchStart('range', e)} />
+        onTouchStart={handleMarkerTouchStart}
+        onTouchMove={handleMarkerTouchMove}
+      />
 
-      {/* Extremidad derecha */}
       <div
-        className="absolute w-[10px] h-full bg-white cursor-ew-resize z-20 rounded-l-none rounded-r-xl"
-        style={{ left: `calc(${((range[1] - min) / (max - min)) * 100}% - 10px)` }}
+        className="absolute w-[10px] h-full bg-white cursor-ew-resize z-20 rounded-r-xl"
+        style={{ 
+          left: `${((range[1] - min) / (max - min)) * 100}%`,
+          width: `${thumbOffset}px`, 
+        }}
         onTouchStart={(e) => handleTouchStart('end', e)} />
+
+      <div
+        className="absolute top-1/2 -translate-y-1/2 h-[120%] bg-gray-300 z-30 cursor-ew-resize rounded-full"
+        style={{ 
+          left: `calc(${((markerPosition - min) / (max - min)) * 100}% - ${markerWidth / 2}px)`, 
+          width: `${markerWidth}px`,
+        }}
+        onTouchStart={(e) => handleTouchStart('marker', e)} />
+
+      <div
+        className="absolute -top-11 left-[50%] transform -translate-x-1 bg-black/40 text-white text-sm px-2 py-1 rounded-md whitespace-nowrap"
+        style={{
+          left: `calc(${((markerPosition - min) / (max - min)) * 100}% - ${markerWidth / 2}px)`,
+        }} >
+        {markerPosition.toFixed(1)} s
+      </div>
     </div>
   );
 };

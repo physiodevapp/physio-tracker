@@ -776,7 +776,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
         <div data-element="non-swipeable" className="relative flex-1 w-full bg-black flex justify-center items-center" >
           {videoLoaded && processingStatus === "idle" && (
-            <div className={`absolute left-0 bottom-2 w-[86%] h-20 z-10 pl-2 py-3`}
+            <div className={`absolute left-0 bottom-2 w-[86%] h-20 z-10 pl-4 py-3`}
             style={{
               background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
             }}>

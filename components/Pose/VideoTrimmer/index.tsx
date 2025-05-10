@@ -97,24 +97,14 @@ const Index: React.FC<IndexProps> = ({ videoRef, onTrimChange, onReady }) => {
           {thumbnails.map((src, idx) => (
             <div
               key={idx}
-              className={`relative aspect-[2/1] ${idx === 0
-                ? 'rounded-l-[0.6rem]'
-                : idx === thumbnails.length - 1
-                ? 'rounded-r-[0.6rem]'
-                : ''
-              }`}
+              className={`relative aspect-[2/1]`}
               style={{ width: `${100 / thumbnails.length}%` }}
             >
               <Image
                 src={src}
                 alt={`Thumbnail ${idx}`}
                 fill
-                className={`object-cover ${idx === 0
-                  ? 'rounded-l-[0.6rem]'
-                  : idx === thumbnails.length - 1
-                  ? 'rounded-r-[0.6rem]'
-                  : ''
-                }`}
+                className={`object-cover`}
                 sizes={`${100 / thumbnails.length}vw`}
                 quality={80}
               />
@@ -132,7 +122,11 @@ const Index: React.FC<IndexProps> = ({ videoRef, onTrimChange, onReady }) => {
               max={duration}
               initialRange={[0, duration]}
               minDistance={2}
-              onChange={(range) => handleTrimChange(range)}
+              onChange={(range, markerPosition) => {
+                // console.log(markerPosition);
+                // console.log(range);
+                handleTrimChange(range);
+              }}
             />
           </div>
         </div>
