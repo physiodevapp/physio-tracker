@@ -61,7 +61,7 @@ const Index: React.FC<IndexProps> = ({ onSelect }) => {
         style={{height: paddingTop}}>
         <div className="flex items-center gap-2 select-none">
           <Image
-            src="/heart-192x192.png"
+            src="/heart.png"
             alt="App Icon"
             width={32}
             height={32}
