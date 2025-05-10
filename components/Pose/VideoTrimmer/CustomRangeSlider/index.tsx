@@ -3,12 +3,23 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 
+export interface RangeProps {
+  start: number;
+  end: number;
+}
+
 interface IndexProps {
   min: number;
   max: number;
-  initialRange: [number, number];
+  initialRange: RangeProps;
   minDistance?: number;
-  onChange?: (range: [number, number], markerPosition: number) => void;
+  onChange?: ({
+    range, 
+    markerPosition,
+  }: {
+    range: RangeProps;
+    markerPosition: number;
+  }) => void;
 }
 
 const Index: React.FC<IndexProps> = ({
@@ -18,12 +29,12 @@ const Index: React.FC<IndexProps> = ({
   minDistance = 1,
   onChange,
 }) => {
-  const [range, setRange] = useState<[number, number]>(initialRange);
+  const [range, setRange] = useState<RangeProps>(initialRange);
   const [isDragging, setIsDragging] = useState(false);
   const [draggingTarget, setDraggingTarget] = useState<'start' | 'end' | 'marker' | null>(null);
   const sliderRef = useRef<HTMLDivElement>(null);
   const lastTouchPosition = useRef<number>(0);
-  const [markerPosition, setMarkerPosition] = useState<number>(initialRange[0]);
+  const [markerPosition, setMarkerPosition] = useState<number>(initialRange.start);
   const [isMarkerAttached, setIsMarkerAttached] = useState<null | 'start' | 'end'>(null);
   
   const thumbOffset = 10; // pixels
@@ -36,10 +47,10 @@ const Index: React.FC<IndexProps> = ({
 
     if (target === 'start') {
       setIsMarkerAttached('start');
-      setMarkerPosition(range[0]);
+      setMarkerPosition(range.start);
     } else if (target === 'end') {
       setIsMarkerAttached('end');
-      setMarkerPosition(range[1]);
+      setMarkerPosition(range.end);
     } else {
       setIsMarkerAttached(null);
     }
@@ -56,33 +67,45 @@ const Index: React.FC<IndexProps> = ({
 
     if (draggingTarget === 'start') {
       setRange((prev) => {
-        const [start, end] = prev;
+        const {start, end} = prev;
         const newStart = Math.min(Math.max(start + movement, min), end - minDistance);
 
         if (isMarkerAttached === 'start') {
           setMarkerPosition(newStart);
         }
 
-        if (onChange) onChange([newStart, end], newStart);
-        return [newStart, end];
+        if (onChange) 
+          onChange({
+            range: {start: newStart, end}, 
+            markerPosition: newStart
+          });
+        return {start: newStart, end};
       });
     } else if (draggingTarget === 'end') {
       setRange((prev) => {
-        const [start, end] = prev;
+        const {start, end} = prev;
         const newEnd = Math.max(Math.min(end + movement, max), start + minDistance);
 
         if (isMarkerAttached === 'end') {
           setMarkerPosition(newEnd);
         }
 
-        if (onChange) onChange([start, newEnd], newEnd);
-        return [start, newEnd];
+        if (onChange) 
+          onChange({
+            range: {start, end: newEnd}, 
+            markerPosition: newEnd,
+          });
+        return {start, end: newEnd};
       });
     } else if (draggingTarget === 'marker') {
       setMarkerPosition((prev) => {
-        const newMarkerPos = Math.max(range[0], Math.min(prev + movement, range[1]));
+        const newMarkerPos = Math.max(range.start, Math.min(prev + movement, range.end));
 
-        if (onChange) onChange([range[0], range[1]], newMarkerPos);
+        if (onChange) 
+          onChange({
+            range: {start: range.start, end: range.end}, 
+            markerPosition: newMarkerPos,
+          });
         return newMarkerPos;
       });
     }
@@ -102,12 +125,16 @@ const Index: React.FC<IndexProps> = ({
     const touchX = e.touches[0].clientX - sliderRect.left;
     const newMarkerPosition = min + touchX * ratio;
 
-    if (newMarkerPosition >= range[0] && newMarkerPosition <= range[1]) {
+    if (newMarkerPosition >= range.start && newMarkerPosition <= range.end) {
       setMarkerPosition(newMarkerPosition);
       setIsDragging(true);
       setDraggingTarget('marker');
 
-      if (onChange) onChange([range[0], range[1]], newMarkerPosition);
+      if (onChange) 
+        onChange({
+          range: {start: range.start, end: range.end}, 
+          markerPosition: newMarkerPosition,
+        });
     }
   };
 
@@ -122,10 +149,14 @@ const Index: React.FC<IndexProps> = ({
     const touchX = e.touches[0].clientX - sliderRect.left;
     const newMarkerPosition = min + touchX * ratio;
 
-    if (newMarkerPosition >= range[0] && newMarkerPosition <= range[1]) {
+    if (newMarkerPosition >= range.start && newMarkerPosition <= range.end) {
       setMarkerPosition(newMarkerPosition);
 
-      if (onChange) onChange([range[0], range[1]], newMarkerPosition);
+      if (onChange) 
+        onChange({
+          range: {start: range.start, end: range.end}, 
+          markerPosition: newMarkerPosition,
+        });
     }
   };
 
@@ -141,9 +172,9 @@ const Index: React.FC<IndexProps> = ({
 
   useEffect(() => {
     if (isMarkerAttached === 'start') {
-      setMarkerPosition(range[0]);
+      setMarkerPosition(range.start);
     } else if (isMarkerAttached === 'end') {
-      setMarkerPosition(range[1]);
+      setMarkerPosition(range.end);
     }
   }, [range, isMarkerAttached]);
 
@@ -152,7 +183,7 @@ const Index: React.FC<IndexProps> = ({
       <div
         className="absolute h-full bg-white cursor-ew-resize z-20 rounded-l-xl"
         style={{ 
-          left: `calc(${((range[0] - min) / (max - min)) * 100}% - ${thumbOffset}px)`,
+          left: `calc(${((range.start - min) / (max - min)) * 100}% - ${thumbOffset}px)`,
           width: `${thumbOffset}px`,
         }}
         onTouchStart={(e) => handleTouchStart('start', e)} />
@@ -160,8 +191,8 @@ const Index: React.FC<IndexProps> = ({
       <div
         className="absolute h-full bg-white/20 z-10"
         style={{
-          left: `${((range[0] - min) / (max - min)) * 100}%`,
-          width: `${((range[1] - range[0]) / (max - min)) * 100}%`
+          left: `${((range.start - min) / (max - min)) * 100}%`,
+          width: `${((range.end - range.start) / (max - min)) * 100}%`
         }}
         onTouchStart={handleMarkerTouchStart}
         onTouchMove={handleMarkerTouchMove}
@@ -170,13 +201,13 @@ const Index: React.FC<IndexProps> = ({
       <div
         className="absolute w-[10px] h-full bg-white cursor-ew-resize z-20 rounded-r-xl"
         style={{ 
-          left: `${((range[1] - min) / (max - min)) * 100}%`,
+          left: `${((range.end - min) / (max - min)) * 100}%`,
           width: `${thumbOffset}px`, 
         }}
         onTouchStart={(e) => handleTouchStart('end', e)} />
 
       <div
-        className="absolute top-1/2 -translate-y-1/2 h-[120%] bg-gray-300 z-30 cursor-ew-resize rounded-full"
+        className="absolute top-1/2 -translate-y-1/2 h-[120%] bg-white z-30 cursor-ew-resize rounded-full"
         style={{ 
           left: `calc(${((markerPosition - min) / (max - min)) * 100}% - ${markerWidth / 2}px)`, 
           width: `${markerWidth}px`,

@@ -120,12 +120,12 @@ const Index: React.FC<IndexProps> = ({ videoRef, onTrimChange, onReady }) => {
             <CustomRangeSlider
               min={0}
               max={duration}
-              initialRange={[0, duration]}
-              minDistance={2}
-              onChange={(range, markerPosition) => {
+              initialRange={{start: 0, end:  duration}}
+              minDistance={Number((duration * 0.2).toFixed(1))}
+              onChange={({range, markerPosition}) => {
                 // console.log(markerPosition);
                 // console.log(range);
-                handleTrimChange(range);
+                handleTrimChange([range.start, range.end]);
               }}
             />
           </div>

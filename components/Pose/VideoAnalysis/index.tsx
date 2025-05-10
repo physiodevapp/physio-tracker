@@ -755,7 +755,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
       {(videoLoaded && !trimmerReady) && (
         <div className="fixed w-full h-dvh z-50 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
-          <p>Preparing video...</p>
+          <p>Loading video...</p>
           <ArrowPathIcon className="w-8 h-8 animate-spin"/>
         </div>
       )}
