@@ -2,6 +2,7 @@
 // VideoAnalysis component
 
 import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo, useReducer } from 'react';
+import { createPortal } from 'react-dom';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
 import { CanvasKeypointName, JointDataMap, Kinematics } from '@/interfaces/pose';
@@ -9,11 +10,12 @@ import { usePoseDetector } from '@/providers/PoseDetector';
 import { OrthogonalReference, useSettings } from '@/providers/Settings';
 import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame } from '@/utils/pose';
 import { formatJointName, jointConfigMap } from '@/utils/joint';
-import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/utils/draw';
 import { keypointPairs } from '@/utils/pose';
+import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
+import VideoTrimmer from '@/components/Pose/VideoTrimmer';
 import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
-import { createPortal } from 'react-dom';
+import { TrimmerProps } from '../VideoTrimmer/CustomRangeSlider';
 
 export type VideoAnalysisHandle = {
   handleVideoProcessing: () => void;
@@ -61,7 +63,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  const [zoomStatus, setZoomStatus] = useState<'in' | 'out'>('in')
+  const keypointRadiusBase = 8;
+
+  const [zoomStatus, setZoomStatus] = useState<'in' | 'out'>('in');
 
   const currentFrameIndexRef = useRef(0);
   const frameResolveRef = useRef<(() => void) | null>(null);
@@ -71,7 +75,11 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const hasTriggeredRef = useRef(false);
 
   const [videoLoaded, setVideoLoaded] = useState(false);
-  
+
+  const [trimmerRange, setTrimmerRange] = useState<TrimmerProps>({range: {start: 0, end: 0}, markerPosition: 0});
+  const trimmerRangeRef = useRef<TrimmerProps>(trimmerRange);
+  const [trimmerReady, setTrimmerReady] = useState(false);
+
   const processingCancelledRef = useRef(false);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('idle');
 
@@ -99,6 +107,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   } = settings.pose;
   const selectedJointsRef = useRef(selectedJoints);
 
+  const maxDuration = 30; // segundos
+
   const [processingProgress, setProcessingProgress] = useState<number>(0);
 
   const allFramesDataRef = useRef<VideoFrame[]>([]);
@@ -120,7 +130,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       video.src = URL.createObjectURL(file); 
   
       video.onloadedmetadata = () => {
-        if (video.duration > 10) {
+        if (video.duration > maxDuration) {
           setProcessingStatus('durationExceeded');
           removeVideo();
         }
@@ -146,7 +156,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   ), [handleVideoUpload]);
   
   const [scaleFactor, setScaleFactor] = useState<number | null>(null);
-  const referenceScaleRef = useRef(scaleFactor);
+  const scaleFactorRef = useRef(scaleFactor);
 
   const smartFrameInterval = (videoDuration: number, maxFrames: number = 300): number => {
     const idealInterval = videoDuration / maxFrames;
@@ -287,11 +297,16 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
   
-    const duration = video.duration;
-    const desiredPoints = Math.floor(duration * pointsPerSecond);
-    const frameInterval = smartFrameInterval(duration, desiredPoints);
+    const selectedDuration = trimmerRangeRef.current.range.end - trimmerRangeRef.current.range.start;
+    const desiredPoints = Math.floor(selectedDuration * pointsPerSecond);
+    const frameInterval = smartFrameInterval(selectedDuration, desiredPoints);
+
     frameIntervalRef.current = frameInterval;
-    const steps = Math.floor(duration / frameInterval);
+
+    const startFrame = Math.floor(trimmerRangeRef.current.range.start / frameInterval);
+    const endFrame = Math.floor(trimmerRangeRef.current.range.end / frameInterval);
+    
+    const steps = endFrame - startFrame;
     totalStepsRef.current = steps;
   
     video.onseeked = handleSeeked;
@@ -377,8 +392,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         Object.values(frame.jointData).some(joint => typeof joint.angle === "number")
     );       
     const reducedFrames = filterRepresentativeFrames(framesWithJointData, minAngleDiff); // umbral de grados
-
-    // console.log("🟢 Frames representativos:", reducedFrames.length, "de", allFramesDataRef.current.length);
+   //  console.log("🟢 Frames representativos:", reducedFrames.length, "de", allFramesDataRef.current.length);
 
     allFramesDataRef.current = reducedFrames;
     const transformed = transformToRecordedPositions(reducedFrames);
@@ -422,7 +436,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         fileInputRef.current.value = '';
       }
   
-      setVideoLoaded(false)
+      setTrimmerReady(false);
+      setVideoLoaded(false);
       onLoaded?.(false);
     }
   }
@@ -511,7 +526,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           ctx,
           keypoints: nearestFrame.keypoints,
           mirror: false,
-          pointRadius: 4 * scaleFactor!,
+          pointRadius: keypointRadiusBase * (scaleFactorRef.current ?? 1),
         });
   
         drawKeypointConnections({
@@ -519,7 +534,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           keypoints: nearestFrame.keypoints,
           keypointPairs,
           mirror: false,
-          lineWidth: 2 * scaleFactor!,
+          lineWidth: 2 * (scaleFactorRef.current ?? 1),
         });
       }
     }
@@ -562,7 +577,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               ctx,
               keypoints: frame.keypoints,
               mirror: false,
-              pointRadius: 4 * scaleFactor!,
+              pointRadius: keypointRadiusBase * (scaleFactorRef.current ?? 1),
             });
   
             drawKeypointConnections({
@@ -570,7 +585,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               keypoints: frame.keypoints,
               keypointPairs,
               mirror: false,
-              lineWidth: 2 * scaleFactor!,
+              lineWidth: 2 * (scaleFactorRef.current ?? 1),
             });
           }
         }
@@ -592,13 +607,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       const ctx = canvasRef.current?.getContext("2d");
       if (ctx) {
         ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
-        ctx.drawImage(
-          frame.frameImage,
-          0,
-          0,
-          canvasRef.current!.width,
-          canvasRef.current!.height
-        );
+        ctx.drawImage(frame.frameImage, 0, 0, canvasRef.current!.width, canvasRef.current!.height);
       }
   
       await new Promise(resolve =>
@@ -652,7 +661,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   
       if (!scaleFactor) {
         setScaleFactor(scale);
-        referenceScaleRef.current = scale;
+        scaleFactorRef.current = scale;
       }
     };
   
@@ -711,6 +720,21 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     }
   }, [selectedJoints]);
 
+
+  useEffect(() => {
+    const {range: {start, end}, markerPosition} = trimmerRange;
+    if (start !== trimmerRangeRef.current.range.start || 
+        end !== trimmerRangeRef.current.range.end ||
+        markerPosition !== trimmerRangeRef.current.markerPosition
+    ) {
+      trimmerRangeRef.current = {range: {start, end}, markerPosition};
+
+      if (videoRef.current) {
+        videoRef.current.currentTime = markerPosition;
+      }
+    }
+  }, [trimmerRange]);
+
   return (
     <>
       {fileInputPortal}
@@ -730,13 +754,21 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         </div>
       )}
 
+      {(videoLoaded && !trimmerReady) && (
+        <div className="fixed w-full h-dvh z-50 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
+          <p>Loading video...</p>
+          <ArrowPathIcon className="w-8 h-8 animate-spin"/>
+        </div>
+      )}
+
       <div 
-        {...(processingStatus !== "idle" && { "data-element": "non-swipeable" })}
+        {...(videoLoaded && { "data-element": "non-swipeable" })}
         onClick={handleClickOnCanvas}
         className='relative w-full h-dvh flex flex-col'>
 
         {!videoLoaded && (
           <div 
+            data-element="non-swipeable"
             onClick={handleNewVideo}
             className='absolute z-40 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center'>
             <PhotoIcon className='w-16 aspect-square text-white animate-bounce'/>
@@ -745,7 +777,42 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         )}
 
         <div className="relative flex-1 w-full bg-black flex justify-center items-center" >
-          <video 
+          {videoLoaded && processingStatus === "idle" && (
+            <div className={`absolute left-0 bottom-2 w-[84%] h-20 z-10 pl-4 py-3`}
+            style={{
+              background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
+            }}>
+              <VideoTrimmer
+                videoRef={videoRef}
+                onTrimChange={({range, markerPosition}) => { 
+                  if (range.start !== trimmerRange.range.start || 
+                    range.end !== trimmerRange.range.end || 
+                    markerPosition !== trimmerRange.markerPosition
+                  ) {
+                    setTrimmerRange({
+                      range: {start: range.start, end: range.end},
+                      markerPosition,
+                    });                    
+                  }
+                }}
+                onReady={({range, markerPosition}) => {
+                  if (videoLoaded && !trimmerReady) {
+                    setTrimmerReady(true);
+                  }
+                  if (range.start !== trimmerRange.range.start || 
+                    range.end !== trimmerRange.range.end || 
+                    markerPosition !== trimmerRange.markerPosition
+                  ) {
+                    setTrimmerRange({
+                      range: {start: range.start, end: range.end},
+                      markerPosition,
+                    });
+                  }
+                }}
+              />
+            </div>
+          )}
+          <video         
             ref={videoRef} 
             className={
               !videoLoaded || ['processing', 'cancelRequested', 'processed'].includes(processingStatus)
@@ -781,14 +848,14 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               className="absolute z-10 bottom-2 left-0 font-bold w-40 p-2"
               style={{
                 background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
-              }}
-              >{
-              anglesToDisplay
-                .filter((_, index) => !hiddenLegendsRef.current.has(index))
-                .map((angle, index) => (
-                  <p key={index} className="text-white">{angle}</p>
-                ))
-            }
+              }}> 
+              {
+                anglesToDisplay
+                  .filter((_, index) => !hiddenLegendsRef.current.has(index))
+                  .map((angle, index) => (
+                    <p key={index} className="text-white">{angle}</p>
+                  ))
+              }
             </section> 
           ) : null }
 
@@ -898,7 +965,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           onClick={() => setProcessingStatus('idle')}
           >
           <div className="dark:bg-gray-800 rounded-lg px-12 py-6 flex flex-col gap-2">
-            <p className="text-xl">Max. 10 seconds</p>
+            <p className="text-xl">{`Max. ${maxDuration} seconds`}</p>
             <button 
               className="bg-[#5dadec] hover:bg-gray-600 text-white font-bold rounded-lg p-2"
               onClick={() => setProcessingStatus('idle')} >

@@ -1,5 +1,5 @@
 "use client";
-// Parent component
+// Pose component
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as poseDetection from "@tensorflow-models/pose-detection";
@@ -45,7 +45,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const [isFrozen, setIsFrozen] = useState(false);
 
-  const [showOrthogonalOption, setShowOrthogonalOption] = useState(false);
+  const [showOrthogonalOption,] = useState(true);
 
   const [anglesToDisplay, setAnglesToDisplay] = useState<string[]>([]);
 
@@ -93,9 +93,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const handleJointSelection = useCallback((selectedJoints: string[]) => {
     setSelectedJoints(selectedJoints as CanvasKeypointName[]);
 
-    setShowOrthogonalOption(selectedJoints.some(joint =>
-      joint.includes('shoulder') || joint.includes('hip')
-    ));
+    // setShowOrthogonalOption(selectedJoints.some(joint =>
+    //   joint.includes('shoulder') || joint.includes('hip')
+    // ));
 
     setAnglesToDisplay((prevAngles) => {
       const result: string[] = [];
@@ -302,14 +302,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             {processingStatus === "idle" && (
               <div className="absolute bottom-2 right-1 z-30 flex flex-row-reverse items-center gap-2">
                 <ArrowTopRightOnSquareIcon 
-                  className={`w-8 h-8 text-white transition-transform ${((!showOrthogonalOption && mode === "live") || orthogonalReference === undefined)
+                  className={`w-8 h-8 text-white transition-transform ${((!showOrthogonalOption) || orthogonalReference === undefined)
                     ? '-rotate-0 opacity-50'
                     : orthogonalReference === 'horizontal'
                     ? 'rotate-45'
                     : '-rotate-45'
                   }`}
                   onClick={() => { 
-                    if (!showOrthogonalOption && mode === "live") return;
+                    if (!showOrthogonalOption) return;
                               
                     const next: OrthogonalReference = orthogonalReference === "vertical" ? "horizontal" : orthogonalReference === "horizontal" ? undefined : "vertical";
 
