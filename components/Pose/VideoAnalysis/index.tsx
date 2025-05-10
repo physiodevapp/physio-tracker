@@ -392,9 +392,12 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         Object.values(frame.jointData).some(joint => typeof joint.angle === "number")
     );       
     const reducedFrames = filterRepresentativeFrames(framesWithJointData, minAngleDiff); // umbral de grados
-   //  console.log("🟢 Frames representativos:", reducedFrames.length, "de", allFramesDataRef.current.length);
+    //  console.log("🟢 Frames representativos:", reducedFrames.length, "de", allFramesDataRef.current.length);
 
-    allFramesDataRef.current = reducedFrames;
+    if (reducedFrames.length >= 80) { // mínimo de 80 puntos en el gráfico
+      allFramesDataRef.current = reducedFrames;
+    }
+
     const transformed = transformToRecordedPositions(reducedFrames);
     setRecordedPositions(transformed);
 
