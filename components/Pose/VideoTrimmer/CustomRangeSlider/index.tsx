@@ -183,12 +183,15 @@ const Index: React.FC<IndexProps> = ({
   return (
     <div className="relative w-full h-full" ref={sliderRef}>
       <div
-        className="absolute h-full bg-white cursor-ew-resize z-20 rounded-l-xl"
+        className="absolute top-1/2 -translate-y-1/2 w-[10px] cursor-ew-resize z-20 rounded-l-xl pl-4 py-4 pr-4"
         style={{ 
-          left: `calc(${((range.start - min) / (max - min)) * 100}% - ${thumbOffset}px)`,
+          left: `calc(${((range.start - min) / (max - min)) * 100}% - ${thumbOffset + 16}px)`,
           width: `${thumbOffset}px`,
+          height: "calc(100% + 30px)",
         }}
-        onTouchStart={(e) => handleTouchStart('start', e)} />
+        onTouchStart={(e) => handleTouchStart('start', e)}>
+          <div className="relative w-[10px] h-full bg-white rounded-l-xl"/>
+        </div>
 
       <div
         className="absolute h-full bg-white/20 z-10"
@@ -197,16 +200,18 @@ const Index: React.FC<IndexProps> = ({
           width: `${((range.end - range.start) / (max - min)) * 100}%`
         }}
         onTouchStart={handleMarkerTouchStart}
-        onTouchMove={handleMarkerTouchMove}
-      />
-
+        onTouchMove={handleMarkerTouchMove} />
+ 
       <div
-        className="absolute w-[10px] h-full bg-white cursor-ew-resize z-20 rounded-r-xl"
+        className="absolute top-1/2 -translate-y-1/2 w-[10px] cursor-ew-resize z-20 rounded-r-xl pl-2 py-4 pr-6"
         style={{ 
-          left: `${((range.end - min) / (max - min)) * 100}%`,
-          width: `${thumbOffset}px`, 
+          left: `calc(${((range.end - min) / (max - min)) * 100}% - 8px)`,
+          width: `${thumbOffset}px`,
+          height: "calc(100% + 30px)", 
         }}
-        onTouchStart={(e) => handleTouchStart('end', e)} />
+        onTouchStart={(e) => handleTouchStart('end', e)}>
+          <div className="relative w-[10px] h-full bg-white rounded-r-xl"/>
+        </div>
 
       <div
         className="absolute top-1/2 -translate-y-1/2 h-[120%] bg-white z-30 cursor-ew-resize rounded-full"
