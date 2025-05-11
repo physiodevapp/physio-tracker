@@ -452,8 +452,7 @@ const Index: React.FC<IndexProps> = ({
           </section> ) : (
           <FullTestForceChart 
             rawSensorData={rawSensorData} // para las curvas
-            displayAnnotations={true}
-            />
+            displayAnnotations={true} />
         )}
         
         <section className="mt-2 px-1 py-2 border-2 border-gray-200 dark:border-white rounded-lg">

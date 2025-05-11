@@ -1,3 +1,5 @@
+import {Chart as ChartJS} from 'chart.js';
+
 export interface DataPoint {
   x: number;
   y: number;
@@ -84,4 +86,27 @@ export function getInterpolatedColor(
 ): string {
   const alpha = startAlpha + (endAlpha - startAlpha) * ratio;
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+export function getMaxYValue(chart: ChartJS) {
+  let maxY = 0;
+
+  chart.data.datasets.forEach((dataset) => {
+    dataset.data.forEach((point) => {
+      if(point) {
+        if (typeof point === 'number') {
+          // Si el punto es un número directo (raro, pero posible)
+          if (point > maxY) maxY = point;
+        } else if (Array.isArray(point)) {
+          // Si el punto es un array [x, y]
+          if (point[1] > maxY) maxY = point[1];
+        } else if ('y' in point) {
+          // Si el punto es un objeto con propiedad `y`
+          if (point.y > maxY) maxY = point.y;
+        }
+      }
+    });        
+  });
+
+  return maxY;
 };

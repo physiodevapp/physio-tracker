@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {Chart as ChartJS, ChartConfiguration, registerables, ActiveDataPoint, ChartEvent} from 'chart.js';
-import { lttbDownsample } from "@/utils/chart";
+import { getMaxYValue, lttbDownsample } from "@/utils/chart";
 import annotationPlugin, { AnnotationOptions } from 'chartjs-plugin-annotation';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ViewfinderCircleIcon } from "@heroicons/react/24/solid";
-import { adjustCyclesByZeroCrossing, Cycle, detectOutlierEdges } from "../../../utils/force";
+import { adjustCyclesByZeroCrossing, Cycle, detectOutlierEdges } from "@/utils/force";
 import { useBluetooth } from "@/providers/Bluetooth";
 import { useSettings } from "@/providers/Settings";
 
@@ -120,6 +120,39 @@ function calculateMeanY(data: { x: number; y: number }[]): number | null {
   return total / data.length;
 }
 
+function calculateStandardDeviation(data: { y: number }[]) {
+  if (!data.length) return 0;
+
+  // Calcula la media
+  const mean = data.reduce((acc, point) => acc + point.y, 0) / data.length;
+
+  // Calcula la desviación estándar
+  const variance =
+    data.reduce((acc, point) => acc + Math.pow(point.y - mean, 2), 0) /
+    data.length;
+
+  return Math.sqrt(variance);
+};
+
+function calculateReferenceBaseline(data: { x: number; y: number }[], cycles: Cycle[]) {
+  if (cycles.length < 3) {
+  console.warn("No se encontraron ciclos intermedios para calcular la referencia.");
+  return 0;
+};
+
+  // Filtrar los ciclos intermedios (evitamos el primero y el último)
+  const middleCycles = cycles.slice(1, cycles.length - 1);
+
+  // Obtener los mínimos locales de cada ciclo intermedio
+  const minValues = middleCycles.map((cycle) => {
+    const range = data.filter(p => p.x >= cycle.startX! && p.x <= cycle.endX!);
+    return Math.min(...range.map(p => p.y));
+  });
+
+  // Calcular la media de esos mínimos como referencia
+  return minValues.length ? minValues.reduce((a, b) => a + b, 0) / minValues.length : 0;
+};
+
 const Index: React.FC<IndexProps> = ({
   rawSensorData,
   displayAnnotations = true,
@@ -127,11 +160,10 @@ const Index: React.FC<IndexProps> = ({
   const { 
     cycles, 
     setCycles,
-    // liveCycles,
-  } = useBluetooth(); // useContext(BluetoothContext);
+  } = useBluetooth();
 
   const { settings } = useSettings();
-  const { cyclesToAverage } = settings.force;
+  const { cyclesToAverage, outlierSensitivity } = settings.force;
 
   const [isZoomed, setIsZoomed] = useState(false);
 
@@ -166,22 +198,42 @@ const Index: React.FC<IndexProps> = ({
   useEffect(() => {
     if (!downsampledData.length) return;
 
-    // 1. Calcular valores auxiliares
+    // 1️⃣ Paso 1: Calcular el valor máximo para la línea superior
     const maxY = Math.max(...downsampledData.map(p => p.y));
     setTopLineValue(maxY);
 
-    const { startOutlierIndex, endOutlierIndex } = detectOutlierEdges(mappedData);
+    // 2️⃣ Paso 2: Calcular la referencia dinámica a partir de los mínimos de los ciclos intermedios
+    const referenceBaseline = calculateReferenceBaseline(mappedData, cycles);
+    // console.log(`🔎 Línea de referencia (baseline):`, referenceBaseline);
+
+    // 3️⃣ Paso 3: Filtrar valores extremos que estén por debajo de esa línea
+    const cleanedInitialData = mappedData.filter((p) => p.y >= referenceBaseline - 0.1);
+
+    // 4️⃣ Paso 4: Calcular meanY y stdDev sobre los datos limpios
+    const meanY = calculateMeanY(cleanedInitialData) ?? 0;
+    const stdDev = calculateStandardDeviation(cleanedInitialData);
+
+    // console.log("meanY después de limpiar extremos:", meanY);
+
+    // 5️⃣ Paso 5: Aplicar el filtro de outliers
+    const filteredData = cleanedInitialData.filter(
+      (p) => Math.abs(p.y - meanY) < outlierSensitivity * stdDev
+    );
+
+    // 6️⃣ Paso 6: Detectar outliers internos
+    const { startOutlierIndex, endOutlierIndex } = detectOutlierEdges(filteredData);
+
     const trimmedData = startOutlierIndex || endOutlierIndex
-      ? mappedData.slice(
+      ? filteredData.slice(
           startOutlierIndex ?? 0,
           endOutlierIndex !== null ? endOutlierIndex + 1 : undefined
         )
-      : mappedData;
+      : filteredData;
 
     const crossLine = calculateMeanY(trimmedData) ?? 0;
     setCrossLineValue(crossLine);
 
-    // 2. Calcular ciclos ajustados
+    // 7️⃣ Paso 7: Calcular ciclos ajustados
     const { adjustedCycles } = adjustCyclesByZeroCrossing(
       mappedData,
       crossLine,
@@ -189,6 +241,7 @@ const Index: React.FC<IndexProps> = ({
       cyclesToAverage
     );
     setAdjustedCycles(adjustedCycles);
+    
   }, [downsampledData, mappedData]);
 
   const cycleAnnotations: Record<string, AnnotationOptions> = useMemo(() => {
@@ -351,7 +404,7 @@ const Index: React.FC<IndexProps> = ({
                 mode: 'xy', // o 'xy'
                 threshold: 10,
                 onPan: ({ chart }: { chart: ChartJS & { _customCrosshairX?: number } }) => {
-                  setIsZoomed(true);
+                  setIsZoomed(false);
 
                   const x = chart._customCrosshairX;
                   if (!x) return;
@@ -446,6 +499,7 @@ const Index: React.FC<IndexProps> = ({
               max: maxTime,
             },
             y: {
+              display: true,
               title: {
                 display: false,
                 text: 'Force (kg)',
@@ -500,26 +554,141 @@ const Index: React.FC<IndexProps> = ({
     setCycles(validCycles);
   }, [adjustedCycles]);
 
+  
+  ///
+
+  const [startPosition, setStartPosition] = useState(0); // Posición inicial (0%)
+  const [endPosition, setEndPosition] = useState(100);   // Posición inicial (100%)
+  const [dragging, setDragging] = useState<null | 'start' | 'end'>(null);
+
+  const [lineHeight, setLineHeight] = useState(0);
+  const [lineOffsetY, setLineOffsetY] = useState(0);
+  const [lineOffsetX, setLineOffsetX] = useState(0);
+  const [chartWidth, setChartWidth] = useState(0);
+  const [yAxisWidth, setYAxisWidth] = useState(0);
+  const [initialOffset, setInitialOffset] = useState(0);
+
+  const handleTouchStart = (e: React.TouchEvent, type: 'start' | 'end') => {
+    const touch = e.touches[0];
+    const chart = ChartJS.getChart(canvasRef.current!);
+    if (chart) {
+      const { left } = chart.chartArea;
+      setInitialOffset(touch.clientX - left); // 👈 Guardamos el offset inicial
+    }
+    setDragging(type);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    console.log('handleTouchMove')
+    if (!dragging) return;
+
+    const chart = ChartJS.getChart(canvasRef.current!);
+    if (!chart) return;
+
+    const { left } = chart.chartArea;
+    const touch = e.touches[0];
+
+    // 📝 Cálculo ajustado
+    const offsetX = touch.clientX - left - initialOffset;
+    const barWidth = 8; // El ancho real de la barra
+
+    // Si offsetX supera el ancho, lo limitamos
+    const limitedOffset = Math.min(offsetX, chartWidth);
+
+    const scaledOffset = ((limitedOffset  + yAxisWidth - barWidth) / chartWidth) * 100;
+
+    if (dragging === 'start') {
+      setStartPosition(Math.max(0, Math.min(scaledOffset, endPosition - 1)));
+    } else if (dragging === 'end') {
+      setEndPosition(Math.max(startPosition + 1, Math.min(scaledOffset, 100)));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setDragging(null);
+  };
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      const chart = ChartJS.getChart(canvasRef.current);
+      if (chart) {
+        // Obtener el área del gráfico
+        const { top, bottom, left, right } = chart.chartArea;
+        const height = bottom - top;
+        const width = right - left;
+
+        const containerLeft = canvasRef.current.getBoundingClientRect().left;
+        const axisWidth = left - containerLeft;
+
+        // Ajustar el alto y la posición
+        setLineHeight(height);
+        setLineOffsetY(top); // 👈 Sincronización con el dibujo
+        setChartWidth(width); // 👈 Ancho efectivo del gráfico
+        setLineOffsetX(left);
+
+        setYAxisWidth(axisWidth);
+      }
+    }
+  }, [canvasRef]);
+
+  ///
+
   return (
-    <section className='relative border-gray-200 border-2 dark:border-none bg-white rounded-lg pl-2 pr-1 pt-6 pb-2 mt-2'>
+    <section className='relative border-gray-200 border-2 dark:border-none bg-white rounded-lg pl-2 pr-2 pt-6 pb-2 mt-2'>
       <canvas 
         ref={canvasRef} 
         className='bg-white'
         />
+      {/* Líneas flotantes sin bloquear el gráfico */}
+      <div 
+        className="hidden absolute z-50 border-2 border-red-500 p-0"
+        style={{
+          top: `calc(${lineOffsetY}px + 24px)`,
+          left: `calc(${lineOffsetX}px + 8px)`,
+          height: `${lineHeight}px`,
+          width: `${chartWidth}px`,
+        }}/>
+      {!isZoomed && (
+        <div
+          className='absolute bg-gray-500 opacity-60 w-2 z-40 touch-none rounded-r-lg'
+          style={{ 
+            left: `calc(${lineOffsetX + yAxisWidth + (chartWidth * (startPosition / 100))}px)`,
+            height: `${lineHeight}px`,
+            top: `calc(${lineOffsetY}px + 24px)`,
+          }}
+          onTouchStart={(e) => handleTouchStart(e, 'start')} 
+          onTouchMove={handleTouchMove} // 👈 Ahora directamente aquí
+          onTouchEnd={handleTouchEnd}   // 👈 Sin necesidad del useEffect       
+          /> 
+      )}
+      {/* <div
+        className='absolute top-0 h-full bg-green-500 opacity-60 w-[2px] z-10 touch-none'
+        style={{ left: `${endPosition}%` }}
+        onTouchStart={(e) => handleTouchStart(e, 'end')}
+      /> */}
+
       {isZoomed ? (
         <ViewfinderCircleIcon 
-        className="absolute bottom-0 left-0 p-1 pl-0 w-8 h-8 text-gray-400"
-        onClick={() => {
-          // chartRef.current?.resetZoom();
-          if (chartRef.current) {
-            chartRef.current.zoomScale('x', {
-              min: cycles[0].startX ?? 0,
-              max: cycles[cycles.length - 1].endX ?? downsampledData[downsampledData.length -1].x,
-            });
-          }
+          className="absolute bottom-0 left-0 p-1 pl-0 w-8 h-8 text-gray-400"
+          onClick={() => {
+            if (chartRef.current && chartRef.current.options.scales) {
+              // Ajustar los límites manualmente
+              chartRef.current.options.scales.x!.min = cycles[0].startX ?? 0;
+              chartRef.current.options.scales.x!.max = 
+                cycles[cycles.length - 1].endX ?? downsampledData[downsampledData.length - 1].x;
 
-          setIsZoomed(false);
-        }}
+              // También asegurarse de que el eje `y` esté correctamente reescalado
+              const maxY = getMaxYValue(chartRef.current);
+              // Calculamos un margen del 10% sobre el valor máximo (ajustable)
+              const marginTop = maxY * 0.2;
+              chartRef.current.options.scales.y!.min = 'original';
+              chartRef.current.options.scales.y!.max = maxY + marginTop; 
+
+              chartRef.current.update();
+            }
+
+            setIsZoomed(false);
+          }}
         /> ) : null
       }
       {rawSensorData.length > 0 ? (
