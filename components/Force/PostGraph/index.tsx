@@ -556,7 +556,6 @@ const Index: React.FC<IndexProps> = ({
 
   
   ///
-
   
   const leftTrimmerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -575,37 +574,45 @@ const Index: React.FC<IndexProps> = ({
   const [lineOffsetX, setLineOffsetX] = useState(0);
   const [chartWidth, setChartWidth] = useState(0);
   const [yAxisWidth, setYAxisWidth] = useState(0);
+  const [initialDragOffset, setInitialDragOffset] = useState(0);
 
   const handleTouchStart = (e: React.TouchEvent, type: 'start' | 'end') => {
+    if (leftTrimmerRef.current) {
+      // Obtenemos la posición inicial del trimmer respecto al viewport
+      const trimmerRect = leftTrimmerRef.current.getBoundingClientRect();
+      setInitialDragOffset(e.touches[0].clientX - trimmerRect.left); 
+    }
+
     setDragging(type);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!dragging) return;
+  if (!dragging) return;
 
-    const chart = ChartJS.getChart(canvasRef.current!);
-    if (!chart) return;
+  const chart = ChartJS.getChart(canvasRef.current!);
+  if (!chart) return;
 
-    const { left, right } = chart.chartArea;
-    const touch = e.touches[0];
+  const { left, right } = chart.chartArea;
+  const touch = e.touches[0];
 
-    // 🔥 Corregimos el cálculo para que no sobrepase el final del gráfico
-    const offsetX = touch.clientX - left;
-    const barWidth = 8; // px
+  // 🔥 Corregimos el cálculo para que no sobrepase el final del gráfico
+  // Y restamos el desplazamiento inicial guardado
+  const offsetX = touch.clientX - left - initialDragOffset;
+  const barWidth = 8; // px
 
-    // ✨ Aquí limitamos el máximo desplazamiento al área real del gráfico
-    const maxOffset = right - left - barWidth;
-    const limitedOffset = Math.min(Math.max(0, offsetX), maxOffset);
+  // ✨ Limitamos el máximo desplazamiento al área real del gráfico
+  const maxOffset = right - left - barWidth;
+  const limitedOffset = Math.min(Math.max(0, offsetX), maxOffset);
 
-    // 🔄 Cálculo en porcentaje para sincronizar la posición
-    const scaledOffset = (limitedOffset / chartWidth) * 100;
+  // 🔄 Cálculo en porcentaje para sincronizar la posición
+  const scaledOffset = (limitedOffset / chartWidth) * 100;
 
-    if (dragging === 'start') {
-      setStartPosition(Math.max(0, Math.min(scaledOffset, endPosition - 1)));
-    } else if (dragging === 'end') {
-      setEndPosition(Math.max(startPosition + 1, Math.min(scaledOffset, 100)));
-    }
-  };
+  if (dragging === 'start') {
+    setStartPosition(Math.max(0, Math.min(scaledOffset, endPosition - 1)));
+  } else if (dragging === 'end') {
+    setEndPosition(Math.max(startPosition + 1, Math.min(scaledOffset, 100)));
+  }
+};
 
 
   const handleTouchEnd = () => {
