@@ -9,7 +9,7 @@ const Index = () => {
     <div className="flex flex-col items-center justify-center h-dvh text-center px-6 bg-gray-100">
       <div className="flex items-center gap-2 select-none mb-6">
         <Image
-          src="/android-chrome-192x192.png"
+          src="/physiq-logo-192.png"
           alt="App Icon"
           width={32}
           height={32}

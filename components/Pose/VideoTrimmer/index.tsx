@@ -137,7 +137,12 @@ const Index: React.FC<IndexProps> = ({ videoRef, onTrimChange, onReady }) => {
   return (
     <div className="relative w-full h-full">
       <canvas ref={canvasRef} className="hidden" />
-
+      <div 
+        className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-[0.8rem] border-2 border-dashed border-white bg-white/20'
+        style={{
+          width: "calc(100% + 26px)",
+          height: "calc(100% + 6px)",
+        }}/>
       <div
         className="relative w-full h-full"
         style={{ paddingLeft: '0px', paddingRight: '0px' }} >

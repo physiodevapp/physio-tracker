@@ -392,9 +392,12 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         Object.values(frame.jointData).some(joint => typeof joint.angle === "number")
     );       
     const reducedFrames = filterRepresentativeFrames(framesWithJointData, minAngleDiff); // umbral de grados
-   //  console.log("🟢 Frames representativos:", reducedFrames.length, "de", allFramesDataRef.current.length);
+    //  console.log("🟢 Frames representativos:", reducedFrames.length, "de", allFramesDataRef.current.length);
 
-    allFramesDataRef.current = reducedFrames;
+    if (reducedFrames.length >= 80) { // mínimo de 80 puntos en el gráfico
+      allFramesDataRef.current = reducedFrames;
+    }
+
     const transformed = transformToRecordedPositions(reducedFrames);
     setRecordedPositions(transformed);
 
@@ -778,7 +781,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
         <div className="relative flex-1 w-full bg-black flex justify-center items-center" >
           {videoLoaded && processingStatus === "idle" && (
-            <div className={`absolute left-0 bottom-2 w-[84%] h-20 z-10 pl-4 py-3`}
+            <div className={`absolute left-0 bottom-2 w-[82%] h-20 z-10 pl-8 py-3`}
             style={{
               background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
             }}>
