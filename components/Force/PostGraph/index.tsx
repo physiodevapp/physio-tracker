@@ -557,6 +557,15 @@ const Index: React.FC<IndexProps> = ({
   
   ///
 
+  
+  const leftTrimmerRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    console.log('startPosition ', startPosition)
+
+    console.log(leftTrimmerRef.current?.clientLeft)
+    console.log(leftTrimmerRef.current?.offsetLeft)
+  }, [isZoomed])
+
   const [startPosition, setStartPosition] = useState(0); // Posición inicial (0%)
   const [endPosition, setEndPosition] = useState(100);   // Posición inicial (100%)
   const [dragging, setDragging] = useState<null | 'start' | 'end'>(null);
@@ -566,36 +575,30 @@ const Index: React.FC<IndexProps> = ({
   const [lineOffsetX, setLineOffsetX] = useState(0);
   const [chartWidth, setChartWidth] = useState(0);
   const [yAxisWidth, setYAxisWidth] = useState(0);
-  const [initialOffset, setInitialOffset] = useState(0);
 
   const handleTouchStart = (e: React.TouchEvent, type: 'start' | 'end') => {
-    const touch = e.touches[0];
-    const chart = ChartJS.getChart(canvasRef.current!);
-    if (chart) {
-      const { left } = chart.chartArea;
-      setInitialOffset(touch.clientX - left); // 👈 Guardamos el offset inicial
-    }
     setDragging(type);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    console.log('handleTouchMove')
     if (!dragging) return;
 
     const chart = ChartJS.getChart(canvasRef.current!);
     if (!chart) return;
 
-    const { left } = chart.chartArea;
+    const { left, right } = chart.chartArea;
     const touch = e.touches[0];
 
-    // 📝 Cálculo ajustado
-    const offsetX = touch.clientX - left - initialOffset;
-    const barWidth = 8; // El ancho real de la barra
+    // 🔥 Corregimos el cálculo para que no sobrepase el final del gráfico
+    const offsetX = touch.clientX - left;
+    const barWidth = 8; // px
 
-    // Si offsetX supera el ancho, lo limitamos
-    const limitedOffset = Math.min(offsetX, chartWidth);
+    // ✨ Aquí limitamos el máximo desplazamiento al área real del gráfico
+    const maxOffset = right - left - barWidth;
+    const limitedOffset = Math.min(Math.max(0, offsetX), maxOffset);
 
-    const scaledOffset = ((limitedOffset  + yAxisWidth - barWidth) / chartWidth) * 100;
+    // 🔄 Cálculo en porcentaje para sincronizar la posición
+    const scaledOffset = (limitedOffset / chartWidth) * 100;
 
     if (dragging === 'start') {
       setStartPosition(Math.max(0, Math.min(scaledOffset, endPosition - 1)));
@@ -603,6 +606,7 @@ const Index: React.FC<IndexProps> = ({
       setEndPosition(Math.max(startPosition + 1, Math.min(scaledOffset, 100)));
     }
   };
+
 
   const handleTouchEnd = () => {
     setDragging(null);
@@ -635,37 +639,31 @@ const Index: React.FC<IndexProps> = ({
 
   return (
     <section className='relative border-gray-200 border-2 dark:border-none bg-white rounded-lg pl-2 pr-2 pt-6 pb-2 mt-2'>
-      <canvas 
-        ref={canvasRef} 
-        className='bg-white'
-        />
       {/* Líneas flotantes sin bloquear el gráfico */}
-      <div 
-        className="hidden absolute z-50 border-2 border-red-500 p-0"
-        style={{
-          top: `calc(${lineOffsetY}px + 24px)`,
-          left: `calc(${lineOffsetX}px + 8px)`,
+      <div
+        ref={leftTrimmerRef}
+        className={`absolute bg-gray-500 opacity-60 w-2 z-40 touch-none rounded-r-lg ${isZoomed 
+          ? "hidden"
+          : ""
+          }`}
+        style={{ 
+          left: `calc(${lineOffsetX + yAxisWidth + (chartWidth * (startPosition / 100))}px)`,
           height: `${lineHeight}px`,
-          width: `${chartWidth}px`,
-        }}/>
-      {!isZoomed && (
-        <div
-          className='absolute bg-gray-500 opacity-60 w-2 z-40 touch-none rounded-r-lg'
-          style={{ 
-            left: `calc(${lineOffsetX + yAxisWidth + (chartWidth * (startPosition / 100))}px)`,
-            height: `${lineHeight}px`,
-            top: `calc(${lineOffsetY}px + 24px)`,
-          }}
-          onTouchStart={(e) => handleTouchStart(e, 'start')} 
-          onTouchMove={handleTouchMove} // 👈 Ahora directamente aquí
-          onTouchEnd={handleTouchEnd}   // 👈 Sin necesidad del useEffect       
-          /> 
-      )}
+          top: `calc(${lineOffsetY}px + 24px)`,
+        }}
+        onTouchStart={(e) => handleTouchStart(e, 'start')} 
+        onTouchMove={handleTouchMove} // 👈 Ahora directamente aquí
+        onTouchEnd={handleTouchEnd}   // 👈 Sin necesidad del useEffect       
+        /> 
       {/* <div
         className='absolute top-0 h-full bg-green-500 opacity-60 w-[2px] z-10 touch-none'
         style={{ left: `${endPosition}%` }}
         onTouchStart={(e) => handleTouchStart(e, 'end')}
       /> */}
+      <canvas 
+        ref={canvasRef} 
+        className='bg-white'
+        />
 
       {isZoomed ? (
         <ViewfinderCircleIcon 
