@@ -1,4 +1,5 @@
 "use client";
+import { debounce } from '@/utils/video';
 // CustomRangeSlider component
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -118,7 +119,7 @@ const Index: React.FC<IndexProps> = ({
     setDraggingTarget(null);
   };
 
-  const handleMarkerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handleMarkerTouchStart = debounce((e: React.TouchEvent<HTMLDivElement>) => {
     const sliderRect = sliderRef.current?.getBoundingClientRect();
     if (!sliderRect) return;
 
@@ -138,9 +139,9 @@ const Index: React.FC<IndexProps> = ({
           markerPosition: newMarkerPosition,
         });
     }
-  };
+  }, 100);
 
-  const handleMarkerTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handleMarkerTouchMove = debounce((e: React.TouchEvent<HTMLDivElement>) => {
     if (!isDragging || draggingTarget !== 'marker') return;
 
     const sliderRect = sliderRef.current?.getBoundingClientRect();
@@ -160,7 +161,7 @@ const Index: React.FC<IndexProps> = ({
           markerPosition: newMarkerPosition,
         });
     }
-  };
+  }, 0);
 
   useEffect(() => {
     window.addEventListener('touchmove', handleTouchMove);
@@ -182,6 +183,7 @@ const Index: React.FC<IndexProps> = ({
 
   return (
     <div className="relative w-full h-full" ref={sliderRef}>
+      {/* Limite inferior */}
       <div
         className="absolute top-1/2 -translate-y-1/2 w-[10px] cursor-ew-resize z-20 rounded-l-xl pl-4 py-4 pr-4"
         style={{ 
@@ -191,8 +193,8 @@ const Index: React.FC<IndexProps> = ({
         }}
         onTouchStart={(e) => handleTouchStart('start', e)}>
           <div className="relative w-[10px] h-full bg-white rounded-l-xl"/>
-        </div>
-
+      </div>
+      {/* Area seleccionada */}
       <div
         className="absolute h-full bg-white/20 z-10"
         style={{
@@ -201,7 +203,7 @@ const Index: React.FC<IndexProps> = ({
         }}
         onTouchStart={handleMarkerTouchStart}
         onTouchMove={handleMarkerTouchMove} />
- 
+      {/* Limite superior */}
       <div
         className="absolute top-1/2 -translate-y-1/2 w-[10px] cursor-ew-resize z-20 rounded-r-xl pl-2 py-4 pr-6"
         style={{ 
@@ -212,15 +214,14 @@ const Index: React.FC<IndexProps> = ({
         onTouchStart={(e) => handleTouchStart('end', e)}>
           <div className="relative w-[10px] h-full bg-white rounded-r-xl"/>
         </div>
-
+      {/* Marcador */}
       <div
         className="absolute top-1/2 -translate-y-1/2 h-[120%] bg-white z-30 cursor-ew-resize rounded-full"
         style={{ 
           left: `calc(${((markerPosition - min) / (max - min)) * 100}% - ${markerWidth / 2}px)`, 
           width: `${markerWidth}px`,
-        }}
-        onTouchStart={(e) => handleTouchStart('marker', e)} />
-
+        }} />
+      {/* Momento actual */}
       <div
         className="absolute -top-11 left-[50%] transform -translate-x-1 bg-black/40 text-white text-sm px-2 py-1 rounded-md whitespace-nowrap"
         style={{

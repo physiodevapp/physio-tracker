@@ -46,8 +46,8 @@ const Index: React.FC<IndexProps> = ({ onSelect }) => {
           width={32}
           height={32}
           // priority // si quieres que no se haga lazy load
-          className="w-32 h-32" />
-        {/* <p className="text-4xl font-bold">PhysiQ</p> */}
+          className="w-10 h-10 animate-pulse" />
+        <p className="text-4xl font-bold">PhysiQ</p>
       </div>
     );
   }  
@@ -61,12 +61,12 @@ const Index: React.FC<IndexProps> = ({ onSelect }) => {
         style={{height: paddingTop}}>
         <div className="flex items-center gap-2 select-none">
           <Image
-            src="/heart.png"
+            src="/physiq-logo.png"
             alt="App Icon"
             width={32}
             height={32}
             // priority // si quieres que no se haga lazy load
-            className="w-8 h-8 animate-pulse" />
+            className="w-10 h-10 animate-pulse" />
           <p className="text-4xl font-bold">PhysiQ</p>
         </div>
       </div>
