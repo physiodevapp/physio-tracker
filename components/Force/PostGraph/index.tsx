@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {Chart as ChartJS, ChartConfiguration, registerables, ActiveDataPoint, ChartEvent, Plugin} from 'chart.js';
-import { getAllAnnotations, getMaxYValue, getTouchedAnnotationKey, lttbDownsample } from "@/utils/chart";
+import {Chart as ChartJS, ChartConfiguration, registerables, ActiveDataPoint, ChartEvent} from 'chart.js';
+import { IAnnotation, getAllAnnotations, getMaxYValue, lttbDownsample } from "@/utils/chart";
 import annotationPlugin, { AnnotationOptions } from 'chartjs-plugin-annotation';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { adjustCyclesByZeroCrossing, Cycle, detectOutlierEdgesByFlatZones } from "@/utils/force";
@@ -31,14 +31,14 @@ const safetyDraggerMarginFactor = 0.02;
 function customDragger(
   minGap: number = 260, // ms
   onDragEnd?: (range: { start: number; end: number }) => void,
-): Plugin<'line'> {
-  let element: any = null;
-  let lastEvent: any = null;
+) {
+  let element: IAnnotation | null = null;
+  let lastEvent: ChartEvent | null = null;
   let isUpdateScheduled = false;
   let activeKey: string | null = null;
   let dragEndHandler: ((ev: Event) => void) | null = null;
 
-  function createDragEndHandler(chart: ChartJS): (ev: Event) => void {
+  function createDragEndHandler(chart: ChartJS & { _isDraggingAnnotation: boolean; }): (ev: Event) => void {
     return () => {
       if (typeof onDragEnd === 'function') {
         const annotations = getAllAnnotations(chart);
@@ -48,7 +48,7 @@ function customDragger(
           onDragEnd({ start: startX, end: endX });
         }
       }
-      (chart as any)._isDraggingAnnotation = false;
+      chart._isDraggingAnnotation = false;
       element = null;
       lastEvent = null;
       activeKey = null;
@@ -64,7 +64,9 @@ function customDragger(
   return {
     id: 'customDragger',
 
-    beforeEvent(chart: ChartJS, args: { event: ChartEvent } & { changed?: boolean }) {
+    beforeEvent(chart: ChartJS & {
+        _isDraggingAnnotation: boolean;
+    }, args: { event: ChartEvent } & { changed?: boolean }) {
       const event = args.event;
 
       const clientX =
@@ -92,7 +94,7 @@ function customDragger(
           element = ann;
           activeKey = key;
           lastEvent = event;
-          (chart as any)._isDraggingAnnotation = true;
+          chart._isDraggingAnnotation = true;
 
           dragEndHandler = createDragEndHandler(chart);
           window.addEventListener('mouseup', dragEndHandler);
@@ -156,11 +158,16 @@ function customDragger(
 function customCrosshairPlugin(isActive: boolean = true) { 
   return {
     id: 'customCrosshair',
-    afterEvent(chart: ChartJS, args: { event: ChartEvent }) {
+    afterEvent(chart: ChartJS & {
+      _isDraggingAnnotation?: boolean;
+      _customCrosshairX?: number | undefined;
+    }, args: { 
+      event: ChartEvent 
+    }) {
       if (!isActive) return;
 
       // ❌ Bloquear si se está arrastrando una anotación
-      if ((chart as any)._isDraggingAnnotation) return;
+      if (chart._isDraggingAnnotation) return;
 
       const { chartArea } = chart;
       const { event } = args;
@@ -173,18 +180,21 @@ function customCrosshairPlugin(isActive: boolean = true) {
         event.y >= chartArea.top &&
         event.y <= chartArea.bottom
       ) {
-        (chart as any)._customCrosshairX = event.x;
+        chart._customCrosshairX = event.x;
       } else {
-        (chart as any)._customCrosshairX = undefined;
+        chart._customCrosshairX = undefined;
       }
     },
-    afterDraw(chart: ChartJS & { _customCrosshairX?: number; }) {
+    afterDraw(chart: ChartJS & {
+      _isDraggingAnnotation?: boolean;
+      _customCrosshairX?: number | undefined;
+    }) {
       if (!isActive) return;
 
       // ❌ Bloquear si se está arrastrando una anotación
-      if ((chart as any)._isDraggingAnnotation) return;
+      if (chart._isDraggingAnnotation) return;
 
-      const x = (chart as any)._customCrosshairX;
+      const x = chart._customCrosshairX;
       if (!x) return;
 
       const { ctx, chartArea, scales } = chart;
@@ -264,7 +274,7 @@ function positionVerticalLineAtEdge(
       ? safeMin ?? 0
       : safeMax ?? 0;
 
-  const annotation = (annotations as Record<string, any>)[id];
+  const annotation = (annotations as Record<string, {type: 'line', xMin: number, xMax: number}>)[id];
   if (!annotation || annotation.type !== 'line') return;
 
   annotation.xMin = targetX;
@@ -549,8 +559,10 @@ const Index: React.FC<IndexProps> = ({
                 enabled: isZoomed,
                 mode: 'x', // o 'xy'
                 threshold: 10,
-                onPanStart: ({ chart, event }: { chart: ChartJS; event: any }) => {                 
-                  const pointerEvent = event.srcEvent as PointerEvent;
+                onPanStart: ({ chart, event }: { chart: ChartJS; event: {
+                  srcEvent: PointerEvent | MouseEvent | TouchEvent;
+                } }) => {                 
+                  const pointerEvent = event?.srcEvent as PointerEvent;
                   if (!pointerEvent) return;
 
                   // Coordenada precisa sobre el canvas
@@ -587,8 +599,8 @@ const Index: React.FC<IndexProps> = ({
                     }
                   }
                 },
-                onPan: ({ chart }: { chart: ChartJS }) => {
-                  const x = (chart as any)._customCrosshairX;
+                onPan: ({ chart }: { chart: ChartJS & { _customCrosshairX?: number; } }) => {
+                  const x = chart._customCrosshairX;
                   if (!x) return;
 
                   const xValue = chart.scales.x.getValueForPixel(x);

@@ -111,7 +111,13 @@ export function getMaxYValue(chart: ChartJS) {
   return maxY;
 };
 
-export function getAllAnnotations(chart: ChartJS): Record<string, any> {
+export interface IAnnotation {
+  type: 'line',
+  xMin: number,
+  xMax: number,
+  borderWidth: number,
+}
+export function getAllAnnotations(chart: ChartJS): Record<string, IAnnotation> {
   const annotationPlugin = chart.config.options?.plugins?.annotation;
   const annotations = annotationPlugin?.annotations;
 
@@ -119,7 +125,7 @@ export function getAllAnnotations(chart: ChartJS): Record<string, any> {
     return {};
   }
 
-  return annotations as Record<string, any>;
+  return annotations as Record<string, IAnnotation>;
 }
 
 export function getTouchedAnnotationKey(chart: ChartJS, touch: Touch): string | null {
