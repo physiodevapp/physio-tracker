@@ -110,3 +110,35 @@ export function getMaxYValue(chart: ChartJS) {
 
   return maxY;
 };
+
+export function getAllAnnotations(chart: ChartJS): Record<string, any> {
+  const annotationPlugin = chart.config.options?.plugins?.annotation;
+  const annotations = annotationPlugin?.annotations;
+
+  if (!annotations || typeof annotations !== 'object' || Array.isArray(annotations)) {
+    return {};
+  }
+
+  return annotations as Record<string, any>;
+}
+
+export function getTouchedAnnotationKey(chart: ChartJS, touch: Touch): string | null {
+  const annotations = getAllAnnotations(chart);
+  const canvasX = touch.clientX;
+
+  for (const [key, annotation] of Object.entries(annotations)) {
+    if (annotation.type === 'line' && annotation.xMin === annotation.xMax) {
+      const xCenter = chart.scales.x.getPixelForValue(annotation.xMin);
+      const tolerance = (annotation.borderWidth ?? 8) / 2;
+
+      if (canvasX >= xCenter - tolerance && canvasX <= xCenter + tolerance) {
+        return key;
+      }
+    }
+  }
+
+  return null;
+}
+
+
+

@@ -181,63 +181,52 @@ function mergeConsecutiveSameValleyStatus(segments: BaselineCrossSegment[]): Bas
   return merged;
 }
 
-export function detectOutlierEdges(
-  data: { x: number, y: number }[],
-  threshold: number = 0.06,
-  minStablePoints: number = 5,
-  instabilityCheckWindow: number = 10
+export function detectOutlierEdgesByFlatZones(
+  data: { x: number; y: number }[],
+  flatThreshold: number = 0.01,       // Cuánto puede oscilar la señal sin considerarse movimiento
+  minFlatPoints: number = 20           // Cuántos puntos consecutivos se necesitan para declarar "zona plana"
 ): { startOutlierIndex: number | null; endOutlierIndex: number | null } {
   const ys = data.map(p => p.y);
-  const mean = ys.reduce((sum, y) => sum + y, 0) / ys.length;
-  const deviations = ys.map(y => Math.abs(y - mean));
 
   let startOutlierIndex: number | null = null;
   let endOutlierIndex: number | null = null;
 
-  // Buscar desde el inicio
-  for (let i = 0; i < data.length - minStablePoints; i++) {
-    const stable = deviations.slice(i, i + minStablePoints).every(dev => dev < threshold);
-
-    if (stable) {
-      // Validar que no haya inestabilidad fuerte justo antes (como hiciste con el final)
-      const instabilitySlice = deviations.slice(i + minStablePoints, i + minStablePoints + instabilityCheckWindow);
-      const hasInstability = instabilitySlice.some(dev => dev > threshold * 2);
-
-      if (!hasInstability) {
-        startOutlierIndex = i;
-        break;
-      }
+  // 🔍 Buscar zona plana al inicio
+  for (let i = 0; i < data.length - minFlatPoints; i++) {
+    const slice = ys.slice(i, i + minFlatPoints);
+    const maxDev = Math.max(...slice) - Math.min(...slice);
+    if (maxDev < flatThreshold) {
+      startOutlierIndex = i + minFlatPoints;
+      break;
     }
   }
 
-  // Buscar desde el final
-  for (let i = data.length - minStablePoints; i >= 0; i--) {
-    const stable = deviations.slice(i, i + minStablePoints).every(dev => dev < threshold);
-
-    if (stable) {
-      const instabilitySlice = deviations.slice(i - instabilityCheckWindow, i);
-      const hasInstability = instabilitySlice.some(dev => dev > threshold * 2);
-
-      if (!hasInstability) {
-        endOutlierIndex = i + minStablePoints - 1;
-        break;
-      }
+  // 🔍 Buscar zona plana al final
+  for (let i = data.length - minFlatPoints; i >= 0; i--) {
+    const slice = ys.slice(i, i + minFlatPoints);
+    const maxDev = Math.max(...slice) - Math.min(...slice);
+    if (maxDev < flatThreshold) {
+      endOutlierIndex = i;
+      break;
     }
   }
 
   return { startOutlierIndex, endOutlierIndex };
 }
 
+
+
 export function adjustCyclesByZeroCrossing(
   inputData: DataPoint[],
   baseline = 0,
   cycles: Cycle[],
   cyclesToAverage = 3,
+  trimLimits?: { start: number; end: number } | null,
 ): { baselineCrossSegments: BaselineCrossSegment[]; adjustedCycles: Cycle[] } {
   const data = inputData;
   let baselineCrossSegments: BaselineCrossSegment[] = [];
   const zeroCrossings: number[] = [];
-  const workLoad = cycles[0].workLoad ?? null;
+  const workLoad = cycles[0]?.workLoad ?? null;
 
   // Find zero-crossings (sign changes relative to baseline)
   for (let i = 1; i < data.length; i++) {
@@ -400,5 +389,52 @@ export function adjustCyclesByZeroCrossing(
 
   adjustedCycles = addRelativeSpeedToCycles(adjustedCycles, cyclesToAverage);
 
+  // console.log('baselineCrossSegments ', baselineCrossSegments)
+  if (trimLimits && adjustedCycles.length > 0) {
+    const first = adjustedCycles[0];
+    const firstSegment = baselineCrossSegments.find(seg => seg.startX >= trimLimits.start);
+
+    if (firstSegment && first.endX! > trimLimits.start) {
+      const proposedStartX = firstSegment.isValley ? firstSegment.peakX : trimLimits.start;
+      // console.log('proposedStartX ', proposedStartX)
+      // console.log('first.startX! ', first.startX!)
+      first.startX = proposedStartX;
+
+      const segment = inputData.filter(p => p.x >= first.startX! && p.x <= first.endX!);
+      if (segment.length > 0) {
+        first.duration = first.endX! - first.startX;
+        first.amplitude = Math.max(...segment.map(p => p.y)) - Math.min(...segment.map(p => p.y));
+        first.peakY = Math.max(...segment.map(p => p.y));
+        first.peakX = segment.find(p => p.y === first.peakY)?.x ?? first.startX;
+        first.minY = Math.min(...segment.map(p => p.y));
+        first.minX = segment.find(p => p.y === first.minY)?.x ?? first.startX;
+        first.speedRatio = (first.amplitude / (first.duration / 1000)) / (first.workLoad ?? 1);
+      }
+    }
+
+    const last = adjustedCycles[adjustedCycles.length - 1];
+    const lastSegment = [...baselineCrossSegments]
+      .reverse()
+      .find(seg => seg.endX <= trimLimits.end);
+    
+    if (lastSegment && last.startX! < trimLimits.end) {
+      const proposedEndX = lastSegment.isValley ? lastSegment.peakX : trimLimits.end;
+      // console.log('proposedEndX ', proposedEndX)
+      // console.log('last.endX! ', last.endX!)
+      last.endX = proposedEndX;
+
+      const segment = inputData.filter(p => p.x >= last.startX! && p.x <= last.endX!);
+      if (segment.length > 0) {
+        last.duration = last.endX - last.startX!;
+        last.amplitude = Math.max(...segment.map(p => p.y)) - Math.min(...segment.map(p => p.y));
+        last.peakY = Math.max(...segment.map(p => p.y));
+        last.peakX = segment.find(p => p.y === last.peakY)?.x ?? last.endX;
+        last.minY = Math.min(...segment.map(p => p.y));
+        last.minX = segment.find(p => p.y === last.minY)?.x ?? last.endX;
+        last.speedRatio = (last.amplitude / (last.duration / 1000)) / (last.workLoad ?? 1);
+      }
+    }
+  }
+  
   return { baselineCrossSegments, adjustedCycles };
 }
