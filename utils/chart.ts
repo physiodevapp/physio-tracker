@@ -1,3 +1,5 @@
+import {Chart as ChartJS} from 'chart.js';
+
 export interface DataPoint {
   x: number;
   y: number;
@@ -85,3 +87,58 @@ export function getInterpolatedColor(
   const alpha = startAlpha + (endAlpha - startAlpha) * ratio;
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
+
+export function getMaxYValue(chart: ChartJS) {
+  let maxY = 0;
+
+  chart.data.datasets.forEach((dataset) => {
+    dataset.data.forEach((point) => {
+      if(point) {
+        if (typeof point === 'number') {
+          // Si el punto es un número directo (raro, pero posible)
+          if (point > maxY) maxY = point;
+        } else if (Array.isArray(point)) {
+          // Si el punto es un array [x, y]
+          if (point[1] > maxY) maxY = point[1];
+        } else if ('y' in point) {
+          // Si el punto es un objeto con propiedad `y`
+          if (point.y > maxY) maxY = point.y;
+        }
+      }
+    });        
+  });
+
+  return maxY;
+};
+
+export function getAllAnnotations(chart: ChartJS): Record<string, any> {
+  const annotationPlugin = chart.config.options?.plugins?.annotation;
+  const annotations = annotationPlugin?.annotations;
+
+  if (!annotations || typeof annotations !== 'object' || Array.isArray(annotations)) {
+    return {};
+  }
+
+  return annotations as Record<string, any>;
+}
+
+export function getTouchedAnnotationKey(chart: ChartJS, touch: Touch): string | null {
+  const annotations = getAllAnnotations(chart);
+  const canvasX = touch.clientX;
+
+  for (const [key, annotation] of Object.entries(annotations)) {
+    if (annotation.type === 'line' && annotation.xMin === annotation.xMax) {
+      const xCenter = chart.scales.x.getPixelForValue(annotation.xMin);
+      const tolerance = (annotation.borderWidth ?? 8) / 2;
+
+      if (canvasX >= xCenter - tolerance && canvasX <= xCenter + tolerance) {
+        return key;
+      }
+    }
+  }
+
+  return null;
+}
+
+
+

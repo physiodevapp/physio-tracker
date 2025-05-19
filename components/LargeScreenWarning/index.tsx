@@ -9,12 +9,12 @@ const Index = () => {
     <div className="flex flex-col items-center justify-center h-dvh text-center px-6 bg-gray-100">
       <div className="flex items-center gap-2 select-none mb-6">
         <Image
-          src="/physiq-logo-192.png"
+          src="/physiq-logo.png"
           alt="App Icon"
           width={32}
           height={32}
           // priority // si quieres que no se haga lazy load
-          className="w-8 h-8 animate-pulse" />
+          className="w-[2.1rem] h-[2.1rem] animate-pulse" />
         <p className="text-4xl font-bold text-gray-800">PhysiQ</p>
       </div>
       <div className="flex items-center space-x-4 mb-4">

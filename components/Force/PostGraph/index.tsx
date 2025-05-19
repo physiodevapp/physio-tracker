@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {Chart as ChartJS, ChartConfiguration, registerables, ActiveDataPoint, ChartEvent} from 'chart.js';
-import { lttbDownsample } from "@/utils/chart";
+import {Chart as ChartJS, ChartConfiguration, registerables, ActiveDataPoint, ChartEvent, Plugin} from 'chart.js';
+import { getAllAnnotations, getMaxYValue, getTouchedAnnotationKey, lttbDownsample } from "@/utils/chart";
 import annotationPlugin, { AnnotationOptions } from 'chartjs-plugin-annotation';
 import zoomPlugin from 'chartjs-plugin-zoom';
-import { ViewfinderCircleIcon } from "@heroicons/react/24/solid";
-import { adjustCyclesByZeroCrossing, Cycle, detectOutlierEdges } from "../../../utils/force";
+import { adjustCyclesByZeroCrossing, Cycle, detectOutlierEdgesByFlatZones } from "@/utils/force";
 import { useBluetooth } from "@/providers/Bluetooth";
 import { useSettings } from "@/providers/Settings";
+import { ArrowsPointingInIcon, ArrowsPointingOutIcon } from "@heroicons/react/24/outline";
 
 // Registrar los componentes necesarios de Chart.js, incluyendo el plugin de anotaciones
 ChartJS.register(
@@ -26,11 +26,141 @@ interface IndexProps {
   displayAnnotations: boolean;
 }
 
+const safetyDraggerMarginFactor = 0.02;
+
+function customDragger(
+  minGap: number = 260, // ms
+  onDragEnd?: (range: { start: number; end: number }) => void,
+): Plugin<'line'> {
+  let element: any = null;
+  let lastEvent: any = null;
+  let isUpdateScheduled = false;
+  let activeKey: string | null = null;
+  let dragEndHandler: ((ev: Event) => void) | null = null;
+
+  function createDragEndHandler(chart: ChartJS): (ev: Event) => void {
+    return () => {
+      if (typeof onDragEnd === 'function') {
+        const annotations = getAllAnnotations(chart);
+        const startX = annotations['startVerticalLine']?.xMin ?? null;
+        const endX = annotations['endVerticalLine']?.xMin ?? null;
+        if (startX !== null && endX !== null) {
+          onDragEnd({ start: startX, end: endX });
+        }
+      }
+      (chart as any)._isDraggingAnnotation = false;
+      element = null;
+      lastEvent = null;
+      activeKey = null;
+
+      if (dragEndHandler) {
+        window.removeEventListener('mouseup', dragEndHandler);
+        window.removeEventListener('touchend', dragEndHandler);
+        dragEndHandler = null;
+      }
+    };
+  }
+
+  return {
+    id: 'customDragger',
+
+    beforeEvent(chart: ChartJS, args: { event: ChartEvent } & { changed?: boolean }) {
+      const event = args.event;
+
+      const clientX =
+        event.x ?? (event.native as TouchEvent | undefined)?.touches?.[0]?.clientX ?? 0;
+
+      const annotations = getAllAnnotations(chart);
+      if (!annotations || typeof annotations !== 'object' || Array.isArray(annotations)) return;
+
+      const xScale = chart.scales.x;
+      if (!xScale || xScale.min === undefined || xScale.max === undefined) return;
+
+      const draggableKeys = ['startVerticalLine', 'endVerticalLine'];
+      for (const key of draggableKeys) {
+        const ann = annotations[key];
+        if (!ann || ann.type !== 'line') continue;
+
+        const xPixel = xScale.getPixelForValue(ann.xMin);
+        const tolerance = ann.borderWidth / 2;
+
+        if (
+          (event.type === 'mousedown' || event.native?.type === 'touchstart') &&
+          clientX >= xPixel - tolerance &&
+          clientX <= xPixel + tolerance
+        ) {
+          element = ann;
+          activeKey = key;
+          lastEvent = event;
+          (chart as any)._isDraggingAnnotation = true;
+
+          dragEndHandler = createDragEndHandler(chart);
+          window.addEventListener('mouseup', dragEndHandler);
+          window.addEventListener('touchend', dragEndHandler);
+          return;
+        }
+      }
+
+      if (
+        (event.type === 'mousemove' || event.native?.type === 'touchmove') &&
+        element &&
+        lastEvent &&
+        activeKey
+      ) {
+        const prevX =
+          lastEvent.x ?? (lastEvent.native as TouchEvent | undefined)?.touches?.[0]?.clientX ?? 0;
+        const moveX = clientX - prevX;
+
+        const pixelsPerUnit = xScale.width / (xScale.max - xScale.min);
+        const deltaValue = moveX / pixelsPerUnit;
+
+        const nextX = element.xMin + deltaValue;
+        const minVisible = xScale.min;
+        const maxVisible = xScale.max;
+
+        const margin = (maxVisible - minVisible) * 0.02;
+        const safeMin = minVisible + margin;
+        const safeMax = maxVisible - margin;
+
+        const startX = annotations['startVerticalLine']?.xMin;
+        const endX = annotations['endVerticalLine']?.xMin;
+
+        if (nextX < safeMin || nextX > safeMax) return;
+
+        if (
+          (activeKey === 'startVerticalLine' && endX !== undefined && nextX >= endX - minGap) ||
+          (activeKey === 'endVerticalLine' && startX !== undefined && nextX <= startX + minGap)
+        ) {
+          return; // ❌ Bloquear si se rompe la distancia mínima
+        }
+
+        element.xMin = nextX;
+        element.xMax = nextX;
+
+        if (!isUpdateScheduled) {
+          isUpdateScheduled = true;
+          requestAnimationFrame(() => {
+            chart.update('none');
+            isUpdateScheduled = false;
+          });
+        }
+
+        lastEvent = event;
+        args.changed = true;
+        return;
+      }
+    }
+  };
+}
+
 function customCrosshairPlugin(isActive: boolean = true) { 
   return {
     id: 'customCrosshair',
-    afterEvent(chart: ChartJS & { _customCrosshairX?: number }, args: { event: ChartEvent }) {
+    afterEvent(chart: ChartJS, args: { event: ChartEvent }) {
       if (!isActive) return;
+
+      // ❌ Bloquear si se está arrastrando una anotación
+      if ((chart as any)._isDraggingAnnotation) return;
 
       const { chartArea } = chart;
       const { event } = args;
@@ -43,15 +173,18 @@ function customCrosshairPlugin(isActive: boolean = true) {
         event.y >= chartArea.top &&
         event.y <= chartArea.bottom
       ) {
-        chart._customCrosshairX = event.x;
+        (chart as any)._customCrosshairX = event.x;
       } else {
-        chart._customCrosshairX = undefined;
+        (chart as any)._customCrosshairX = undefined;
       }
     },
-    afterDraw(chart: ChartJS & { _customCrosshairX?: number }) {
+    afterDraw(chart: ChartJS & { _customCrosshairX?: number; }) {
       if (!isActive) return;
 
-      const x = chart._customCrosshairX;
+      // ❌ Bloquear si se está arrastrando una anotación
+      if ((chart as any)._isDraggingAnnotation) return;
+
+      const x = (chart as any)._customCrosshairX;
       if (!x) return;
 
       const { ctx, chartArea, scales } = chart;
@@ -113,6 +246,85 @@ function customCrosshairPlugin(isActive: boolean = true) {
   }
 };
 
+function positionVerticalLineAtEdge(
+  chart: ChartJS, 
+  id: 'startVerticalLine' | 'endVerticalLine', 
+  min: number,
+  max: number,
+) {
+  const annotations = chart.options.plugins?.annotation?.annotations;
+  if (!annotations || typeof annotations !== 'object' || Array.isArray(annotations)) return;
+
+  const margin = (max - min) * safetyDraggerMarginFactor;
+  const safeMin = min + margin;
+  const safeMax = max - margin;
+
+  const targetX =
+    id === 'startVerticalLine'
+      ? safeMin ?? 0
+      : safeMax ?? 0;
+
+  const annotation = (annotations as Record<string, any>)[id];
+  if (!annotation || annotation.type !== 'line') return;
+
+  annotation.xMin = targetX;
+  annotation.xMax = targetX;
+}
+
+function zoomToAnnotationsRange(
+  chart: ChartJS | undefined,
+  downsampledData: { x: number }[],
+  options?: {
+    isZoomed?: boolean;
+    marginRatioY?: number;
+    xMarginPixels?: number;
+    clampMinX?: number;
+  }
+) {
+  if (!chart || !chart.options.scales) return;
+
+  const maxY = getMaxYValue(chart);
+  const marginY = maxY * (options?.marginRatioY ?? 0.2);
+  chart.options.scales.y!.min = undefined;
+  chart.options.scales.y!.max = maxY + marginY;
+
+  // Si NO está activado el zoom → mostrar todo el dataset
+  if (options?.isZoomed === false) {
+    const min = downsampledData.at(0)?.x ?? 0;
+    const max = downsampledData.at(-1)?.x ?? 10000;
+
+    chart.zoomScale('x', { min, max }, 'default');
+    chart.update();
+    return;
+  }
+
+  // Zoom entre líneas de anotación
+  const annotations = getAllAnnotations(chart);
+  const startLine = annotations['startVerticalLine'];
+  const endLine = annotations['endVerticalLine'];
+
+  const startX = startLine?.xMin ?? 0;
+  const endX = endLine?.xMax ?? downsampledData.at(-1)?.x ?? 10000;
+
+  const chartWidthPx = chart.width;
+  const xVisibleRange = endX - startX || 1000;
+  const msPerPixel = xVisibleRange / chartWidthPx;
+  const pixelMargin = options?.xMarginPixels ?? 8;
+  const xMargin = msPerPixel * pixelMargin;
+
+  const rawMin = startX - xMargin;
+  const rawMax = endX + xMargin;
+
+  const clampMin = options?.clampMinX ?? 0;
+  const min = Math.max(rawMin, clampMin);
+  const max = rawMax;
+
+  if (min >= max) return;
+
+  chart.zoomScale('x', { min, max }, 'default');
+  chart.update();
+}
+
 function calculateMeanY(data: { x: number; y: number }[]): number | null {
   if (!data.length) return null;
 
@@ -120,18 +332,28 @@ function calculateMeanY(data: { x: number; y: number }[]): number | null {
   return total / data.length;
 }
 
+function calculateStandardDeviation(data: { y: number }[]) {
+  if (!data.length) return 0;
+
+  // Calcula la media
+  const mean = data.reduce((acc, point) => acc + point.y, 0) / data.length;
+
+  // Calcula la desviación estándar
+  const variance =
+    data.reduce((acc, point) => acc + Math.pow(point.y - mean, 2), 0) /
+    data.length;
+
+  return Math.sqrt(variance);
+};
+
 const Index: React.FC<IndexProps> = ({
   rawSensorData,
   displayAnnotations = true,
 }) => {
-  const { 
-    cycles, 
-    setCycles,
-    // liveCycles,
-  } = useBluetooth(); // useContext(BluetoothContext);
+  const { setCycles } = useBluetooth();
 
   const { settings } = useSettings();
-  const { cyclesToAverage } = settings.force;
+  const { cyclesToAverage, outlierSensitivity } = settings.force;
 
   const [isZoomed, setIsZoomed] = useState(false);
 
@@ -142,7 +364,9 @@ const Index: React.FC<IndexProps> = ({
   
   // Mapeamos los datos para adaptarlos a la función lttbDownsample
   const mappedData = useMemo(() => {
-    if (rawSensorData.length === 0) return [];
+    if (rawSensorData.length === 0) {
+      return [];
+    };
 
     return rawSensorData.map(point => ({
       x: point.time / 1_000, // ms
@@ -156,40 +380,11 @@ const Index: React.FC<IndexProps> = ({
     return lttbDownsample(mappedData, decimationThreshold);
   }, [JSON.stringify(mappedData), decimationThreshold]);
 
-  const minTime = downsampledData.length > 0 ? downsampledData[0].x : 0;
-  const maxTime = downsampledData.length > 0 ? downsampledData[downsampledData.length - 1].x : 1000; 
-
   const [adjustedCycles, setAdjustedCycles] = useState<Cycle[]>([]);
   const [topLineValue, setTopLineValue] = useState(0);
   const [crossLineValue, setCrossLineValue] = useState(0);
 
-  useEffect(() => {
-    if (!downsampledData.length) return;
-
-    // 1. Calcular valores auxiliares
-    const maxY = Math.max(...downsampledData.map(p => p.y));
-    setTopLineValue(maxY);
-
-    const { startOutlierIndex, endOutlierIndex } = detectOutlierEdges(mappedData);
-    const trimmedData = startOutlierIndex || endOutlierIndex
-      ? mappedData.slice(
-          startOutlierIndex ?? 0,
-          endOutlierIndex !== null ? endOutlierIndex + 1 : undefined
-        )
-      : mappedData;
-
-    const crossLine = calculateMeanY(trimmedData) ?? 0;
-    setCrossLineValue(crossLine);
-
-    // 2. Calcular ciclos ajustados
-    const { adjustedCycles } = adjustCyclesByZeroCrossing(
-      mappedData,
-      crossLine,
-      cycles,
-      cyclesToAverage
-    );
-    setAdjustedCycles(adjustedCycles);
-  }, [downsampledData, mappedData]);
+  const [trimLimits, setTrimLimits] = useState<{ start: number; end: number } | null>(null);
 
   const cycleAnnotations: Record<string, AnnotationOptions> = useMemo(() => {
     if (!adjustedCycles?.length) return {};
@@ -245,6 +440,10 @@ const Index: React.FC<IndexProps> = ({
       return {
         type: "line",
         plugins: [
+          customDragger(
+            100,
+            setTrimLimits,
+          ),
           customCrosshairPlugin(),
         ],
         data: {
@@ -347,13 +546,49 @@ const Index: React.FC<IndexProps> = ({
                 },
               },
               pan: {
-                enabled: false,
-                mode: 'xy', // o 'xy'
+                enabled: isZoomed,
+                mode: 'x', // o 'xy'
                 threshold: 10,
-                onPan: ({ chart }: { chart: ChartJS & { _customCrosshairX?: number } }) => {
-                  setIsZoomed(true);
+                onPanStart: ({ chart, event }: { chart: ChartJS; event: any }) => {                 
+                  const pointerEvent = event.srcEvent as PointerEvent;
+                  if (!pointerEvent) return;
 
-                  const x = chart._customCrosshairX;
+                  // Coordenada precisa sobre el canvas
+                  const canvasX = pointerEvent.offsetX;
+
+                  // Mayor tolerancia si es touch
+                  const isTouch = pointerEvent.pointerType === 'touch' || 'ontouchstart' in window;
+
+                  const annotations = getAllAnnotations(chart);
+                  const keysToCheck = ['startVerticalLine', 'endVerticalLine'];
+
+                  for (const key of keysToCheck) {
+                    const annotation = annotations[key];
+                    if (!annotation || annotation.type !== 'line' || annotation.xMin !== annotation.xMax) continue;
+
+                    const xValue = annotation.xMin;
+                    const xCenter = chart.scales.x.getPixelForValue(xValue);
+
+                    if (isNaN(xCenter)) {
+                      console.warn(`⚠️ No se pudo calcular el pixel de la línea '${key}'`);
+                      continue;
+                    }
+
+                    const rawTolerance = (annotation.borderWidth ?? 8) / 2;
+                    const tolerance = Math.max(rawTolerance, isTouch ? 10 : 5);
+                    const distance = Math.abs(canvasX - xCenter);
+
+                    // console.log(`📍 Touch X: ${canvasX}, línea '${key}' X: ${xCenter}, distancia: ${distance}, tolerancia: ${tolerance}`);
+
+                    const marginExtra = isTouch ? 4 : 0.5;
+                    if (distance <= tolerance + marginExtra) {
+                      // console.log(`⛔ Pan cancelado sobre línea '${key}'`);
+                      return false;
+                    }
+                  }
+                },
+                onPan: ({ chart }: { chart: ChartJS }) => {
+                  const x = (chart as any)._customCrosshairX;
                   if (!x) return;
 
                   const xValue = chart.scales.x.getValueForPixel(x);
@@ -397,6 +632,32 @@ const Index: React.FC<IndexProps> = ({
             annotation: {
               annotations: {
                 ...cycleAnnotations,
+                startVerticalLine: {
+                  type: 'line',
+                  xMin: trimLimits?.start ?? 0,
+                  xMax: trimLimits?.start ?? 0,
+                  borderColor: 'rgba(219, 211, 43, 0.75)',
+                  borderWidth: 6,
+                  label: {
+                    enabled: false,
+                    content: '',
+                    position: 'end',
+                  },
+                  draggable: true,
+                },
+                endVerticalLine: {
+                  type: 'line',
+                  xMin: trimLimits?.end ?? 0,
+                  xMax: trimLimits?.end ?? 0,
+                  borderColor: 'rgba(219, 211, 43, 0.75)',
+                  borderWidth: 6,
+                  label: {
+                    enabled: false,
+                    content: '',
+                    position: 'end',
+                  },
+                  draggable: true,
+                },              
                 crossLine: {
                   type: 'line',
                   display: true,
@@ -442,10 +703,9 @@ const Index: React.FC<IndexProps> = ({
                   return numValue >= 0 ? `${(numValue / 1000).toFixed(0)}` : '';
                 },
               },
-              min: minTime,
-              max: maxTime,
             },
             y: {
+              display: true,
               title: {
                 display: false,
                 text: 'Force (kg)',
@@ -466,6 +726,10 @@ const Index: React.FC<IndexProps> = ({
   }, [downsampledData, adjustedCycles]);
 
   useEffect(() => {
+    setTrimLimits(null);
+  }, []);
+
+  useEffect(() => {
     if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
@@ -479,49 +743,127 @@ const Index: React.FC<IndexProps> = ({
   }, [chartConfig]);
 
   useEffect(() => {
-    if (!adjustedCycles?.length) return;
-  
-    const validCycles = [...adjustedCycles]
-      .filter(cycle => cycle.startX! < cycle.endX!)
-      .filter((cycle, index, array) => {
-        if (index === array.length - 1) return true;
-        return cycle.startX! < array[index + 1].endX!;
-      });
+    if (!downsampledData.length) return;
 
-    if (chartRef.current) {
-      chartRef.current.zoomScale('x', {
-        min: validCycles[0].startX ?? 0,
-        max: validCycles[validCycles.length - 1].endX ?? downsampledData[downsampledData.length -1].x,
-      });
-    }
-  
-    // console.log('cycles ', validCycles)
-    // console.log('liveCycles ', liveCycles)
+    const applyTrimLimits = (data: { x: number; y: number }[]) =>
+      trimLimits
+      ? data.filter(p => p.x >= trimLimits.start && p.x <= trimLimits.end)
+      : data;
+
+    // 1️⃣ Filtrado base (sin baseline)
+    const targetData = applyTrimLimits(mappedData);
+    const meanY = calculateMeanY(targetData) ?? 0;
+    const stdDev = calculateStandardDeviation(targetData);
+
+    const filteredData = targetData.filter(
+      p => Math.abs(p.y - meanY) < outlierSensitivity * stdDev
+    );
+
+    // 2️⃣ Detectar outliers en los extremos
+    let trimmedData;
+    const { startOutlierIndex, endOutlierIndex } = detectOutlierEdgesByFlatZones(filteredData);
+    trimmedData = (startOutlierIndex || endOutlierIndex)
+      ? filteredData.slice(
+          startOutlierIndex ?? 0,
+          endOutlierIndex !== null ? endOutlierIndex + 1 : undefined
+        )
+      : filteredData;
+
+    trimmedData = applyTrimLimits(trimmedData);
+
+    // 3️⃣ Nueva línea de cruce (puede ser un percentil o la media)
+    const crossLine = calculateMeanY(trimmedData) ?? 0;
+    setCrossLineValue(crossLine);
+
+    // 4️⃣ Línea superior
+    const maxY = Math.max(...trimmedData.map(p => p.y));
+    setTopLineValue(maxY);
+
+    // 5️⃣ Detectar ciclos desde cero con esa línea de cruce
+    const { adjustedCycles } = adjustCyclesByZeroCrossing(
+      trimmedData,
+      crossLine,
+      [],               // ← no se parte de ningún ciclo preexistente
+      cyclesToAverage,   // ← cantidad de ciclos que quieres usar para calcular métricas luego
+      trimLimits,
+    );
+    setAdjustedCycles(adjustedCycles);
+
+  }, [downsampledData, mappedData, trimLimits]);
+
+  useEffect(() => {
+    if (!adjustedCycles?.length) return;
+
+    const validCycles = [...adjustedCycles]
+      .filter(c => c.startX! < c.endX!)
+      .filter((c, i, arr) => i === arr.length - 1 || c.startX! < arr[i + 1].endX!);
+
     setCycles(validCycles);
+
+    if (chartRef.current && !trimLimits) {
+      const min = validCycles[0].startX ?? 0;
+      const max = validCycles.at(-1)?.endX ?? downsampledData.at(-1)?.x ?? 10000;
+
+      positionVerticalLineAtEdge(chartRef.current, 'startVerticalLine', min, max);
+      positionVerticalLineAtEdge(chartRef.current, 'endVerticalLine', min, max);
+
+      chartRef.current.update();
+    }
+
+    zoomToAnnotationsRange(chartRef.current!, downsampledData, {
+      isZoomed: true,
+      xMarginPixels: 6,
+      marginRatioY: 0.2,
+      clampMinX: 0,
+    });
+    setIsZoomed(true);
+
   }, [adjustedCycles]);
 
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    const chart = chartRef.current;
+
+    // Asegúrate de que los plugins existen
+    if (chart.options.plugins?.zoom?.pan) {
+      chart.options.plugins.zoom.pan.enabled = isZoomed;
+      chart.update();
+    }
+  }, [isZoomed]);
+
   return (
-    <section className='relative border-gray-200 border-2 dark:border-none bg-white rounded-lg pl-2 pr-1 pt-6 pb-2 mt-2'>
+    <section className='relative border-gray-200 border-2 dark:border-none bg-white rounded-lg pl-2 pr-2 pt-6 pb-2 mt-2'>
       <canvas 
         ref={canvasRef} 
         className='bg-white'
         />
-      {isZoomed ? (
-        <ViewfinderCircleIcon 
-        className="absolute bottom-0 left-0 p-1 pl-0 w-8 h-8 text-gray-400"
-        onClick={() => {
-          // chartRef.current?.resetZoom();
-          if (chartRef.current) {
-            chartRef.current.zoomScale('x', {
-              min: cycles[0].startX ?? 0,
-              max: cycles[cycles.length - 1].endX ?? downsampledData[downsampledData.length -1].x,
-            });
-          }
 
-          setIsZoomed(false);
-        }}
-        /> ) : null
-      }
+      {isZoomed ? (
+        <ArrowsPointingInIcon 
+          className="absolute bottom-0 left-0 p-1 pl-0 w-8 h-8 text-gray-400 cursor-pointer"
+          onClick={() => {
+            zoomToAnnotationsRange(chartRef.current!, downsampledData, {
+              isZoomed: false,
+            });
+            setIsZoomed(false); // cambia a modo "ver todo"
+          }}
+        />
+      ) : (
+        <ArrowsPointingOutIcon
+          className="absolute bottom-0 left-0 p-1 pl-0 w-8 h-8 text-gray-400 cursor-pointer"
+          onClick={() => {
+            zoomToAnnotationsRange(chartRef.current!, downsampledData, {
+              isZoomed: true,
+              xMarginPixels: 6,
+              marginRatioY: 0.2,
+              clampMinX: 0,
+            });
+            setIsZoomed(true); // cambia a modo "zoom entre líneas"
+          }}
+        />
+      )}
+
       {rawSensorData.length > 0 ? (
         <p className="flex flex-row gap-4 absolute top-1 left-2 text-gray-500 text-[0.8rem]">
           <span>Max: <strong>{topLineValue.toFixed(2)} kg</strong></span> 

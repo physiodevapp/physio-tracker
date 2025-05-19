@@ -93,7 +93,7 @@ const Index: React.FC<IndexProps> = ({ onSelect }) => {
           <button
             key={value}
             onClick={() => onSelect(value)}
-            className="w-full max-w-xs py-5 text-lg font-semibold tracking-wide rounded-xl backdrop-blur-sm bg-white/10 border border-white/20 hover:bg-white/20 active:bg-white/30 transition-all duration-200 shadow-md select-none">
+            className="w-full max-w-xs py-5 text-xl font-semibold tracking-wide rounded-xl backdrop-blur-sm bg-white/10 border border-white/20 hover:bg-white/20 active:bg-white/30 transition-all duration-200 shadow-md select-none">
             {label}
           </button>
         ))}
