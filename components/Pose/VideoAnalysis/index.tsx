@@ -44,7 +44,7 @@ interface IndexProps {
   onStatusChange?: (status: ProcessingStatus) => void;
 }
 
-const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
+const  Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   handleMainMenu, 
   isMainMenuOpen,
   orthogonalReference,

@@ -58,6 +58,11 @@ const Index = ({
   } = settings.pose;
 
   const [isCameraReady, setIsCameraReady] = useState(false);
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const [visibleKinematics] = useState<Kinematics[]>([Kinematics.ANGLE]);
   
@@ -107,6 +112,51 @@ const Index = ({
 
       webcamRef.current.video.width = myVideoWidth;
       webcamRef.current.video.height = myVideoHeight;
+    }
+  };
+
+  const startRecording = () => {
+    if (!webcamRef.current?.video?.srcObject) return;
+
+    const stream = webcamRef.current.video.srcObject as MediaStream;
+
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'video/webm; codecs=vp9',
+    });
+
+    setRecordedChunks([]);
+    mediaRecorderRef.current = mediaRecorder;
+    setIsRecording(true);
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        setRecordedChunks((prev) => [...prev, event.data]);
+      }
+    };
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'recording.webm';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    mediaRecorder.start();
+
+    // Limitar la grabación a 30 segundos
+    recordingTimeoutRef.current = setTimeout(() => {
+      stopRecording();
+    }, 30_000);
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
+    if (recordingTimeoutRef.current) {
+      clearTimeout(recordingTimeoutRef.current);
     }
   };
   

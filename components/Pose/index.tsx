@@ -213,17 +213,25 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   />
             }
             {mode === "live" ? ( 
-              <ArrowUpTrayIcon 
-                className="w-6 h-6 text-white"
-                onClick={() => {
-                  setIsFrozen(false);
+              <>
+                <ArrowUpTrayIcon 
+                  className="w-6 h-6 text-white"
+                  onClick={() => {
+                    setIsFrozen(false);
 
-                  handleWorkerLifecycle(false);
+                    handleWorkerLifecycle(false);
 
-                  setShowGrid(false);
-                  
-                  setMode("video");
-                }}/> ) : (
+                    setShowGrid(false);
+                    
+                    setMode("video");
+                  }}/> 
+                <div 
+                  className="w-6 h-6 rounded-full border-2 p-[0.2rem] flex items-center justify-center"
+                  onClick={() => {}}
+                  >
+                  <div className="bg-red-500 h-full w-full rounded-full"/>
+                </div>
+              </> ) : (
               <>
                 {videoLoaded ? (
                   <TrashIcon 
