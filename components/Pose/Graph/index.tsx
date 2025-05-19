@@ -545,6 +545,8 @@ const Index = ({
   useEffect(() => {
     const chart = chartRef.current as ChartJS;
     if (!chart || verticalLineValue === undefined) return;
+    // console.log('PoseChart verticalLineValue', verticalLineValue)
+    // console.log('recordedPositions ', recordedPositions)
   
     // Actualiza la línea vertical normalmente
     const activeElements: { datasetIndex: number; index: number }[] = [];

@@ -564,6 +564,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       const frame = allFramesDataRef.current[i];
       nearestFrameRef.current = frame;
 
+      setVerticalLineValue(frame.videoTime * 1000);
       updateDisplayedAngles(frame, selectedJointsRef.current);
   
       if (!isPlayingRef.current) {
@@ -603,7 +604,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       // Bloquea handleVerticalLineChange mientras cambia verticalLineValue
       isPlayingUpdateRef.current = true;
       currentFrameIndexRef.current = i;
-      setVerticalLineValue(frame.videoTime * 1000);
+      // setVerticalLineValue(frame.videoTime * 1000);
       await nextTick();
       isPlayingUpdateRef.current = false;
   
