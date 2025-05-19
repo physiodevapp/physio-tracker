@@ -27,7 +27,6 @@ interface IndexProps {
 }
 
 const safetyDraggerMarginFactor = 0.02;
-
 function customDragger(
   minGap: number = 260, // ms
   onDragEnd?: (range: { start: number; end: number }) => void,
@@ -366,6 +365,7 @@ const Index: React.FC<IndexProps> = ({
   const { cyclesToAverage, outlierSensitivity } = settings.force;
 
   const [isZoomed, setIsZoomed] = useState(false);
+  const [minRangeX, setMinRangeX] = useState(4_000)
 
   // --- Cofiguración del gráfico ----
   const chartRef = useRef<ChartJS | null>(null);
@@ -397,17 +397,17 @@ const Index: React.FC<IndexProps> = ({
   const [trimLimits, setTrimLimits] = useState<{ start: number; end: number } | null>(null);
 
   const cycleAnnotations: Record<string, AnnotationOptions> = useMemo(() => {
-    if (!adjustedCycles?.length) return {};
+    if (!adjustedCycles || !adjustedCycles?.length) return {};
 
     const validCycles = [...adjustedCycles]
-    .filter(cycle => cycle.startX! < cycle.endX!) // filtro base
-    .filter((cycle, index, array) => {
-      // Si es el último, no tiene siguiente → se acepta
-      if (index === array.length - 1) return true;
+      .filter(cycle => cycle.startX! < cycle.endX!) // filtro base
+      .filter((cycle, index, array) => {
+        // Si es el último, no tiene siguiente → se acepta
+        if (index === array.length - 1) return true;
 
-      // Verifica que no se solape hacia adelante
-      return cycle.startX! < array[index + 1].endX!;
-    });
+        // Verifica que no se solape hacia adelante
+        return cycle.startX! < array[index + 1].endX!;
+      });
   
     return validCycles.reduce((acc, cycle, index) => {
       const isEven = index % 2 === 0;
@@ -547,7 +547,7 @@ const Index: React.FC<IndexProps> = ({
                 x: {
                   min: 0,
                   max: 30_000,
-                  minRange: 4_000, 
+                  minRange: minRangeX, 
                 },
                 y: {
                   min: 'original',
@@ -804,7 +804,7 @@ const Index: React.FC<IndexProps> = ({
   }, [downsampledData, mappedData, trimLimits]);
 
   useEffect(() => {
-    if (!adjustedCycles?.length) return;
+    if (!adjustedCycles || !adjustedCycles?.length) return;
 
     const validCycles = [...adjustedCycles]
       .filter(c => c.startX! < c.endX!)
@@ -822,6 +822,15 @@ const Index: React.FC<IndexProps> = ({
       chartRef.current.update();
     }
 
+    // Adaptar el minRange del zoom de forma flexible
+    const visibleRange =
+      adjustedCycles.length > 1
+        ? adjustedCycles[adjustedCycles.length - 1].endX! - adjustedCycles[0].startX!
+        : 2_000; // valor por defecto si solo hay 1 ciclo o ninguno
+    const adaptiveMinRange = Math.max(300, Math.min(visibleRange * 0.5, 4_000));
+    setMinRangeX(adaptiveMinRange);
+
+    // Auto zoom
     zoomToAnnotationsRange(chartRef.current!, downsampledData, {
       isZoomed: true,
       xMarginPixels: 6,

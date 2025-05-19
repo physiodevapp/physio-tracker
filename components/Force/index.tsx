@@ -10,7 +10,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { useBluetooth } from "@/providers/Bluetooth";
 import { DataPoint } from "./PostGraph";
-// import { rawSensorData as rawSensorDataSample } from "@/data/rawSensorData_micro";
+import { rawSensorData as rawSensorDataSample } from "@/data/rawSensorData_micro";
 
 // ----------------- Comandos y Códigos -----------------
 const CMD_TARE_SCALE = 100;
@@ -238,8 +238,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     try {
       setIsRecording(false);
       const parsedData = transformRawData(sensorRawDataLogRef.current);
-      setRawSensorData(parsedData);
-      // setRawSensorData(rawSensorDataSample);
+      // setRawSensorData(parsedData);
+      setRawSensorData(rawSensorDataSample);
       if (autoStopTimeoutRef.current) {
         clearTimeout(autoStopTimeoutRef.current);
       }

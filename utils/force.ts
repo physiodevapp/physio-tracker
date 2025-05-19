@@ -214,14 +214,14 @@ export function detectOutlierEdgesByFlatZones(
   return { startOutlierIndex, endOutlierIndex };
 }
 
-
-
 export function adjustCyclesByZeroCrossing(
   inputData: DataPoint[],
   baseline = 0,
   cycles: Cycle[],
   cyclesToAverage = 3,
   trimLimits?: { start: number; end: number } | null,
+  minCycleAmplitude  = 0.05, // kg
+  minCycleDuration = 100, // ms
 ): { baselineCrossSegments: BaselineCrossSegment[]; adjustedCycles: Cycle[] } {
   const data = inputData;
   let baselineCrossSegments: BaselineCrossSegment[] = [];
@@ -332,7 +332,7 @@ export function adjustCyclesByZeroCrossing(
     const duration = extendedEndX - extendedStartX;
     const amplitude = maxY - minY;
     const speedRatio = (amplitude / (duration / 1_000)) / (workLoad ?? 1);
-
+    
     adjustedCycles.push({
       startX: extendedStartX, // start.peakX,
       endX: extendedEndX, // end.peakX,
@@ -370,7 +370,7 @@ export function adjustCyclesByZeroCrossing(
 
       const previousEndX = adjustedCycles.at(-1)?.endX ?? null;
       const safeStartX = getSafeExtendedStartX(data, lastValley.peakX, previousEndX);
-
+      
       adjustedCycles.push({
         startX: safeStartX,
         endX: actualEndX,
@@ -387,9 +387,35 @@ export function adjustCyclesByZeroCrossing(
     }
   }
 
-  adjustedCycles = addRelativeSpeedToCycles(adjustedCycles, cyclesToAverage);
+  // ⚠️ Si no hay valleys pero hay un solo segmento válido, forzamos creación de ciclo
+  if (valleys.length === 0 && baselineCrossSegments.length === 1 && adjustedCycles.length === 0) {
+    const seg = baselineCrossSegments[0];
+    const segment = data.filter(p => p.x >= seg.startX && p.x <= seg.endX);
+    if (segment.length > 0) {
+      const maxY = Math.max(...segment.map(p => p.y));
+      const minY = Math.min(...segment.map(p => p.y));
+      const duration = seg.endX - seg.startX;
+      const amplitude = maxY - minY;
+      const speedRatio = (amplitude / (duration / 1_000)) / (workLoad ?? 1);
 
-  // console.log('baselineCrossSegments ', baselineCrossSegments)
+      const candidateCycle: Cycle = {
+        startX: seg.startX,
+        endX: seg.endX,
+        peakY: maxY,
+        peakX: segment.find(p => p.y === maxY)?.x ?? seg.endX,
+        amplitude,
+        duration,
+        relativeSpeedRatio: null,
+        speedRatio,
+        workLoad: workLoad ?? null,
+        minX: segment.find(p => p.y === minY)?.x ?? seg.startX,
+        minY,
+      };
+
+      adjustedCycles.push(candidateCycle);
+    }
+  }
+
   if (trimLimits && adjustedCycles.length > 0) {
     const first = adjustedCycles[0];
     const firstSegment = baselineCrossSegments.find(seg => seg.startX >= trimLimits.start);
@@ -435,6 +461,16 @@ export function adjustCyclesByZeroCrossing(
       }
     }
   }
+
+  adjustedCycles = adjustedCycles.filter(cycle => {
+    const duration = cycle.endX! - cycle.startX!;
+    return cycle.amplitude! > minCycleAmplitude && duration > minCycleDuration;
+  });
+
+  adjustedCycles = addRelativeSpeedToCycles(adjustedCycles, cyclesToAverage);
+
+  // console.log('baselineCrossSegments ', baselineCrossSegments)
+  // console.log('adjustedCycles ', adjustedCycles)
   
   return { baselineCrossSegments, adjustedCycles };
 }
