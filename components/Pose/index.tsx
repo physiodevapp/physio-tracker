@@ -13,7 +13,7 @@ import PoseSettingsModal from "@/modals/PoseSettings";
 import { jointOptions, formatJointName } from '@/utils/joint';
 import { PauseIcon } from "@heroicons/react/24/outline";
 import { CameraIcon, UserIcon, Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, VideoCameraIcon, CubeTransparentIcon, DocumentArrowDownIcon, TrashIcon, PlusIcon, Bars2Icon } from "@heroicons/react/24/solid";
-import LiveAnalysis from "@/components/Pose/LiveAnalysis";
+import LiveAnalysis, { LiveAnalysisHandle } from "@/components/Pose/LiveAnalysis";
 import VideoAnalysis, { ProcessingStatus, VideoAnalysisHandle } from "@/components/Pose/VideoAnalysis";
 
 interface IndexProps {
@@ -35,6 +35,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   } = settings.pose;
 
   const videoAnalysisRef = useRef<VideoAnalysisHandle>(null);
+  const liveAnalysisRef = useRef<LiveAnalysisHandle>(null);
+  const [isLiveRecording, setIsLiveRecording] = useState(false);
+  const [recordedVideoUrl, setRecordedVideoUrl] = useState<string | null>(null);
 
   const [mode, setMode] = useState<'live' | 'video'>('live');
 
@@ -114,6 +117,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       return result;
     });
   }, []); 
+
+  const handleSwitchToVideoMode = () => {
+    setIsFrozen(false);
+    handleWorkerLifecycle(false);
+    setShowGrid(false);
+    setMode("video");
+  };
+
   
   useEffect(() => {
     jointAngleHistorySizeRef.current = angularHistorySize;
@@ -127,6 +138,12 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   useEffect(() => {
     prevPoseModel.current = poseModel;
   }, [poseModel]);
+
+  useEffect(() => {
+    if (recordedVideoUrl) {
+      handleSwitchToVideoMode();
+    }
+  }, [recordedVideoUrl]);
 
   useEffect(() => {
     handleWorkerLifecycle(true);
@@ -158,6 +175,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         <div className="relative w-full flex-1">
           {mode === "live" && (
             <LiveAnalysis 
+              ref={liveAnalysisRef}
               handleMainMenu={handleMainMenu}
               isMainMenuOpen={isMainMenuOpen}
               jointWorkerRef={jointWorkerRef}
@@ -172,7 +190,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               onWorkerInit={() => handleWorkerLifecycle(true)}
               showGrid={showGrid}
               setShowGrid={setShowGrid}
-              />
+              onRecordingChange={setIsLiveRecording}
+              onRecordingFinish={(url) => {
+                console.log("🧪 URL que se pasa:", url);
+                setRecordedVideoUrl(url);
+              }} />
           )}
           {mode === "video" && (
             <VideoAnalysis
@@ -193,7 +215,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
                 setProcessingStatus("idle");
               }} 
-              onPause={(value) => setIsFrozen(value)} />
+              onPause={(value) => setIsFrozen(value)} 
+              initialUrl={recordedVideoUrl} />
           )}
         </div>
 
@@ -216,18 +239,22 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               <>
                 <ArrowUpTrayIcon 
                   className="w-6 h-6 text-white"
-                  onClick={() => {
-                    setIsFrozen(false);
-
-                    handleWorkerLifecycle(false);
-
-                    setShowGrid(false);
-                    
-                    setMode("video");
-                  }}/> 
+                  onClick={handleSwitchToVideoMode}/> 
                 <div 
-                  className="w-6 h-6 rounded-full border-2 p-[0.2rem] flex items-center justify-center"
-                  onClick={() => {}}
+                  className={`w-6 h-6 rounded-full border-2 p-[0.2rem] flex items-center justify-center ${isLiveRecording 
+                    ? 'animate-pulse'
+                    : ''
+                  }`}
+                  onClick={() => {
+                    const ref = liveAnalysisRef.current;
+                    if (!ref) return;
+
+                    if (ref.isRecording) {
+                      ref.stopRecording();
+                    } else {
+                      ref.startRecording();
+                    }
+                  }}
                   >
                   <div className="bg-red-500 h-full w-full rounded-full"/>
                 </div>
