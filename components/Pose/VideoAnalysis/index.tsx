@@ -42,6 +42,7 @@ interface IndexProps {
   onWorkerInit?: () => void;
   onLoaded?: (value: boolean) => void;
   onStatusChange?: (status: ProcessingStatus) => void;
+  initialUrl: string | null;
 }
 
 const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
@@ -58,6 +59,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   onWorkerInit,
   onLoaded,
   onStatusChange,
+  initialUrl,
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -696,35 +698,15 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         setIsPoseSettingsModalOpen(false);
       }
     }, [isDetectorReady]);
-
-  useEffect(() => {
-    if (!hasTriggeredRef.current) {
-      hasTriggeredRef.current = true;
-
-      onWorkerInit?.();
-      
-      handleNewVideo();
-    }
-  }, []);
-
-  useImperativeHandle(ref, () => ({
-    handleVideoProcessing,
-    isVideoLoaded: () => videoLoaded,
-    isVideoProcessed: () => processingStatus === "processed",
-    downloadJSON,
-    removeVideo,
-    handleNewVideo,
-  }));
-
+  
   useEffect(() => {
     selectedJointsRef.current = selectedJoints;
-
+    
     if (nearestFrameRef.current) {
       updateDisplayedAngles(nearestFrameRef.current, selectedJointsRef.current);
     }
   }, [selectedJoints]);
-
-
+  
   useEffect(() => {
     const {range: {start, end}, markerPosition} = trimmerRange;
     if (start !== trimmerRangeRef.current.range.start || 
@@ -738,6 +720,73 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       }
     }
   }, [trimmerRange]);
+
+  useEffect(() => {
+    if (!hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
+
+      onWorkerInit?.();
+      
+      if (!initialUrl) {
+        handleNewVideo();
+      }
+      else if (initialUrl && videoRef.current) {
+        const video = videoRef.current;
+        video.src = initialUrl;
+
+        const handleDuration = () => {
+          // Forzamos una seek extrema para obligar al navegador a resolver duration
+          const tryResolveDuration = () => {
+            if (video.duration === Infinity || isNaN(video.duration)) {
+              const onSeeked = () => {
+                video.currentTime = 0; // vuelve al inicio después de forzar
+                video.removeEventListener("seeked", onSeeked);
+
+                finalizeLoad(); // ahora sí
+              };
+
+              video.addEventListener("seeked", onSeeked);
+              video.currentTime = 1e101; // esta magia fuerza al navegador a "calcular" duración
+            } else {
+              finalizeLoad(); // duración ya válida
+            }
+          };
+
+          setTimeout(tryResolveDuration, 50); // esperamos brevemente
+        };
+
+        const finalizeLoad = () => {
+          // console.log("✅ Duración final:", video.duration);
+          if (video.duration > maxDuration) {
+            setProcessingStatus("durationExceeded");
+            removeVideo();
+          } else {
+            setVideoLoaded(true);
+            onLoaded?.(true);
+          }
+        };
+
+        video.addEventListener("loadedmetadata", handleDuration);
+        video.load();
+
+        return () => {
+          if (process.env.NODE_ENV === "production") {
+            video.removeEventListener("loadedmetadata", handleDuration);
+            URL.revokeObjectURL(initialUrl);
+          }
+        };
+      }
+    }
+  }, [initialUrl]);
+
+  useImperativeHandle(ref, () => ({
+    handleVideoProcessing,
+    isVideoLoaded: () => videoLoaded,
+    isVideoProcessed: () => processingStatus === "processed",
+    downloadJSON,
+    removeVideo,
+    handleNewVideo,
+  }));
 
   return (
     <>

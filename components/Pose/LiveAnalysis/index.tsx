@@ -1,7 +1,7 @@
 "use client";
 // LiveAnalysis component
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import * as tf from '@tensorflow/tfjs-core';
@@ -15,6 +15,12 @@ import { keypointPairs } from '@/utils/pose';
 import { jointConfigMap } from '@/utils/joint';
 import { CloudArrowDownIcon, ArrowPathIcon } from "@heroicons/react/24/solid";
 import { formatJointName } from '@/utils/joint';
+
+export type LiveAnalysisHandle = {
+  startRecording: () => void;
+  stopRecording: () => void;
+  isRecording: boolean;
+};
 
 interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
@@ -31,9 +37,11 @@ interface IndexProps {
   onWorkerInit?: () => void;
   showGrid?: boolean;
   setShowGrid?: React.Dispatch<React.SetStateAction<boolean>>;
+  onRecordingChange?: (value: boolean) => void;
+  onRecordingFinish?: (url: string) => void;
 }
 
-const Index = ({ 
+const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({ 
   handleMainMenu, 
   isMainMenuOpen,
   orthogonalReference,
@@ -46,8 +54,10 @@ const Index = ({
   jointDataRef,
   onChangeIsFrozen,
   onWorkerInit,
-  showGrid
-}: IndexProps) => {
+  showGrid,
+  onRecordingChange,
+  onRecordingFinish,
+}, ref) => {
   const { 
     settings,
   } = useSettings();
@@ -58,6 +68,11 @@ const Index = ({
   } = settings.pose;
 
   const [isCameraReady, setIsCameraReady] = useState(false);
+
+  const [isRecording, setIsRecording] = useState(false);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const [visibleKinematics] = useState<Kinematics[]>([Kinematics.ANGLE]);
   
@@ -107,6 +122,68 @@ const Index = ({
 
       webcamRef.current.video.width = myVideoWidth;
       webcamRef.current.video.height = myVideoHeight;
+    }
+  };
+
+  const startRecording = () => {
+    if (!webcamRef.current?.video?.srcObject) return;
+
+    const stream = webcamRef.current.video.srcObject as MediaStream;
+
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'video/webm; codecs=vp8',
+    });
+
+    recordedChunksRef.current = [];
+    mediaRecorderRef.current = mediaRecorder;
+    setIsFrozen(false);
+    setIsRecording(true);
+    onRecordingChange?.(true);
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        recordedChunksRef.current.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstop = async () => {
+      await new Promise((res) => setTimeout(res, 50));
+
+      const chunks = recordedChunksRef.current;
+      if (!chunks.length) {
+        console.warn("🎥 No se grabó nada.");
+        return;
+      }
+
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      if (blob.size === 0) {
+        console.error("🛑 Blob está vacío. Grabación no válida.");
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      onRecordingFinish?.(url);
+    };
+
+    mediaRecorder.start();
+
+    // Limitar la grabación a 30 segundos
+    recordingTimeoutRef.current = setTimeout(() => {
+      stopRecording();
+    }, 30_000);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.requestData(); // ← fuerza último chunk
+      mediaRecorderRef.current.stop();
+    }
+
+    setIsRecording(false);
+    onRecordingChange?.(false);
+    
+    if (recordingTimeoutRef.current) {
+      clearTimeout(recordingTimeoutRef.current);
     }
   };
   
@@ -328,6 +405,12 @@ const Index = ({
 
   }, []);
 
+  useImperativeHandle(ref, () => ({
+    startRecording,
+    stopRecording,
+    isRecording,
+  }));
+
   return (
     <>
       {(!isCameraReady || !isDetectorReady || !detector) && (
@@ -410,6 +493,8 @@ const Index = ({
       </> 
     </>
   );
-};
+});
+
+Index.displayName = 'LiveAnalysis';
 
 export default Index;
