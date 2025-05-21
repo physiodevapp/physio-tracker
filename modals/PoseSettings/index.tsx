@@ -118,7 +118,7 @@ const Index = ({
               type='range'
               value={pointsPerSecond}
               min="5"
-              max="30"
+              max="60"
               step="1"              
               onChange={(e) => setPointsPerSecond(Number(e.target.value))}
               disabled={!videoMode}

@@ -629,29 +629,72 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   }, []);
 
   const updateDisplayedAngles = (frame: VideoFrame, selectedJoints: CanvasKeypointName[]) => {
-    const newAngles: string[] = [];
-  
+    const jointAngles: Record<string, { L?: string; R?: string }> = {};
+
     selectedJoints.forEach((jointName) => {
       const updatedData = frame.jointData?.[jointName];
-      const label = formatJointName(jointName);
-  
-      if (updatedData) {
-        jointDataRef.current[jointName] = updatedData;
-        const angle = `${label}: ${updatedData.angle.toFixed(0)}º`;
-        newAngles.push(angle);
+      const label = formatJointName(jointName); // Ej. "R Elbow"
+
+      const match = label.match(/^(R|L) (.+)$/);
+      if (match) {
+        const [, side, baseName] = match;
+
+        if (!jointAngles[baseName]) jointAngles[baseName] = {};
+
+        if (updatedData) {
+          jointDataRef.current[jointName] = updatedData;
+          jointAngles[baseName][side as 'L' | 'R'] = `${updatedData.angle.toFixed(0)}º`;
+        }
       } else {
-        newAngles.push(`${label}: -`);
+        // No tiene lado (e.g., "Head")
+        jointAngles[label] = {
+          L: updatedData ? `${updatedData.angle.toFixed(0)}º` : "-",
+        };
       }
     });
-  
+
+    const newAngles: string[] = [];
+
+    Object.entries(jointAngles).forEach(([baseName, { L, R }]) => {
+      if (L && R) {
+        newAngles.push(`${baseName}: ${L} / ${R}`);
+      } else if (L) {
+        newAngles.push(`L ${baseName}: ${L}`);
+      } else if (R) {
+        newAngles.push(`R ${baseName}: ${R}`);
+      } else {
+        newAngles.push(`${baseName}: -`);
+      }
+    });
+
     setAnglesToDisplay((prev) => {
       const hasChanged =
         prev.length !== newAngles.length ||
         prev.some((val, i) => val !== newAngles[i]);
-  
+
       return hasChanged ? newAngles : prev;
     });
-  };     
+
+  }; 
+  
+  const zoomFullWidth = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const scaleX = window.innerWidth / canvas.getBoundingClientRect().width;
+    canvas.style.transform = `scale(${scaleX})`;
+
+    setZoomStatus('out');
+  };
+
+  const zoomFullHeight = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.style.transform = `scale(${1})`;
+
+    setZoomStatus('in');
+  };
 
   useEffect(() => {
     const updateScale = () => {
@@ -912,28 +955,31 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             </section> 
           ) : null }
 
-          {processingStatus === "processed" && zoomStatus === "in" ? (
+          {processingStatus === "processed" && 
+          ((zoomStatus === "in" && aspectRatio < 1) ||
+          (zoomStatus === "out" && aspectRatio >= 1)) ? (
             <MagnifyingGlassPlusIcon 
-              onClick={() => {
-                const canvas = canvasRef.current;
-                if (!canvas) return;
-
-                const scaleX = window.innerWidth / canvas.getBoundingClientRect().width;
-                canvas.style.transform = `scale(${scaleX})`;
-
-                setZoomStatus('out');
+              onClick={() => {                
+                if (aspectRatio < 1) { // portrait
+                  zoomFullWidth();
+                }
+                else {
+                  zoomFullHeight();
+                }
               }}  
               className='absolute right-0 bottom-0 pr-2 pb-2 w-10 h-10 text-white'/> 
           ) : null }
-          {processingStatus === "processed" && zoomStatus === "out" ? (
+          {processingStatus === "processed" && 
+          ((zoomStatus === "out" && aspectRatio < 1) ||
+          (zoomStatus === "in" && aspectRatio >= 1)) ? (
             <MagnifyingGlassMinusIcon 
               onClick={() => {
-                const canvas = canvasRef.current;
-                if (!canvas) return;
-
-                canvas.style.transform = `scale(${1})`;
-
-                setZoomStatus('in');
+                if (aspectRatio < 1) { // portrait
+                  zoomFullHeight();
+                }
+                else {
+                  zoomFullWidth();
+                }
               }}  
               className='absolute right-0 bottom-0 pr-2 pb-2 w-10 h-10 text-white'/>
           ) : null }          

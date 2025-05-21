@@ -96,21 +96,35 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const handleJointSelection = useCallback((selectedJoints: string[]) => {
     setSelectedJoints(selectedJoints as CanvasKeypointName[]);
 
-    // setShowOrthogonalOption(selectedJoints.some(joint =>
-    //   joint.includes('shoulder') || joint.includes('hip')
-    // ));
-
     setAnglesToDisplay((prevAngles) => {
+      const jointAngles: Record<string, { L?: string; R?: string }> = {};
       const result: string[] = [];
 
       selectedJoints.forEach((joint) => {
         const formatted = formatJointName(joint); // ej. "R Elbow"
         const existing = prevAngles.find((a) => a.startsWith(formatted));
+        if (!existing) return;
 
-        if (existing) {
-          result.push(existing); // mantener el actual
+        const match = formatted.match(/^(R|L) (.+)$/);
+        if (match) {
+          const [, side, baseName] = match;
+          if (!jointAngles[baseName]) jointAngles[baseName] = {};
+          jointAngles[baseName][side as 'L' | 'R'] = existing.split(":")[1].trim(); // valor: "30º"
         } else {
-          result.push(`${formatted}: - °`); // añadir por defecto
+          // No tiene lado (e.g. "Head")
+          jointAngles[formatted] = { L: existing.split(":")[1].trim() };
+        }
+      });
+
+      Object.entries(jointAngles).forEach(([baseName, { L, R }]) => {
+        if (L && R) {
+          result.push(`${baseName}: ${L} / ${R}`);
+        } else if (L) {
+          result.push(`L ${baseName}: ${L}`);
+        } else if (R) {
+          result.push(`R ${baseName}: ${R}`);
+        } else {
+          result.push(`${baseName}: - °`);
         }
       });
 
