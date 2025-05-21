@@ -118,7 +118,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
       Object.entries(jointAngles).forEach(([baseName, { L, R }]) => {
         if (L && R) {
-          result.push(`${baseName}: ${L}/${R}`);
+          result.push(`${baseName}: ${L} / ${R}`);
         } else if (L) {
           result.push(`L ${baseName}: ${L}`);
         } else if (R) {

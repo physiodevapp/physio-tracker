@@ -120,7 +120,7 @@ export const updateMultipleJoints = ({
 
       Object.entries(jointAngles).forEach(([baseName, { L, R }]) => {
         if (L && R) {
-          anglesToDisplay.push(`${baseName}: ${L}/${R}`);
+          anglesToDisplay.push(`${baseName}: ${L} / ${R}`);
         } else if (L) {
           anglesToDisplay.push(`L ${baseName}: ${L}`);
         } else if (R) {

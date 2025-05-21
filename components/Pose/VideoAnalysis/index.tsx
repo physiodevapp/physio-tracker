@@ -657,7 +657,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
     Object.entries(jointAngles).forEach(([baseName, { L, R }]) => {
       if (L && R) {
-        newAngles.push(`${baseName}: ${L}/${R}`);
+        newAngles.push(`${baseName}: ${L} / ${R}`);
       } else if (L) {
         newAngles.push(`L ${baseName}: ${L}`);
       } else if (R) {
@@ -960,7 +960,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           (zoomStatus === "out" && aspectRatio >= 1)) ? (
             <MagnifyingGlassPlusIcon 
               onClick={() => {                
-                console.log(aspectRatio)
                 if (aspectRatio < 1) { // portrait
                   zoomFullWidth();
                 }
