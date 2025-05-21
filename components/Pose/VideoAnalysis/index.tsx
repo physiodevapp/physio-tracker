@@ -675,7 +675,26 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       return hasChanged ? newAngles : prev;
     });
 
-  };     
+  }; 
+  
+  const zoomFullWidth = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const scaleX = window.innerWidth / canvas.getBoundingClientRect().width;
+    canvas.style.transform = `scale(${scaleX})`;
+
+    setZoomStatus('out');
+  };
+
+  const zoomFullHeight = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.style.transform = `scale(${1})`;
+
+    setZoomStatus('in');
+  };
 
   useEffect(() => {
     const updateScale = () => {
@@ -936,28 +955,32 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             </section> 
           ) : null }
 
-          {processingStatus === "processed" && zoomStatus === "in" ? (
+          {processingStatus === "processed" && 
+          ((zoomStatus === "in" && aspectRatio < 1) ||
+          (zoomStatus === "out" && aspectRatio >= 1)) ? (
             <MagnifyingGlassPlusIcon 
-              onClick={() => {
-                const canvas = canvasRef.current;
-                if (!canvas) return;
-
-                const scaleX = window.innerWidth / canvas.getBoundingClientRect().width;
-                canvas.style.transform = `scale(${scaleX})`;
-
-                setZoomStatus('out');
+              onClick={() => {                
+                console.log(aspectRatio)
+                if (aspectRatio < 1) { // portrait
+                  zoomFullWidth();
+                }
+                else {
+                  zoomFullHeight();
+                }
               }}  
               className='absolute right-0 bottom-0 pr-2 pb-2 w-10 h-10 text-white'/> 
           ) : null }
-          {processingStatus === "processed" && zoomStatus === "out" ? (
+          {processingStatus === "processed" && 
+          ((zoomStatus === "out" && aspectRatio < 1) ||
+          (zoomStatus === "in" && aspectRatio >= 1)) ? (
             <MagnifyingGlassMinusIcon 
               onClick={() => {
-                const canvas = canvasRef.current;
-                if (!canvas) return;
-
-                canvas.style.transform = `scale(${1})`;
-
-                setZoomStatus('in');
+                if (aspectRatio < 1) { // portrait
+                  zoomFullHeight();
+                }
+                else {
+                  zoomFullWidth();
+                }
               }}  
               className='absolute right-0 bottom-0 pr-2 pb-2 w-10 h-10 text-white'/>
           ) : null }          
