@@ -86,21 +86,51 @@ export const updateMultipleJoints = ({
 
     const handleWorkerResponse = (e: MessageEvent<{ updatedJointData: JointDataMap }>) => {
       const updatedJointData = e.data.updatedJointData;
-      const anglesToDisplay: string[] = [];
+      const jointAngles: Record<string, { L?: string; R?: string }> = {};
 
+      // Fase 1: procesar joints y guardar los datos por lado
       selectedJoints.forEach((jointName) => {
         const updatedData = updatedJointData[jointName];
-        const label = formatJointName(jointName);
+        const label = formatJointName(jointName); // Ej. "R Elbow"
 
-        if (updatedData) {
-          jointDataRef.current[jointName] = updatedData;
-          const angle = `${label}: ${updatedData.angle.toFixed(0)}°`;
-          anglesToDisplay.push(angle);
+        const match = label.match(/^(R|L) (.+)$/);
+        if (match) {
+          const [, side, baseName] = match;
+
+          if (!jointAngles[baseName]) jointAngles[baseName] = {};
+
+          if (updatedData) {
+            jointDataRef.current[jointName] = updatedData;
+            jointAngles[baseName][side as 'L' | 'R'] = `${updatedData.angle.toFixed(0)}°`;
+          }
         } else {
-          anglesToDisplay.push(`${label}: -`);
+          // No tiene lado (e.g. "Neck", "Torso")
+          jointAngles[label] = {
+            L: updatedData ? `${updatedData.angle.toFixed(0)}°` : "-",
+          };
+
+          if (updatedData) {
+            jointDataRef.current[jointName] = updatedData;
+          }
         }
       });
 
+      // Fase 2: construir la lista formateada
+      const anglesToDisplay: string[] = [];
+
+      Object.entries(jointAngles).forEach(([baseName, { L, R }]) => {
+        if (L && R) {
+          anglesToDisplay.push(`${baseName}: ${L}/${R}`);
+        } else if (L) {
+          anglesToDisplay.push(`L ${baseName}: ${L}`);
+        } else if (R) {
+          anglesToDisplay.push(`R ${baseName}: ${R}`);
+        } else {
+          anglesToDisplay.push(`${baseName}: -`);
+        }
+      });
+
+      // Fase 3: actualizar si hay cambios
       if (setAnglesToDisplay) {
         setAnglesToDisplay(prev => {
           const hasChanged =
