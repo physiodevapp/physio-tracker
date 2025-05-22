@@ -14,8 +14,8 @@ import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/
 import { keypointPairs } from '@/utils/pose';
 import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import VideoTrimmer from '@/components/Pose/VideoTrimmer';
-import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
 import { TrimmerProps } from '../VideoTrimmer/CustomRangeSlider';
+import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
 import { ArrowUturnDownIcon } from '@heroicons/react/24/outline';
 
 export type VideoAnalysisHandle = {
@@ -31,104 +31,115 @@ export type ProcessingStatus = 'idle' | 'processing' | 'cancelRequested' | 'canc
 
 function analyzeJumpMetrics({
   frames,
-  forearmLengthMeters = 0.28,
   side = "right",
-  yTolerance = 0.005, // ← nuevo parámetro opcional para filtrar ruido
+  angleChangeThreshold = 2,
+  // forearmLengthMeters = 0.28,
+  // minHeightDetectionTolerance = 0.005,
 }: {
   frames: VideoFrame[];
-  forearmLengthMeters?: number;
   side: "left" | "right";
-  yTolerance?: number;
+  forearmLengthMeters?: number;
+  minHeightDetectionTolerance?: number;
+  angleChangeThreshold?: number;
 }): JumpMetrics {
   if (!frames.length) return null;
 
   const first = frames[0];
 
-  // Mapa dinámico: keypoint.name → índice
   const keypointIndexMap: Record<string, number> = {};
   first.keypoints.forEach((kp, index) => {
     if (kp.name) keypointIndexMap[kp.name] = index;
   });
 
-  // Selección de keypoints según el lado
-  const elbowName = side === "right" ? CanvasKeypointName.RIGHT_ELBOW : CanvasKeypointName.LEFT_ELBOW;
-  const wristName = side === "right" ? CanvasKeypointName.RIGHT_WRIST : CanvasKeypointName.LEFT_WRIST;
+  // const elbowName = side === "right" ? CanvasKeypointName.RIGHT_ELBOW : CanvasKeypointName.LEFT_ELBOW;
+  // const wristName = side === "right" ? CanvasKeypointName.RIGHT_WRIST : CanvasKeypointName.LEFT_WRIST;
   const hipName = side === "right" ? CanvasKeypointName.RIGHT_HIP : CanvasKeypointName.LEFT_HIP;
   const kneeName = side === "right" ? CanvasKeypointName.RIGHT_KNEE : CanvasKeypointName.LEFT_KNEE;
 
-  const elbowIndex = keypointIndexMap[elbowName];
-  const wristIndex = keypointIndexMap[wristName];
+  // const elbowIndex = keypointIndexMap[elbowName];
+  // const wristIndex = keypointIndexMap[wristName];
   const hipIndex = keypointIndexMap[hipName];
 
   if (
-    elbowIndex === undefined ||
-    wristIndex === undefined ||
+    // elbowIndex === undefined ||
+    // wristIndex === undefined ||
     hipIndex === undefined
   ) {
     console.warn("❌ No se encontraron índices para los keypoints necesarios.");
     return null;
   }
 
-  // Escala usando el antebrazo
-  const elbow = first.keypoints[elbowIndex];
-  const wrist = first.keypoints[wristIndex];
-  const forearmPixels = Math.hypot(elbow.x - wrist.x, elbow.y - wrist.y);
-  const scale = forearmPixels > 0 ? forearmLengthMeters / forearmPixels : 0;
+  // const elbow = first.keypoints[elbowIndex];
+  // const wrist = first.keypoints[wristIndex];
+  // const forearmPixels = Math.hypot(elbow.x - wrist.x, elbow.y - wrist.y);
+  // const scale = forearmPixels > 0 ? forearmLengthMeters / forearmPixels : 0;
 
-  // Trayectoria vertical de la cadera
   const hipY: JumpPoint[] = frames.map(f => ({
     timestamp: f.videoTime * 1000,
     y: f.keypoints[hipIndex].y,
   }));
 
-  const yStart = hipY[0].y;
+  // const yStart = hipY[0].y;
+  // const yMin = yMinRaw + minHeightDetectionTolerance;
+  // const height = (yStart - yMin) * scale;
+  // console.log('yStart - yMin ', yStart, ' - ', yMin)
   const yMinRaw = Math.min(...hipY.map(p => p.y));
-  const yMin = yMinRaw + yTolerance;
-  const height = (yStart - yMin) * scale;
 
-  // Detección de despegue y aterrizaje
-  let takeoff = -1;
-  let landing = -1;
-  const threshold = 0.01;
+  const hipAngles = frames.map(f => f.jointData?.[hipName]?.angle ?? null);
+  const angleThreshold = angleChangeThreshold;
 
-  for (let i = 1; i < hipY.length; i++) {
-    const delta = hipY[i - 1].y - hipY[i].y;
+  const minIndex = hipY.findIndex(p => p.y === yMinRaw);
+  console.log('minIndex ', minIndex)
 
-    if (takeoff === -1 && delta > threshold) takeoff = i;
-    else if (takeoff !== -1 && delta < -threshold) {
-      landing = i;
-      break;
+  let refinedTakeoffIndex = minIndex;
+  for (let i = minIndex - 1; i > 0; i--) {
+    const current = hipAngles[i];
+    const prev = hipAngles[i - 1];
+    // console.log('current - prev ', current, ' - ', prev)
+    if (current !== null && prev !== null) {
+      if (Math.abs(current - prev) > angleThreshold) {
+        refinedTakeoffIndex = i;
+        break;
+      }
     }
   }
+  console.log('refinedTakeoffIndex ', refinedTakeoffIndex)
+
+  let refinedLandingIndex = minIndex;
+  for (let i = minIndex + 1; i < hipAngles.length - 1; i++) {
+    const current = hipAngles[i];
+    const next = hipAngles[i + 1];
+    console.log('current - next ', current, ' - ', next)
+    if (current !== null && next !== null) {
+      if (Math.abs(current - next) > angleThreshold) {
+        refinedLandingIndex = i;
+        break;
+      }
+    }
+  }
+  console.log('refinedLandingIndex ', refinedLandingIndex)
 
   const flightTime =
-    takeoff !== -1 && landing !== -1
-      ? (hipY[landing].timestamp - hipY[takeoff].timestamp) / 1000
+    refinedTakeoffIndex !== -1 && refinedLandingIndex !== -1
+      ? (hipY[refinedLandingIndex].timestamp - hipY[refinedTakeoffIndex].timestamp) / 1000
       : null;
+  
+  // Sustituido por estimación física de la altura basada en tiempo de vuelo
+  const height = flightTime ? (9.81 * Math.pow(flightTime, 2)) / 8 : 0;
 
-  // Usamos jointData directamente para ángulos
-  const kneeAngleAtTakeoff =
-    takeoff !== -1
-      ? frames[takeoff].jointData?.[kneeName]?.angle ?? null
-      : null;
+  const kneeAngleAtTakeoff = frames[refinedTakeoffIndex]?.jointData?.[kneeName]?.angle ?? null;
+  const kneeAngleAtLanding = frames[refinedLandingIndex]?.jointData?.[kneeName]?.angle ?? null;
 
-  const kneeAngleAtLanding =
-    landing !== -1
-      ? frames[landing].jointData?.[kneeName]?.angle ?? null
-      : null;
-
-    // Detectar inicio del impulso (inicio de flexión)
   let impulseStartIndex = 0;
-  for (let i = 1; i < takeoff; i++) {
+  for (let i = 1; i < refinedTakeoffIndex; i++) {
     if (hipY[i].y > hipY[i - 1].y) {
       impulseStartIndex = i;
       break;
     }
   }
 
-  // Detectar fin de amortiguación (mínimo tras landing → inicio de extensión)
-  let amortizationEndIndex = landing;
-  for (let i = landing + 1; i < hipY.length - 1; i++) {
+  let amortizationEndIndex = refinedLandingIndex;
+  for (let i = refinedLandingIndex + 1; i < hipY.length - 1; i++) {
     if (hipY[i].y < hipY[i + 1].y) {
       amortizationEndIndex = i;
       break;
@@ -136,56 +147,56 @@ function analyzeJumpMetrics({
   }
 
   const impulseDurationInSeconds =
-    takeoff !== -1 && impulseStartIndex !== -1
-      ? (hipY[takeoff].timestamp - hipY[impulseStartIndex].timestamp) / 1000
+    refinedTakeoffIndex > impulseStartIndex
+      ? (hipY[refinedTakeoffIndex].timestamp - hipY[impulseStartIndex].timestamp) / 1000
       : null;
 
   const amortizationDurationInSeconds =
-    landing !== -1 && amortizationEndIndex !== -1
-      ? (hipY[amortizationEndIndex].timestamp - hipY[landing].timestamp) / 1000
+    amortizationEndIndex > refinedLandingIndex
+      ? (hipY[amortizationEndIndex].timestamp - hipY[refinedLandingIndex].timestamp) / 1000
       : null;
 
   const getJointAngle = (frameIndex: number, jointName: CanvasKeypointName): number | null =>
     frames[frameIndex]?.jointData?.[jointName]?.angle ?? null;
 
   const angles = {
-    impulseStart: impulseStartIndex !== -1 ? {
+    impulseStart: {
       timestamp: hipY[impulseStartIndex].timestamp,
       hipAngle: getJointAngle(impulseStartIndex, hipName),
       kneeAngle: getJointAngle(impulseStartIndex, kneeName),
-    } : undefined,
-    takeoff: takeoff !== -1 ? {
-      timestamp: hipY[takeoff].timestamp,
-      hipAngle: getJointAngle(takeoff, hipName),
-      kneeAngle: getJointAngle(takeoff, kneeName),
-    } : undefined,
-    landing: landing !== -1 ? {
-      timestamp: hipY[landing].timestamp,
-      hipAngle: getJointAngle(landing, hipName),
-      kneeAngle: getJointAngle(landing, kneeName),
-    } : undefined,
-    amortizationEnd: amortizationEndIndex !== -1 ? {
+    },
+    takeoff: {
+      timestamp: hipY[refinedTakeoffIndex].timestamp,
+      hipAngle: getJointAngle(refinedTakeoffIndex, hipName),
+      kneeAngle: getJointAngle(refinedTakeoffIndex, kneeName),
+    },
+    landing: {
+      timestamp: hipY[refinedLandingIndex].timestamp,
+      hipAngle: getJointAngle(refinedLandingIndex, hipName),
+      kneeAngle: getJointAngle(refinedLandingIndex, kneeName),
+    },
+    amortizationEnd: {
       timestamp: hipY[amortizationEndIndex].timestamp,
       hipAngle: getJointAngle(amortizationEndIndex, hipName),
       kneeAngle: getJointAngle(amortizationEndIndex, kneeName),
-    } : undefined,
+    },
   };
 
   return {
     heightInMeters: height,
     flightTimeInSeconds: flightTime,
     reactiveStrengthIndex: flightTime ? height / flightTime : null,
-    takeoffTimestamp: takeoff !== -1 ? hipY[takeoff].timestamp : null,
-    landingTimestamp: landing !== -1 ? hipY[landing].timestamp : null,
+    takeoffTimestamp: hipY[refinedTakeoffIndex].timestamp,
+    landingTimestamp: hipY[refinedLandingIndex].timestamp,
     kneeAngleAtTakeoff,
     kneeAngleAtLanding,
     impulseDurationInSeconds,
     amortizationDurationInSeconds,
     angles,
-    scaleUsed: scale,
     sideUsed: side,
-    yStartRaw: yStart,
     yMinRaw: yMinRaw,
+    // scaleUsed: scale,
+    // yStartRaw: yStart,
   };
 }
 
@@ -1116,8 +1127,22 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             </section> 
           ) : null }
 
-          <div className='absolute right-0 bottom-0 pr-2 pb-2'>
-            <ArrowUturnDownIcon className='w-10 h-10 text-white'/>
+          <div className='absolute right-0 bottom-0 pr-2 pb-2 flex flex-row gap-1'>
+            {processingStatus === "processed" ? (
+              <ArrowUturnDownIcon 
+                className='w-10 h-10 p-[0.1rem] text-white'
+                onClick={() => {
+                  const jumpMetrics = analyzeJumpMetrics({
+                    frames: allFramesDataRef.current,
+                    side: "right",
+                    // forearmLengthMeters: 0.28,
+                    angleChangeThreshold: 6,
+                  });
+                  console.log('jumpMetrics ', jumpMetrics)
+                  console.log('allFramesDataRef ', allFramesDataRef.current)
+                }}
+                />
+            ) : null}
             {processingStatus === "processed" && 
             ((zoomStatus === "in" && aspectRatio < 1) ||
             (zoomStatus === "out" && aspectRatio >= 1)) ? (

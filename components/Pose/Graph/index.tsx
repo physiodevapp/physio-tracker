@@ -307,7 +307,7 @@ const Index = ({
         plugins: {
           zoom: {
             limits: {
-              x: {min: 0, max: 10_000, minRange: 5_000},
+              x: {min: 0, max: normalizedMaxX , minRange: 2_000},
               y: {min: -10, max: 200, minRange: 60}
             },
             pan: {

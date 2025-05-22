@@ -72,9 +72,9 @@ export type JumpMetrics = {
   landingTimestamp: number | null;
   kneeAngleAtTakeoff: number | null;
   kneeAngleAtLanding: number | null;
-  scaleUsed: number;
+  scaleUsed?: number;
   sideUsed: "left" | "right";
-  yStartRaw: number;
+  yStartRaw?: number;
   yMinRaw: number;
   angles: {
     impulseStart?: {
