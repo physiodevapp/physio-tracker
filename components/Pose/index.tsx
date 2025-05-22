@@ -138,7 +138,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setShowGrid(false);
     setMode("video");
   };
-
   
   useEffect(() => {
     jointAngleHistorySizeRef.current = angularHistorySize;

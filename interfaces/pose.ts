@@ -59,3 +59,44 @@ export interface UpdateJointParams {
 }
 
 export type JointConfigMap = Partial<{ [key in CanvasKeypointName]: { invert: boolean } }>;
+
+export type JumpPoint = { timestamp: number; y: number };
+
+export type JumpMetrics = {
+  heightInMeters: number;
+  flightTimeInSeconds: number | null;
+  reactiveStrengthIndex: number | null;
+  impulseDurationInSeconds: number | null;
+  amortizationDurationInSeconds: number | null;
+  takeoffTimestamp: number | null;
+  landingTimestamp: number | null;
+  kneeAngleAtTakeoff: number | null;
+  kneeAngleAtLanding: number | null;
+  scaleUsed: number;
+  sideUsed: "left" | "right";
+  yStartRaw: number;
+  yMinRaw: number;
+  angles: {
+    impulseStart?: {
+      timestamp: number;
+      hipAngle: number | null;
+      kneeAngle: number | null;
+    };
+    takeoff?: {
+      timestamp: number;
+      hipAngle: number | null;
+      kneeAngle: number | null;
+    };
+    landing?: {
+      timestamp: number;
+      hipAngle: number | null;
+      kneeAngle: number | null;
+    };
+    amortizationEnd?: {
+      timestamp: number;
+      hipAngle: number | null;
+      kneeAngle: number | null;
+    };
+  };
+} | null;
+

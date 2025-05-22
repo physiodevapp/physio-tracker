@@ -5,7 +5,7 @@ import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallba
 import { createPortal } from 'react-dom';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
-import { CanvasKeypointName, JointDataMap, Kinematics } from '@/interfaces/pose';
+import { CanvasKeypointName, JointDataMap, JumpMetrics, JumpPoint, Kinematics } from '@/interfaces/pose';
 import { usePoseDetector } from '@/providers/PoseDetector';
 import { OrthogonalReference, useSettings } from '@/providers/Settings';
 import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame } from '@/utils/pose';
@@ -16,6 +16,7 @@ import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import VideoTrimmer from '@/components/Pose/VideoTrimmer';
 import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
 import { TrimmerProps } from '../VideoTrimmer/CustomRangeSlider';
+import { ArrowUturnDownIcon } from '@heroicons/react/24/outline';
 
 export type VideoAnalysisHandle = {
   handleVideoProcessing: () => void;
@@ -27,6 +28,166 @@ export type VideoAnalysisHandle = {
 };
 
 export type ProcessingStatus = 'idle' | 'processing' | 'cancelRequested' | 'cancelled' | 'processed' | 'durationExceeded';
+
+function analyzeJumpMetrics({
+  frames,
+  forearmLengthMeters = 0.28,
+  side = "right",
+  yTolerance = 0.005, // ← nuevo parámetro opcional para filtrar ruido
+}: {
+  frames: VideoFrame[];
+  forearmLengthMeters?: number;
+  side: "left" | "right";
+  yTolerance?: number;
+}): JumpMetrics {
+  if (!frames.length) return null;
+
+  const first = frames[0];
+
+  // Mapa dinámico: keypoint.name → índice
+  const keypointIndexMap: Record<string, number> = {};
+  first.keypoints.forEach((kp, index) => {
+    if (kp.name) keypointIndexMap[kp.name] = index;
+  });
+
+  // Selección de keypoints según el lado
+  const elbowName = side === "right" ? CanvasKeypointName.RIGHT_ELBOW : CanvasKeypointName.LEFT_ELBOW;
+  const wristName = side === "right" ? CanvasKeypointName.RIGHT_WRIST : CanvasKeypointName.LEFT_WRIST;
+  const hipName = side === "right" ? CanvasKeypointName.RIGHT_HIP : CanvasKeypointName.LEFT_HIP;
+  const kneeName = side === "right" ? CanvasKeypointName.RIGHT_KNEE : CanvasKeypointName.LEFT_KNEE;
+
+  const elbowIndex = keypointIndexMap[elbowName];
+  const wristIndex = keypointIndexMap[wristName];
+  const hipIndex = keypointIndexMap[hipName];
+
+  if (
+    elbowIndex === undefined ||
+    wristIndex === undefined ||
+    hipIndex === undefined
+  ) {
+    console.warn("❌ No se encontraron índices para los keypoints necesarios.");
+    return null;
+  }
+
+  // Escala usando el antebrazo
+  const elbow = first.keypoints[elbowIndex];
+  const wrist = first.keypoints[wristIndex];
+  const forearmPixels = Math.hypot(elbow.x - wrist.x, elbow.y - wrist.y);
+  const scale = forearmPixels > 0 ? forearmLengthMeters / forearmPixels : 0;
+
+  // Trayectoria vertical de la cadera
+  const hipY: JumpPoint[] = frames.map(f => ({
+    timestamp: f.videoTime * 1000,
+    y: f.keypoints[hipIndex].y,
+  }));
+
+  const yStart = hipY[0].y;
+  const yMinRaw = Math.min(...hipY.map(p => p.y));
+  const yMin = yMinRaw + yTolerance;
+  const height = (yStart - yMin) * scale;
+
+  // Detección de despegue y aterrizaje
+  let takeoff = -1;
+  let landing = -1;
+  const threshold = 0.01;
+
+  for (let i = 1; i < hipY.length; i++) {
+    const delta = hipY[i - 1].y - hipY[i].y;
+
+    if (takeoff === -1 && delta > threshold) takeoff = i;
+    else if (takeoff !== -1 && delta < -threshold) {
+      landing = i;
+      break;
+    }
+  }
+
+  const flightTime =
+    takeoff !== -1 && landing !== -1
+      ? (hipY[landing].timestamp - hipY[takeoff].timestamp) / 1000
+      : null;
+
+  // Usamos jointData directamente para ángulos
+  const kneeAngleAtTakeoff =
+    takeoff !== -1
+      ? frames[takeoff].jointData?.[kneeName]?.angle ?? null
+      : null;
+
+  const kneeAngleAtLanding =
+    landing !== -1
+      ? frames[landing].jointData?.[kneeName]?.angle ?? null
+      : null;
+
+    // Detectar inicio del impulso (inicio de flexión)
+  let impulseStartIndex = 0;
+  for (let i = 1; i < takeoff; i++) {
+    if (hipY[i].y > hipY[i - 1].y) {
+      impulseStartIndex = i;
+      break;
+    }
+  }
+
+  // Detectar fin de amortiguación (mínimo tras landing → inicio de extensión)
+  let amortizationEndIndex = landing;
+  for (let i = landing + 1; i < hipY.length - 1; i++) {
+    if (hipY[i].y < hipY[i + 1].y) {
+      amortizationEndIndex = i;
+      break;
+    }
+  }
+
+  const impulseDurationInSeconds =
+    takeoff !== -1 && impulseStartIndex !== -1
+      ? (hipY[takeoff].timestamp - hipY[impulseStartIndex].timestamp) / 1000
+      : null;
+
+  const amortizationDurationInSeconds =
+    landing !== -1 && amortizationEndIndex !== -1
+      ? (hipY[amortizationEndIndex].timestamp - hipY[landing].timestamp) / 1000
+      : null;
+
+  const getJointAngle = (frameIndex: number, jointName: CanvasKeypointName): number | null =>
+    frames[frameIndex]?.jointData?.[jointName]?.angle ?? null;
+
+  const angles = {
+    impulseStart: impulseStartIndex !== -1 ? {
+      timestamp: hipY[impulseStartIndex].timestamp,
+      hipAngle: getJointAngle(impulseStartIndex, hipName),
+      kneeAngle: getJointAngle(impulseStartIndex, kneeName),
+    } : undefined,
+    takeoff: takeoff !== -1 ? {
+      timestamp: hipY[takeoff].timestamp,
+      hipAngle: getJointAngle(takeoff, hipName),
+      kneeAngle: getJointAngle(takeoff, kneeName),
+    } : undefined,
+    landing: landing !== -1 ? {
+      timestamp: hipY[landing].timestamp,
+      hipAngle: getJointAngle(landing, hipName),
+      kneeAngle: getJointAngle(landing, kneeName),
+    } : undefined,
+    amortizationEnd: amortizationEndIndex !== -1 ? {
+      timestamp: hipY[amortizationEndIndex].timestamp,
+      hipAngle: getJointAngle(amortizationEndIndex, hipName),
+      kneeAngle: getJointAngle(amortizationEndIndex, kneeName),
+    } : undefined,
+  };
+
+  return {
+    heightInMeters: height,
+    flightTimeInSeconds: flightTime,
+    reactiveStrengthIndex: flightTime ? height / flightTime : null,
+    takeoffTimestamp: takeoff !== -1 ? hipY[takeoff].timestamp : null,
+    landingTimestamp: landing !== -1 ? hipY[landing].timestamp : null,
+    kneeAngleAtTakeoff,
+    kneeAngleAtLanding,
+    impulseDurationInSeconds,
+    amortizationDurationInSeconds,
+    angles,
+    scaleUsed: scale,
+    sideUsed: side,
+    yStartRaw: yStart,
+    yMinRaw: yMinRaw,
+  };
+}
 
 interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
@@ -548,11 +709,11 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const handleNewVideo = () => {
     fileInputRef.current?.click();
   };
-
-  const nextTick = () => new Promise(resolve => setTimeout(resolve, 0));
-
+  
   const playFrames = useCallback(async () => {
     if (!allFramesDataRef.current.length) return;
+
+    const nextTick = () => new Promise(resolve => setTimeout(resolve, 0));
   
     isPlayingRef.current = true;
     setIsPlaying(true);
@@ -955,34 +1116,37 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             </section> 
           ) : null }
 
-          {processingStatus === "processed" && 
-          ((zoomStatus === "in" && aspectRatio < 1) ||
-          (zoomStatus === "out" && aspectRatio >= 1)) ? (
-            <MagnifyingGlassPlusIcon 
-              onClick={() => {                
-                if (aspectRatio < 1) { // portrait
-                  zoomFullWidth();
-                }
-                else {
-                  zoomFullHeight();
-                }
-              }}  
-              className='absolute right-0 bottom-0 pr-2 pb-2 w-10 h-10 text-white'/> 
-          ) : null }
-          {processingStatus === "processed" && 
-          ((zoomStatus === "out" && aspectRatio < 1) ||
-          (zoomStatus === "in" && aspectRatio >= 1)) ? (
-            <MagnifyingGlassMinusIcon 
-              onClick={() => {
-                if (aspectRatio < 1) { // portrait
-                  zoomFullHeight();
-                }
-                else {
-                  zoomFullWidth();
-                }
-              }}  
-              className='absolute right-0 bottom-0 pr-2 pb-2 w-10 h-10 text-white'/>
-          ) : null }          
+          <div className='absolute right-0 bottom-0 pr-2 pb-2'>
+            <ArrowUturnDownIcon className='w-10 h-10 text-white'/>
+            {processingStatus === "processed" && 
+            ((zoomStatus === "in" && aspectRatio < 1) ||
+            (zoomStatus === "out" && aspectRatio >= 1)) ? (
+              <MagnifyingGlassPlusIcon 
+                onClick={() => {                
+                  if (aspectRatio < 1) { // portrait
+                    zoomFullWidth();
+                  }
+                  else {
+                    zoomFullHeight();
+                  }
+                }}  
+                className='w-10 h-10 text-white'/> 
+            ) : null }
+            {processingStatus === "processed" && 
+            ((zoomStatus === "out" && aspectRatio < 1) ||
+            (zoomStatus === "in" && aspectRatio >= 1)) ? (
+              <MagnifyingGlassMinusIcon 
+                onClick={() => {
+                  if (aspectRatio < 1) { // portrait
+                    zoomFullHeight();
+                  }
+                  else {
+                    zoomFullWidth();
+                  }
+                }}  
+                className='w-10 h-10 text-white'/>
+            ) : null }         
+          </div>
 
         </div>
 
