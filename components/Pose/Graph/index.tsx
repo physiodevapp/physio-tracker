@@ -8,7 +8,7 @@ import {
 } from "chart.js";
 import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
 import zoomPlugin from 'chartjs-plugin-zoom';
-import { ViewfinderCircleIcon } from "@heroicons/react/24/solid";
+import { ArrowsPointingInIcon } from "@heroicons/react/24/outline";
 
 // Registro de componentes de Chart.js
 ChartJS.register(
@@ -607,7 +607,7 @@ const Index = ({
           className='bg-white px-2 pb-2'
           />
         {isZoomed ? (
-          <ViewfinderCircleIcon 
+          <ArrowsPointingInIcon 
           className="absolute bottom-0 left-0 p-1 w-8 h-8 text-gray-400"
           onClick={() => {
             chartRef.current?.resetZoom();
