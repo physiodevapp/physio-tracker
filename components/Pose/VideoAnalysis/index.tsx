@@ -1135,8 +1135,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                   const jumpMetrics = analyzeJumpMetrics({
                     frames: allFramesDataRef.current,
                     side: "right",
-                    // forearmLengthMeters: 0.28,
                     angleChangeThreshold: 6,
+                    // forearmLengthMeters: 0.28,
                   });
                   console.log('jumpMetrics ', jumpMetrics)
                   console.log('allFramesDataRef ', allFramesDataRef.current)
