@@ -1,4 +1,4 @@
-import { CanvasKeypointName, JointConfigMap, JointDataMap, JumpPoint } from "@/interfaces/pose";
+import { CanvasKeypointName, JointConfigMap, JointDataMap, JumpHeuristicPreview, JumpMetrics, JumpPoint } from "@/interfaces/pose";
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import { RefObject } from "react";
 
@@ -231,7 +231,7 @@ export function filterRepresentativeFrames(
 //   return { prevPeak, nextPeak };
 // }
 ///
-export function findMaxPeaksAroundIndex(
+function findMaxPeaksAroundIndex(
   hipTrajectory: JumpPoint[],
   minIndex: number,
   tolerance: number = 1 // grados
@@ -283,6 +283,325 @@ export function findMaxPeaksAroundIndex(
     nextPeak: hipTrajectory[closestSimilarNextIndex] ?? null,
   };
 }
+
+function smoothTrajectory(data: (number | null)[], window = 3): (number | null)[] {
+  return data.map((_, i) => {
+    const values = data.slice(Math.max(0, i - Math.floor(window / 2)), i + Math.ceil(window / 2))
+      .filter(v => v !== null) as number[];
+    return values.length ? values.reduce((a, b) => a + b) / values.length : null;
+  });
+}
+
+function findSmoothedMinIndex(yValues: number[], window = 3): number {
+  const smoothed = smoothTrajectory(yValues, window) as number[];
+  const min = Math.min(...smoothed);
+  return smoothed.findIndex(v => v === min);
+}
+
+function findAngleEventIndex(
+  angles: (number | null)[],
+  start: number,
+  direction: "increase" | "decrease",
+  threshold = 2 // diferencia acumulada minima de grados para considerarlo un cambio
+): number {
+  const factor = direction === "increase" ? 1 : -1;
+
+  for (let i = start; i < angles.length - 3; i++) {
+    if ([angles[i], angles[i + 1], angles[i + 2]].every(v => v != null)) {
+      const a = angles[i]!, b = angles[i + 1]!, c = angles[i + 2]!;
+      const diffs = [b - a, c - b];
+      const consistent = diffs.every(d => d * factor > 0);
+      const magnitude = diffs.reduce((acc, d) => acc + Math.abs(d), 0);
+      if (consistent && magnitude > threshold) return i;
+    }
+  }
+
+  return start;
+}
+
+function estimateAmortizationEndIndex(
+  hipTrajectory: JumpPoint[],
+  landingIndex: number,
+  range: number = 12,
+  angleTolerance: number = 1
+): number {
+  const end = Math.min(hipTrajectory.length, landingIndex + range);
+  const window = hipTrajectory.slice(landingIndex + 1, end);
+
+  if (window.length === 0) return landingIndex;
+
+  // 1. Encontrar el valor máximo
+  const maxAngle = Math.max(...window.map(p => p.angle ?? -Infinity));
+
+  // 2. Buscar todos los valores cercanos al máximo
+  const closeCandidates = window.filter(p =>
+    p.angle != null && Math.abs(p.angle - maxAngle) <= angleTolerance
+  );
+
+  // 3. De esos, quedarnos con el más alejado (más tardío)
+  const furthest = closeCandidates.reduce((a, b) =>
+    a.index > b.index ? a : b
+  );
+
+  return furthest?.index ?? landingIndex;
+}
+
+function analyzeJumpMetrics({
+  frames,
+  side = "right",
+  angleChangeThreshold = 2, // grados
+}: {
+  frames: VideoFrame[];
+  side: "left" | "right";
+  angleChangeThreshold?: number;
+}): JumpMetrics {
+  if (!frames.length) return null;
+
+  const getJointAngle = (frameIndex: number, jointName: CanvasKeypointName): number | null =>
+    frames[frameIndex]?.jointData?.[jointName]?.angle ?? null;
+
+  const first = frames[0];
+
+  const keypointIndexMap: Record<string, number> = {};
+  first.keypoints.forEach((kp, index) => {
+    if (kp.name) keypointIndexMap[kp.name] = index;
+  });
+
+  const hipName = side === "right" ? CanvasKeypointName.RIGHT_HIP : CanvasKeypointName.LEFT_HIP;
+  const kneeName = side === "right" ? CanvasKeypointName.RIGHT_KNEE : CanvasKeypointName.LEFT_KNEE;
+
+  const hipIndex = keypointIndexMap[hipName];
+
+  if (hipIndex === undefined) {
+    console.warn("❌ No se encontraron índices para los keypoints necesarios.");
+    return null;
+  }
+
+  const hipTrajectory: JumpPoint[] = frames.map((f, index) => ({
+    timestamp: f.videoTime * 1000,
+    y: f.keypoints[hipIndex].y,
+    angle: f.jointData?.[hipName]?.angle ?? null,
+    index,
+  }));
+  // console.log('hipTrajectory ', hipTrajectory)
+
+  const angleThreshold = angleChangeThreshold;
+
+  const yMinRaw = Math.min(...hipTrajectory.map(p => p.y));
+  // const minIndex = hipTrajectory.findIndex(p => p.y === yMinRaw);
+  const minIndex = findSmoothedMinIndex(hipTrajectory.map(p => p.y));
+
+  // let takeoffIndex = minIndex;
+  let takeoffIndex = findAngleEventIndex(hipTrajectory.map(item => item.angle), minIndex, "increase", 2);
+  for (let i = minIndex - 1; i > 0; i--) {
+    const current = hipTrajectory[i].angle;
+    const prev = hipTrajectory[i - 1].angle;
+    if (current !== null && prev !== null) {
+      if (Math.abs(current - prev) > angleThreshold) {
+        takeoffIndex = i;
+        break;
+      }
+    }
+  }
+
+  // let landingIndex = minIndex;
+  let landingIndex = findAngleEventIndex(hipTrajectory.map(item => item.angle), minIndex, "decrease", 2);
+  for (let i = minIndex + 1; i < hipTrajectory.length - 1; i++) {
+    const current = hipTrajectory[i].angle;
+    const next = hipTrajectory[i + 1].angle;
+    if (current !== null && next !== null) {
+      if (Math.abs(current - next) > angleThreshold) {
+        landingIndex = i;
+        break;
+      }
+    }
+  }
+
+  const flightTime =
+    takeoffIndex !== -1 && landingIndex !== -1
+      ? (hipTrajectory[landingIndex].timestamp - hipTrajectory[takeoffIndex].timestamp) / 1000
+      : null;
+  
+  // Estimación física de la altura basada en tiempo de vuelo
+  const height = flightTime ? (9.81 * Math.pow(flightTime, 2)) / 8 : 0;
+
+  const { prevPeak } = findMaxPeaksAroundIndex(hipTrajectory, minIndex);
+  const impulseStartIndex = prevPeak ? prevPeak.index + 1 : takeoffIndex;
+  // const amortizationEndIndex = nextPeak ? nextPeak.index - 1 : landingIndex;
+  const amortizationEndIndex = estimateAmortizationEndIndex(hipTrajectory, landingIndex);
+
+
+  const impulseDurationInSeconds =
+    takeoffIndex > impulseStartIndex
+      ? (hipTrajectory[takeoffIndex].timestamp - hipTrajectory[impulseStartIndex].timestamp) / 1000
+      : null;
+
+  const amortizationDurationInSeconds =
+    amortizationEndIndex > landingIndex
+      ? (hipTrajectory[amortizationEndIndex].timestamp - hipTrajectory[landingIndex].timestamp) / 1000
+      : null;
+
+  const angles = {
+    impulseStart: {
+      timestamp: hipTrajectory[impulseStartIndex].timestamp,
+      hipAngle: getJointAngle(impulseStartIndex, hipName),
+      kneeAngle: getJointAngle(impulseStartIndex, kneeName),
+    },
+    takeoff: {
+      timestamp: hipTrajectory[takeoffIndex].timestamp,
+      hipAngle: getJointAngle(takeoffIndex, hipName),
+      kneeAngle: getJointAngle(takeoffIndex, kneeName),
+    },
+    landing: {
+      timestamp: hipTrajectory[landingIndex].timestamp,
+      hipAngle: getJointAngle(landingIndex, hipName),
+      kneeAngle: getJointAngle(landingIndex, kneeName),
+    },
+    amortizationEnd: {
+      timestamp: hipTrajectory[amortizationEndIndex].timestamp,
+      hipAngle: getJointAngle(amortizationEndIndex, hipName),
+      kneeAngle: getJointAngle(amortizationEndIndex, kneeName),
+    },
+  };
+
+  return {
+    heightInMeters: height,
+    flightTimeInSeconds: flightTime,
+    reactiveStrengthIndex: flightTime ? height / flightTime : null,
+    takeoffTimestamp: hipTrajectory[takeoffIndex].timestamp,
+    landingTimestamp: hipTrajectory[landingIndex].timestamp,
+    impulseDurationInSeconds,
+    amortizationDurationInSeconds,
+    angles,
+    sideUsed: side,
+    yMinRaw: yMinRaw,
+  };
+}
+
+function isJumpLikeDetailed(frames: VideoFrame[]): {
+  isJump: boolean;
+  reason?: string;
+  metricsPreview?: JumpHeuristicPreview;
+} {
+  if (!frames.length) return { isJump: false, reason: "No frames provided" };
+
+  const hipName = CanvasKeypointName.RIGHT_HIP; // puedes parametrizar
+  const hipIndex = frames[0].keypoints.findIndex(kp => kp.name === hipName);
+  if (hipIndex === -1) {
+    return { isJump: false, reason: "Hip keypoint not found" };
+  }
+
+  const hipY = frames.map((f, i) => ({
+    index: i,
+    y: f.keypoints[hipIndex].y,
+  }));
+  const hipAngles = frames.map(f => f.jointData?.[hipName]?.angle ?? null);
+
+  const yValues = hipY.map(p => p.y);
+  // const minIndex = yValues.indexOf(Math.min(...yValues));
+  const minIndex = findSmoothedMinIndex(yValues);
+  
+  const start = Math.max(0, minIndex - 30);
+  const end = Math.min(yValues.length - 1, minIndex + 30);
+  
+  const maxYBefore = Math.max(...yValues.slice(start, minIndex));
+  const maxYAfter = Math.max(...yValues.slice(minIndex, end + 1));
+  
+  const angleValues = hipAngles;
+  const validAnglesBefore = angleValues.slice(start, minIndex).filter(a => a !== null) as number[];
+  const validAnglesAfter = angleValues.slice(minIndex, end + 1).filter(a => a !== null) as number[];
+
+  const maxAngleBefore = Math.max(...validAnglesBefore);
+  const maxAngleAfter = Math.max(...validAnglesAfter);
+  const dropHeight = maxYBefore - yValues[minIndex];
+  const riseHeight = maxYAfter - yValues[minIndex];
+  const angleChange = Math.abs(maxAngleBefore - maxAngleAfter);
+
+  const metricsPreview = {
+    minIndex,
+    dropHeight,
+    riseHeight,
+    maxAngleBefore,
+    maxAngleAfter,
+    angleChange,
+  };
+
+  if (dropHeight <= 200) return { isJump: false, reason: "Insufficient drop height", metricsPreview };
+  if (riseHeight <= 200) return { isJump: false, reason: "Insufficient rise height", metricsPreview };
+  if (maxAngleBefore <= 30 || maxAngleAfter <= 30) return { isJump: false, reason: "Angle too low", metricsPreview };
+  if (angleChange <= 10) return { isJump: false, reason: "Angle change too small", metricsPreview };
+
+  return { isJump: true, metricsPreview };
+}
+
+export function detectJumpEvents({
+  frames,
+  side = "right",
+  windowSize = 30,
+  minSeparation = 40,
+  angleChangeThreshold = 2, // grados
+} : {
+  frames: VideoFrame[];
+  side?: "left" | "right";
+  windowSize?: number;
+  minSeparation?: number;
+  angleChangeThreshold?: number;
+}): {
+  jumpIndex: number;
+  timestamp: number;
+  isJump: boolean;
+  reason?: string;
+  metricsPreview?: JumpHeuristicPreview;
+  metrics?: JumpMetrics | null;
+}[] {
+  if (!frames.length) return [];
+
+  const hipName =
+    side === "right"
+      ? CanvasKeypointName.RIGHT_HIP
+      : CanvasKeypointName.LEFT_HIP;
+
+  const hipIndex = frames[0].keypoints.findIndex(kp => kp.name === hipName);
+  if (hipIndex === -1) return [];
+
+  const yValues = frames.map(f => f.keypoints[hipIndex].y);
+  const candidateMinIndices: number[] = [];
+
+  for (let i = windowSize; i < yValues.length - windowSize; i++) {
+    const window = yValues.slice(i - windowSize, i + windowSize + 1);
+    const isLocalMin = yValues[i] === Math.min(...window);
+    const farFromLast =
+      candidateMinIndices.length === 0 ||
+      i - candidateMinIndices[candidateMinIndices.length - 1] > minSeparation;
+
+    if (isLocalMin && farFromLast) {
+      candidateMinIndices.push(i);
+    }
+  }
+
+  return candidateMinIndices.map(jumpIndex => {
+    const subStart = Math.max(0, jumpIndex - windowSize);
+    const subEnd = Math.min(frames.length, jumpIndex + windowSize + 1);
+    const subFrames = frames.slice(subStart, subEnd);
+
+    const { isJump, reason, metricsPreview } = isJumpLikeDetailed(subFrames);
+
+    const metrics = isJump
+      ? analyzeJumpMetrics({ frames: subFrames, side, angleChangeThreshold })
+      : null;
+
+    return {
+      jumpIndex,
+      timestamp: frames[jumpIndex].videoTime * 1000,
+      isJump,
+      reason,
+      metricsPreview,
+      metrics,
+    };
+  });
+}
+
+
 
 
 
