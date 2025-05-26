@@ -437,7 +437,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         const flightDuration = ((landing! - takeoff!) / 1000).toFixed(2);
         const amortizationDuration = ((amortizationEnd! - landing!) / 1000).toFixed(2);
         const flightHeight = (jump.metrics!.heightInMeters * 100).toFixed(0);
-        // const impulseDuration = ((takeoff! - impulseStart!) / 1000).toFixed(2);
+        const impulseDuration = ((takeoff! - impulseStart!) / 1000).toFixed(2);
 
         // Box 1: solo fase de vuelo
         if (takeoff != null && landing != null) {
@@ -457,8 +457,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               },
               content: [
                 `H: ${flightHeight} cm`,
-                // `I: ${impulseDuration} s`,
-                `F: ${flightDuration} s`,
+                `I: ${impulseDuration} s`,
+                // `F: ${flightDuration} s`,
                 `A: ${amortizationDuration} s`,
               ],
               position: {
