@@ -5,18 +5,19 @@ import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallba
 import { createPortal } from 'react-dom';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
-import { CanvasKeypointName, JointDataMap, JumpMetrics, JumpPoint, Kinematics } from '@/interfaces/pose';
+import { CanvasKeypointName, JointDataMap, JumpHeuristicPreview, JumpMetrics, JumpPoint, Kinematics } from '@/interfaces/pose';
 import { usePoseDetector } from '@/providers/PoseDetector';
 import { OrthogonalReference, useSettings } from '@/providers/Settings';
-import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame } from '@/utils/pose';
+import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame, findMaxPeaksAroundIndex } from '@/utils/pose';
 import { formatJointName, jointConfigMap } from '@/utils/joint';
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/utils/draw';
 import { keypointPairs } from '@/utils/pose';
 import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import VideoTrimmer from '@/components/Pose/VideoTrimmer';
-import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
 import { TrimmerProps } from '../VideoTrimmer/CustomRangeSlider';
+import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
 import { ArrowUturnDownIcon } from '@heroicons/react/24/outline';
+import { AnnotationOptions } from 'chartjs-plugin-annotation';
 
 export type VideoAnalysisHandle = {
   handleVideoProcessing: () => void;
@@ -29,162 +30,258 @@ export type VideoAnalysisHandle = {
 
 export type ProcessingStatus = 'idle' | 'processing' | 'cancelRequested' | 'cancelled' | 'processed' | 'durationExceeded';
 
+function isJumpLikeDetailed(frames: VideoFrame[]): {
+  isJump: boolean;
+  reason?: string;
+  metricsPreview?: JumpHeuristicPreview;
+} {
+  if (!frames.length) {
+    return { isJump: false, reason: "No frames provided" };
+  }
+
+  const hipName = CanvasKeypointName.RIGHT_HIP; // puedes parametrizar
+  const hipIndex = frames[0].keypoints.findIndex(kp => kp.name === hipName);
+  if (hipIndex === -1) {
+    return { isJump: false, reason: "Hip keypoint not found" };
+  }
+
+  const hipY = frames.map((f, i) => ({
+    index: i,
+    y: f.keypoints[hipIndex].y,
+  }));
+  const hipAngles = frames.map(f => f.jointData?.[hipName]?.angle ?? null);
+
+  const yValues = hipY.map(p => p.y);
+  const angleValues = hipAngles;
+
+  const minIndex = yValues.indexOf(Math.min(...yValues));
+  const start = Math.max(0, minIndex - 30);
+  const end = Math.min(yValues.length - 1, minIndex + 30);
+
+  const maxYBefore = Math.max(...yValues.slice(start, minIndex));
+  const maxYAfter = Math.max(...yValues.slice(minIndex, end + 1));
+  const validAnglesBefore = angleValues.slice(start, minIndex).filter(a => a !== null) as number[];
+  const validAnglesAfter = angleValues.slice(minIndex, end + 1).filter(a => a !== null) as number[];
+
+  const maxAngleBefore = Math.max(...validAnglesBefore);
+  const maxAngleAfter = Math.max(...validAnglesAfter);
+  const dropHeight = maxYBefore - yValues[minIndex];
+  const riseHeight = maxYAfter - yValues[minIndex];
+  const angleChange = Math.abs(maxAngleBefore - maxAngleAfter);
+
+  const metricsPreview = {
+    minIndex,
+    dropHeight,
+    riseHeight,
+    maxAngleBefore,
+    maxAngleAfter,
+    angleChange,
+  };
+
+  if (dropHeight <= 200) return { isJump: false, reason: "Insufficient drop height", metricsPreview };
+  if (riseHeight <= 200) return { isJump: false, reason: "Insufficient rise height", metricsPreview };
+  if (maxAngleBefore <= 30 || maxAngleAfter <= 30) return { isJump: false, reason: "Angle too low", metricsPreview };
+  if (angleChange <= 10) return { isJump: false, reason: "Angle change too small", metricsPreview };
+
+  return { isJump: true, metricsPreview };
+}
+
+function detectJumpEvents({
+  frames,
+  side = "right",
+  windowSize = 30,
+  minSeparation = 40,
+  angleChangeThreshold = 2, // grados
+} : {
+  frames: VideoFrame[];
+  side?: "left" | "right";
+  windowSize?: number;
+  minSeparation?: number;
+  angleChangeThreshold?: number;
+}): {
+  jumpIndex: number;
+  timestamp: number;
+  isJump: boolean;
+  reason?: string;
+  metricsPreview?: JumpHeuristicPreview;
+  metrics?: JumpMetrics | null;
+}[] {
+  if (!frames.length) return [];
+
+  const hipName =
+    side === "right"
+      ? CanvasKeypointName.RIGHT_HIP
+      : CanvasKeypointName.LEFT_HIP;
+
+  const hipIndex = frames[0].keypoints.findIndex(kp => kp.name === hipName);
+  if (hipIndex === -1) return [];
+
+  const yValues = frames.map(f => f.keypoints[hipIndex].y);
+  const candidateMinIndices: number[] = [];
+
+  for (let i = windowSize; i < yValues.length - windowSize; i++) {
+    const window = yValues.slice(i - windowSize, i + windowSize + 1);
+    const isLocalMin = yValues[i] === Math.min(...window);
+    const farFromLast =
+      candidateMinIndices.length === 0 ||
+      i - candidateMinIndices[candidateMinIndices.length - 1] > minSeparation;
+
+    if (isLocalMin && farFromLast) {
+      candidateMinIndices.push(i);
+    }
+  }
+
+  return candidateMinIndices.map(jumpIndex => {
+    const subStart = Math.max(0, jumpIndex - windowSize);
+    const subEnd = Math.min(frames.length, jumpIndex + windowSize + 1);
+    const subFrames = frames.slice(subStart, subEnd);
+
+    const { isJump, reason, metricsPreview } = isJumpLikeDetailed(subFrames);
+
+    const metrics = isJump
+      ? analyzeJumpMetrics({ frames: subFrames, side, angleChangeThreshold })
+      : null;
+
+    return {
+      jumpIndex,
+      timestamp: frames[jumpIndex].videoTime * 1000,
+      isJump,
+      reason,
+      metricsPreview,
+      metrics,
+    };
+  });
+}
+
 function analyzeJumpMetrics({
   frames,
-  forearmLengthMeters = 0.28,
   side = "right",
-  yTolerance = 0.005, // ← nuevo parámetro opcional para filtrar ruido
+  angleChangeThreshold = 2, // grados
 }: {
   frames: VideoFrame[];
-  forearmLengthMeters?: number;
   side: "left" | "right";
-  yTolerance?: number;
+  angleChangeThreshold?: number;
 }): JumpMetrics {
   if (!frames.length) return null;
 
+  const getJointAngle = (frameIndex: number, jointName: CanvasKeypointName): number | null =>
+    frames[frameIndex]?.jointData?.[jointName]?.angle ?? null;
+
   const first = frames[0];
 
-  // Mapa dinámico: keypoint.name → índice
   const keypointIndexMap: Record<string, number> = {};
   first.keypoints.forEach((kp, index) => {
     if (kp.name) keypointIndexMap[kp.name] = index;
   });
 
-  // Selección de keypoints según el lado
-  const elbowName = side === "right" ? CanvasKeypointName.RIGHT_ELBOW : CanvasKeypointName.LEFT_ELBOW;
-  const wristName = side === "right" ? CanvasKeypointName.RIGHT_WRIST : CanvasKeypointName.LEFT_WRIST;
   const hipName = side === "right" ? CanvasKeypointName.RIGHT_HIP : CanvasKeypointName.LEFT_HIP;
   const kneeName = side === "right" ? CanvasKeypointName.RIGHT_KNEE : CanvasKeypointName.LEFT_KNEE;
 
-  const elbowIndex = keypointIndexMap[elbowName];
-  const wristIndex = keypointIndexMap[wristName];
   const hipIndex = keypointIndexMap[hipName];
 
-  if (
-    elbowIndex === undefined ||
-    wristIndex === undefined ||
-    hipIndex === undefined
-  ) {
+  if (hipIndex === undefined) {
     console.warn("❌ No se encontraron índices para los keypoints necesarios.");
     return null;
   }
 
-  // Escala usando el antebrazo
-  const elbow = first.keypoints[elbowIndex];
-  const wrist = first.keypoints[wristIndex];
-  const forearmPixels = Math.hypot(elbow.x - wrist.x, elbow.y - wrist.y);
-  const scale = forearmPixels > 0 ? forearmLengthMeters / forearmPixels : 0;
-
-  // Trayectoria vertical de la cadera
-  const hipY: JumpPoint[] = frames.map(f => ({
+  const hipTrajectory: JumpPoint[] = frames.map((f, index) => ({
     timestamp: f.videoTime * 1000,
     y: f.keypoints[hipIndex].y,
+    angle: f.jointData?.[hipName]?.angle ?? null,
+    index,
   }));
+  console.log('hipTrajectory ', hipTrajectory)
 
-  const yStart = hipY[0].y;
-  const yMinRaw = Math.min(...hipY.map(p => p.y));
-  const yMin = yMinRaw + yTolerance;
-  const height = (yStart - yMin) * scale;
+  const angleThreshold = angleChangeThreshold;
 
-  // Detección de despegue y aterrizaje
-  let takeoff = -1;
-  let landing = -1;
-  const threshold = 0.01;
+  const yMinRaw = Math.min(...hipTrajectory.map(p => p.y));
+  const minIndex = hipTrajectory.findIndex(p => p.y === yMinRaw);
 
-  for (let i = 1; i < hipY.length; i++) {
-    const delta = hipY[i - 1].y - hipY[i].y;
+  let takeoffIndex = minIndex;
+  for (let i = minIndex - 1; i > 0; i--) {
+    const current = hipTrajectory[i].angle;
+    const prev = hipTrajectory[i - 1].angle;
+    if (current !== null && prev !== null) {
+      if (Math.abs(current - prev) > angleThreshold) {
+        takeoffIndex = i;
+        break;
+      }
+    }
+  }
 
-    if (takeoff === -1 && delta > threshold) takeoff = i;
-    else if (takeoff !== -1 && delta < -threshold) {
-      landing = i;
-      break;
+  let landingIndex = minIndex;
+  for (let i = minIndex + 1; i < hipTrajectory.length - 1; i++) {
+    const current = hipTrajectory[i].angle;
+    const next = hipTrajectory[i + 1].angle;
+    if (current !== null && next !== null) {
+      if (Math.abs(current - next) > angleThreshold) {
+        landingIndex = i;
+        break;
+      }
     }
   }
 
   const flightTime =
-    takeoff !== -1 && landing !== -1
-      ? (hipY[landing].timestamp - hipY[takeoff].timestamp) / 1000
+    takeoffIndex !== -1 && landingIndex !== -1
+      ? (hipTrajectory[landingIndex].timestamp - hipTrajectory[takeoffIndex].timestamp) / 1000
       : null;
+  
+  // Estimación física de la altura basada en tiempo de vuelo
+  const height = flightTime ? (9.81 * Math.pow(flightTime, 2)) / 8 : 0;
 
-  // Usamos jointData directamente para ángulos
-  const kneeAngleAtTakeoff =
-    takeoff !== -1
-      ? frames[takeoff].jointData?.[kneeName]?.angle ?? null
-      : null;
+  const { prevPeak, nextPeak } = findMaxPeaksAroundIndex(hipTrajectory, minIndex);
+  const impulseStartIndex = prevPeak ? prevPeak.index + 1 : takeoffIndex;
+  const amortizationEndIndex = nextPeak ? nextPeak.index - 1 : landingIndex;
 
-  const kneeAngleAtLanding =
-    landing !== -1
-      ? frames[landing].jointData?.[kneeName]?.angle ?? null
-      : null;
-
-    // Detectar inicio del impulso (inicio de flexión)
-  let impulseStartIndex = 0;
-  for (let i = 1; i < takeoff; i++) {
-    if (hipY[i].y > hipY[i - 1].y) {
-      impulseStartIndex = i;
-      break;
-    }
-  }
-
-  // Detectar fin de amortiguación (mínimo tras landing → inicio de extensión)
-  let amortizationEndIndex = landing;
-  for (let i = landing + 1; i < hipY.length - 1; i++) {
-    if (hipY[i].y < hipY[i + 1].y) {
-      amortizationEndIndex = i;
-      break;
-    }
-  }
+  // console.log('impulseStartIndex ', impulseStartIndex, ' -> ', hipTrajectory[impulseStartIndex].timestamp)
+  // console.log('takeoffIndex ', takeoffIndex, ' -> ', hipTrajectory[takeoffIndex].timestamp)
+  // console.log('minIndex ', minIndex, ' -> ', hipTrajectory[minIndex].timestamp)
+  // console.log('landingIndex ', landingIndex, ' -> ', hipTrajectory[landingIndex].timestamp)
+  // console.log('amortizationEndIndex ', amortizationEndIndex, ' -> ', hipTrajectory[amortizationEndIndex].timestamp)
 
   const impulseDurationInSeconds =
-    takeoff !== -1 && impulseStartIndex !== -1
-      ? (hipY[takeoff].timestamp - hipY[impulseStartIndex].timestamp) / 1000
+    takeoffIndex > impulseStartIndex
+      ? (hipTrajectory[takeoffIndex].timestamp - hipTrajectory[impulseStartIndex].timestamp) / 1000
       : null;
 
   const amortizationDurationInSeconds =
-    landing !== -1 && amortizationEndIndex !== -1
-      ? (hipY[amortizationEndIndex].timestamp - hipY[landing].timestamp) / 1000
+    amortizationEndIndex > landingIndex
+      ? (hipTrajectory[amortizationEndIndex].timestamp - hipTrajectory[landingIndex].timestamp) / 1000
       : null;
 
-  const getJointAngle = (frameIndex: number, jointName: CanvasKeypointName): number | null =>
-    frames[frameIndex]?.jointData?.[jointName]?.angle ?? null;
-
   const angles = {
-    impulseStart: impulseStartIndex !== -1 ? {
-      timestamp: hipY[impulseStartIndex].timestamp,
+    impulseStart: {
+      timestamp: hipTrajectory[impulseStartIndex].timestamp,
       hipAngle: getJointAngle(impulseStartIndex, hipName),
       kneeAngle: getJointAngle(impulseStartIndex, kneeName),
-    } : undefined,
-    takeoff: takeoff !== -1 ? {
-      timestamp: hipY[takeoff].timestamp,
-      hipAngle: getJointAngle(takeoff, hipName),
-      kneeAngle: getJointAngle(takeoff, kneeName),
-    } : undefined,
-    landing: landing !== -1 ? {
-      timestamp: hipY[landing].timestamp,
-      hipAngle: getJointAngle(landing, hipName),
-      kneeAngle: getJointAngle(landing, kneeName),
-    } : undefined,
-    amortizationEnd: amortizationEndIndex !== -1 ? {
-      timestamp: hipY[amortizationEndIndex].timestamp,
+    },
+    takeoff: {
+      timestamp: hipTrajectory[takeoffIndex].timestamp,
+      hipAngle: getJointAngle(takeoffIndex, hipName),
+      kneeAngle: getJointAngle(takeoffIndex, kneeName),
+    },
+    landing: {
+      timestamp: hipTrajectory[landingIndex].timestamp,
+      hipAngle: getJointAngle(landingIndex, hipName),
+      kneeAngle: getJointAngle(landingIndex, kneeName),
+    },
+    amortizationEnd: {
+      timestamp: hipTrajectory[amortizationEndIndex].timestamp,
       hipAngle: getJointAngle(amortizationEndIndex, hipName),
       kneeAngle: getJointAngle(amortizationEndIndex, kneeName),
-    } : undefined,
+    },
   };
 
   return {
     heightInMeters: height,
     flightTimeInSeconds: flightTime,
     reactiveStrengthIndex: flightTime ? height / flightTime : null,
-    takeoffTimestamp: takeoff !== -1 ? hipY[takeoff].timestamp : null,
-    landingTimestamp: landing !== -1 ? hipY[landing].timestamp : null,
-    kneeAngleAtTakeoff,
-    kneeAngleAtLanding,
+    takeoffTimestamp: hipTrajectory[takeoffIndex].timestamp,
+    landingTimestamp: hipTrajectory[landingIndex].timestamp,
     impulseDurationInSeconds,
     amortizationDurationInSeconds,
     angles,
-    scaleUsed: scale,
     sideUsed: side,
-    yStartRaw: yStart,
     yMinRaw: yMinRaw,
   };
 }
@@ -277,6 +374,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const allFramesDataRef = useRef<VideoFrame[]>([]);
   const nearestFrameRef = useRef<VideoFrame>(null);
   const [recordedPositions, setRecordedPositions] = useState<RecordedPositions>();
+
+  const [chartAnnotations, setChartAnnotations] = useState<Record<string, AnnotationOptions> | null>(null);
+
 
   const handleClickOnCanvas = () => { 
     if (isPoseSettingsModalOpen || isMainMenuOpen) {
@@ -564,6 +664,84 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     const transformed = transformToRecordedPositions(reducedFrames);
     setRecordedPositions(transformed);
 
+    /// Jump Annotations
+    await delayInSeconds(1_000);
+
+    const allJumps = detectJumpEvents({
+      frames: allFramesDataRef.current,
+      side: "right",
+      angleChangeThreshold: 5,
+    });
+    const validJumps = allJumps.filter(j => j.isJump);
+
+    if (validJumps.length) {
+      const annotations: Record<string, AnnotationOptions> = {};
+
+      validJumps.forEach((jump, i) => {
+        const takeoff = jump.metrics?.takeoffTimestamp;
+        const landing = jump.metrics?.landingTimestamp;
+        const impulseStart = jump.metrics?.angles.impulseStart?.timestamp;
+        const amortizationEnd = jump.metrics?.angles.amortizationEnd?.timestamp;
+        const flightDuration = ((landing! - takeoff!) / 1000).toFixed(2);
+        // const impulseDuration = ((takeoff! - impulseStart!) / 1000).toFixed(2);
+        const amortizationDuration = ((amortizationEnd! - landing!) / 1000).toFixed(2);
+        const flightHeight = (jump.metrics!.heightInMeters * 100).toFixed(0);
+
+        // Box 1: solo fase de vuelo
+        if (takeoff != null && landing != null) {
+          annotations[`flightBox_${i}`] = {
+            type: "box",
+            xMin: takeoff,
+            xMax: landing,
+            yMax: 200,
+            yMin: -60,
+            backgroundColor: "rgba(0, 200, 255, 0.1)",
+            borderColor: "rgba(0, 200, 255, 0.5)",
+            borderWidth: 1,
+            label: {
+              display: true,
+              font: {
+                weight: 'lighter', // o 'normal' o '400'
+              },
+              content: [
+                `H: ${flightHeight} cm`,
+                // `I: ${impulseDuration} s`,
+                `F: ${flightDuration} s`,
+                `A: ${amortizationDuration} s`,
+              ],
+              position: {
+                x: 'center',
+                y: '10%',
+              },
+              textAlign: 'start',
+            },
+          };
+        }
+
+        // Box 2: impulso + vuelo + amortiguación
+        if (impulseStart != null && amortizationEnd != null) {
+          annotations[`fullJumpBox_${i}`] = {
+            type: "box",
+            xMin: impulseStart,
+            xMax: amortizationEnd,
+            yMax: 200,
+            yMin: -60,
+            backgroundColor: "rgba(0, 255, 100, 0.1)",
+            borderColor: "rgba(0, 255, 100, 0.5)",
+            borderWidth: 1,
+            label: {
+              display: false,
+              content: `Full Jump ${i + 1}`,
+              position: "start",
+            },
+          };
+        }
+      });
+
+      setChartAnnotations(annotations);
+    }
+    ///
+
     setProcessingStatus("processed");
     onStatusChange?.("processed");
     setProcessingProgress(0);
@@ -594,6 +772,12 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     onPause?.(false);
 
     if (processingStatus === "processed") {
+      console.log('object ', videoRef.current)
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0; 
+        videoRef.current.pause();
+        videoRef.current.load();
+      }
       setProcessingStatus("idle");
       onStatusChange?.("idle");
     }
@@ -709,11 +893,12 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const handleNewVideo = () => {
     fileInputRef.current?.click();
   };
+
+  const delayInSeconds = (duration = 0) => new Promise(resolve => setTimeout(resolve, duration));
   
   const playFrames = useCallback(async () => {
     if (!allFramesDataRef.current.length) return;
 
-    const nextTick = () => new Promise(resolve => setTimeout(resolve, 0));
   
     isPlayingRef.current = true;
     setIsPlaying(true);
@@ -768,7 +953,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       isPlayingUpdateRef.current = true;
       currentFrameIndexRef.current = i;
       // setVerticalLineValue(frame.videoTime * 1000);
-      await nextTick();
+      await delayInSeconds();
       isPlayingUpdateRef.current = false;
   
       const ctx = canvasRef.current?.getContext("2d");
@@ -1116,48 +1301,60 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             </section> 
           ) : null }
 
-          <div className='absolute right-0 bottom-0 pr-2 pb-2'>
-            <ArrowUturnDownIcon className='w-10 h-10 text-white'/>
-            {processingStatus === "processed" && 
-            ((zoomStatus === "in" && aspectRatio < 1) ||
-            (zoomStatus === "out" && aspectRatio >= 1)) ? (
-              <MagnifyingGlassPlusIcon 
-                onClick={() => {                
-                  if (aspectRatio < 1) { // portrait
-                    zoomFullWidth();
-                  }
-                  else {
-                    zoomFullHeight();
-                  }
-                }}  
-                className='w-10 h-10 text-white'/> 
-            ) : null }
-            {processingStatus === "processed" && 
-            ((zoomStatus === "out" && aspectRatio < 1) ||
-            (zoomStatus === "in" && aspectRatio >= 1)) ? (
-              <MagnifyingGlassMinusIcon 
-                onClick={() => {
-                  if (aspectRatio < 1) { // portrait
-                    zoomFullHeight();
-                  }
-                  else {
-                    zoomFullWidth();
-                  }
-                }}  
-                className='w-10 h-10 text-white'/>
-            ) : null }         
-          </div>
-
+          {processingStatus === "processed" ? (
+            <>
+              <div className='absolute left-1/2 -translate-x-1/2 bottom-2 px-4 py-1 text-xl text-center bg-black/40 rounded-full'>{nearestFrameRef.current?.videoTime.toFixed(2)} s</div> 
+              <div className='absolute right-0 bottom-0 pr-2 pb-2 flex flex-row gap-1'>             
+                <ArrowUturnDownIcon 
+                  className='w-10 h-10 p-[0.1rem] text-white'
+                  onClick={() => {                    
+                    const allJumps = detectJumpEvents({
+                      frames: allFramesDataRef.current,
+                      side: "right",
+                      angleChangeThreshold: 5,
+                    })
+                    const validJumps = allJumps.filter(j => j.isJump);
+                    console.log('validJumps ', validJumps)
+                  }} />
+                {((zoomStatus === "in" && aspectRatio < 1) ||
+                (zoomStatus === "out" && aspectRatio >= 1)) ? (
+                  <MagnifyingGlassPlusIcon 
+                    onClick={() => {                
+                      if (aspectRatio < 1) { // portrait
+                        zoomFullWidth();
+                      }
+                      else {
+                        zoomFullHeight();
+                      }
+                    }}  
+                    className='w-10 h-10 text-white'/> 
+                ) : null }
+                {((zoomStatus === "out" && aspectRatio < 1) ||
+                (zoomStatus === "in" && aspectRatio >= 1)) ? (
+                  <MagnifyingGlassMinusIcon 
+                    onClick={() => {
+                      if (aspectRatio < 1) { // portrait
+                        zoomFullHeight();
+                      }
+                      else {
+                        zoomFullWidth();
+                      }
+                    }}  
+                    className='w-10 h-10 text-white'/>
+                ) : null }         
+              </div> 
+            </>
+          ) : null}
         </div>
 
         {processingStatus === "processed" && recordedPositions ? (
           <PoseChart
             joints={selectedJoints}
             valueTypes={[Kinematics.ANGLE]} // Solo queremos ángulos
-            recordedPositions={recordedPositions} // Tus datos
+            recordedPositions={recordedPositions} // Los datos
             onVerticalLineChange={handleVerticalLineChange}
             verticalLineValue={verticalLineValue}
-            parentStyles="z-10 flex-1 w-full max-w-5xl mx-auto" // Opcional
+            parentStyles="z-10 flex-1 w-full max-w-5xl mx-auto" 
             hiddenLegendsRef={hiddenLegendsRef}
             onToggleLegend={(index, hidden) => {
               if (!hiddenLegendsRef.current) {
@@ -1171,7 +1368,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               }   
 
               forceUpdateUI();
-            }} />
+            }} 
+            annotations={chartAnnotations!} />
         ) : null }
       </div>
 

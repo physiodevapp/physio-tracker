@@ -307,7 +307,12 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 {videoLoaded && processingStatus !== "processed" && ( 
                   <CubeTransparentIcon
                     className="w-6 h-6 text-white"
-                    onClick={videoAnalysisRef.current?.handleVideoProcessing} /> 
+                    onClick={() => {
+                      setIsPoseSettingsModalOpen(false);
+
+                      videoAnalysisRef.current?.handleVideoProcessing();
+
+                    }} /> 
                 )}
                 {processingStatus === "processed" && (
                   <DocumentArrowDownIcon
