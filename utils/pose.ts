@@ -199,6 +199,9 @@ export function filterRepresentativeFrames(
   return selectedFrames;
 }
 
+///===============///
+/// Jump analysis ///
+
 /// findMaxPeaksAroundIndex original
 // export function findMaxPeaksAroundIndex(
 //   hipTrajectory: JumpPoint[],
@@ -284,7 +287,10 @@ function findMaxPeaksAroundIndex(
   };
 }
 
-function smoothTrajectory(data: (number | null)[], window = 3): (number | null)[] {
+function smoothTrajectory(
+  data: (number | null)[], 
+  window = 3,
+): (number | null)[] {
   return data.map((_, i) => {
     const values = data.slice(Math.max(0, i - Math.floor(window / 2)), i + Math.ceil(window / 2))
       .filter(v => v !== null) as number[];
@@ -292,7 +298,10 @@ function smoothTrajectory(data: (number | null)[], window = 3): (number | null)[
   });
 }
 
-function findSmoothedMinIndex(yValues: number[], window = 3): number {
+function findSmoothedMinIndex(
+  yValues: number[], 
+  window = 3,
+): number {
   const smoothed = smoothTrajectory(yValues, window) as number[];
   const min = Math.min(...smoothed);
   return smoothed.findIndex(v => v === min);
@@ -319,31 +328,57 @@ function findAngleEventIndex(
   return start;
 }
 
+/// estimateAmortizationEndIndex original
+// function estimateAmortizationEndIndex(
+//   hipTrajectory: JumpPoint[],
+//   landingIndex: number,
+//   range: number = 12, // ventana de 12
+//   angleTolerance: number = 1
+// ): number {
+//   const end = Math.min(hipTrajectory.length, landingIndex + range);
+//   const window = hipTrajectory.slice(landingIndex + 1, end);
+
+//   if (window.length === 0) return landingIndex;
+
+//   // 1. Encontrar el valor máximo
+//   const maxAngle = Math.max(...window.map(p => p.angle ?? -Infinity));
+
+//   // 2. Buscar todos los valores cercanos al máximo
+//   const closeCandidates = window.filter(p =>
+//     p.angle != null && Math.abs(p.angle - maxAngle) <= angleTolerance
+//   );
+
+//   // 3. De esos, quedarnos con el más alejado (más tardío)
+//   const furthest = closeCandidates.reduce((a, b) =>
+//     a.index > b.index ? a : b
+//   );
+
+//   return furthest?.index ?? landingIndex;
+// }
+///
 function estimateAmortizationEndIndex(
   hipTrajectory: JumpPoint[],
   landingIndex: number,
-  range: number = 12,
-  angleTolerance: number = 1
+  range: number = 20, // numero de frames a analizar
+  angleStabilizationThreshold: number = 2 // grados
 ): number {
   const end = Math.min(hipTrajectory.length, landingIndex + range);
-  const window = hipTrajectory.slice(landingIndex + 1, end);
 
-  if (window.length === 0) return landingIndex;
+  // Calcula media de los últimos 3–4 ángulos tras el aterrizaje
+  for (let i = landingIndex + 3; i < end - 2; i++) {
+    const window = hipTrajectory.slice(i, i + 3);
+    const avg = window.reduce((sum, p) => sum + (p.angle ?? 0), 0) / window.length;
 
-  // 1. Encontrar el valor máximo
-  const maxAngle = Math.max(...window.map(p => p.angle ?? -Infinity));
+    // Calcula desviación respecto a todos los ángulos en esa ventana
+    const maxDiff = Math.max(...window.map(p => Math.abs((p.angle ?? 0) - avg)));
 
-  // 2. Buscar todos los valores cercanos al máximo
-  const closeCandidates = window.filter(p =>
-    p.angle != null && Math.abs(p.angle - maxAngle) <= angleTolerance
-  );
+    // Si todos están suficientemente cerca entre sí, lo consideramos estabilizado
+    if (maxDiff <= angleStabilizationThreshold) {
+      return i + 2; // último índice de la ventana
+    }
+  }
 
-  // 3. De esos, quedarnos con el más alejado (más tardío)
-  const furthest = closeCandidates.reduce((a, b) =>
-    a.index > b.index ? a : b
-  );
-
-  return furthest?.index ?? landingIndex;
+  return landingIndex + 5; // valor por defecto si no se estabiliza (evita 0.00s)
 }
 
 function analyzeJumpMetrics({
@@ -491,13 +526,20 @@ function isJumpLikeDetailed(frames: VideoFrame[]): {
     return { isJump: false, reason: "Hip keypoint not found" };
   }
 
-  const hipY = frames.map((f, i) => ({
-    index: i,
-    y: f.keypoints[hipIndex].y,
-  }));
-  const hipAngles = frames.map(f => f.jointData?.[hipName]?.angle ?? null);
+  // const hipY = frames.map((f, i) => ({
+  //   index: i,
+  //   y: f.keypoints[hipIndex].y,
+  // }));
+  // const hipAngles = frames.map(f => f.jointData?.[hipName]?.angle ?? null);
+  const hipTrajectory: JumpPoint[] = frames.map((f, index) => ({
+  timestamp: f.videoTime * 1000,
+  y: f.keypoints[hipIndex].y,
+  angle: f.jointData?.[hipName]?.angle ?? null,
+  index,
+}));
 
-  const yValues = hipY.map(p => p.y);
+
+  const yValues = hipTrajectory.map(p => p.y);
   // const minIndex = yValues.indexOf(Math.min(...yValues));
   const minIndex = findSmoothedMinIndex(yValues);
   
@@ -507,7 +549,8 @@ function isJumpLikeDetailed(frames: VideoFrame[]): {
   const maxYBefore = Math.max(...yValues.slice(start, minIndex));
   const maxYAfter = Math.max(...yValues.slice(minIndex, end + 1));
   
-  const angleValues = hipAngles;
+  // const angleValues = hipAngles;
+  const angleValues = hipTrajectory.map(item => item.angle);
   const validAnglesBefore = angleValues.slice(start, minIndex).filter(a => a !== null) as number[];
   const validAnglesAfter = angleValues.slice(minIndex, end + 1).filter(a => a !== null) as number[];
 
@@ -600,6 +643,9 @@ export function detectJumpEvents({
     };
   });
 }
+
+/// Jump analysis ///
+///===============///
 
 
 
