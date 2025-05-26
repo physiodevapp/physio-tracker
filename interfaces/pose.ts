@@ -60,7 +60,7 @@ export interface UpdateJointParams {
 
 export type JointConfigMap = Partial<{ [key in CanvasKeypointName]: { invert: boolean } }>;
 
-export type JumpPoint = { timestamp: number; y: number };
+export type JumpPoint = { timestamp: number; y: number; angle: number | null; index: number };
 
 export type JumpMetrics = {
   heightInMeters: number;
@@ -70,8 +70,6 @@ export type JumpMetrics = {
   amortizationDurationInSeconds: number | null;
   takeoffTimestamp: number | null;
   landingTimestamp: number | null;
-  kneeAngleAtTakeoff: number | null;
-  kneeAngleAtLanding: number | null;
   scaleUsed?: number;
   sideUsed: "left" | "right";
   yStartRaw?: number;
@@ -99,4 +97,14 @@ export type JumpMetrics = {
     };
   };
 } | null;
+
+export type JumpHeuristicPreview = {
+  minIndex: number;
+  dropHeight: number;
+  riseHeight: number;
+  maxAngleBefore: number;
+  maxAngleAfter: number;
+  angleChange: number;
+};
+
 

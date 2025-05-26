@@ -9,11 +9,13 @@ import {
 import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ArrowsPointingInIcon } from "@heroicons/react/24/outline";
+import annotationPlugin, { AnnotationOptions } from "chartjs-plugin-annotation";
 
 // Registro de componentes de Chart.js
 ChartJS.register(
   ...registerables,
-  zoomPlugin 
+  zoomPlugin,
+  annotationPlugin, 
 );
 
 // Definimos la interfaz para cada punto de datos
@@ -42,6 +44,7 @@ interface IndexProps {
   verticalLineValue?: number;
   hiddenLegendsRef?: React.RefObject<Set<number>>;
   onToggleLegend?: (index: number, hidden: boolean) => void;
+  annotations?: Record<string, AnnotationOptions>;
 }
 
 const areAllDatasetsHidden = (chart: ChartJS): boolean => {
@@ -164,6 +167,7 @@ const Index = ({
   verticalLineValue = 0,
   hiddenLegendsRef,
   onToggleLegend,
+  annotations,
 }: IndexProps) => {
   const [isZoomed, setIsZoomed] = useState(false);
   const tooltipXRef = useRef<number>(0);
@@ -212,7 +216,7 @@ const Index = ({
       const baseBackgroundColor = jointData.color.backgroundColor;
   
       valueTypes.forEach((vType) => {
-        const dataPoints = jointData.anglePoints
+        const dataPoints = jointData.anglePoints;
   
         result.push({
           label: `${transformJointName(joint)} ${vType}`,
@@ -292,7 +296,7 @@ const Index = ({
           recordedPositions: recordedPositions!,
           tooltipXRef,
           hiddenLegendsRef: hiddenLegendsRef!,
-        }),
+        })
       ],
       options: {
         responsive: true,
@@ -356,6 +360,9 @@ const Index = ({
               mode: 'xy', // solo horizontal (tiempo)
               onZoom: () => setIsZoomed(true),
             },
+          },
+          annotation: {
+            annotations: annotations ?? {},
           },
           legend: {
             display: true,
@@ -521,7 +528,11 @@ const Index = ({
           },
         },
       }
-    }),[JSON.stringify(datasets)]);
+    }),[JSON.stringify(datasets), JSON.stringify(annotations)]);
+
+  useEffect(() => {
+    console.log('annotations ', annotations)
+  }, [annotations])
 
   useEffect(() => {
     if (!canvasRef.current) return;

@@ -1,4 +1,4 @@
-import { CanvasKeypointName, JointConfigMap, JointDataMap } from "@/interfaces/pose";
+import { CanvasKeypointName, JointConfigMap, JointDataMap, JumpPoint } from "@/interfaces/pose";
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import { RefObject } from "react";
 
@@ -198,6 +198,100 @@ export function filterRepresentativeFrames(
 
   return selectedFrames;
 }
+
+/// findMaxPeaksAroundIndex original
+// export function findMaxPeaksAroundIndex(
+//   hipTrajectory: JumpPoint[],
+//   minIndex: number,
+// ): {
+//   prevPeak: JumpPoint | null;
+//   nextPeak: JumpPoint | null;
+// } {
+//   const findMaxAngleIndex = (start: number, end: number): number => {
+//     let maxIndex = -1;
+//     let maxAngle = -Infinity;
+//     for (let i = start; i <= end; i++) {
+//       const angle = hipTrajectory[i].angle;
+//       if (angle != null && angle > maxAngle) {
+//         maxAngle = angle;
+//         maxIndex = i;
+//       }
+//     }
+//     return maxIndex;
+//   };
+
+//   const prevIndex = findMaxAngleIndex(0, minIndex);
+//   const nextIndex = findMaxAngleIndex(minIndex, hipTrajectory.length - 1);
+
+//   // const prevPeak = hipTrajectory.find(p => p.index === prevIndex) ?? null;
+//   const prevPeak = prevIndex !== -1 ? hipTrajectory[prevIndex] : null;
+//   // const nextPeak = hipTrajectory.find(p => p.index === nextIndex) ?? null;
+//   const nextPeak = nextIndex !== -1 ? hipTrajectory[nextIndex] : null;
+
+//   return { prevPeak, nextPeak };
+// }
+///
+export function findMaxPeaksAroundIndex(
+  hipTrajectory: JumpPoint[],
+  minIndex: number,
+  tolerance: number = 1 // grados
+): {
+  prevPeak: JumpPoint | null;
+  nextPeak: JumpPoint | null;
+} {
+  const findMaxAngleIndex = (start: number, end: number): number => {
+    let maxIndex = -1;
+    let maxAngle = -Infinity;
+    for (let i = start; i <= end; i++) {
+      const angle = hipTrajectory[i]?.angle;
+      if (angle != null && angle > maxAngle) {
+        maxAngle = angle;
+        maxIndex = i;
+      }
+    }
+    return maxIndex;
+  };
+
+  // --- NEXT PEAK ---
+  const nextIndex = findMaxAngleIndex(minIndex, hipTrajectory.length - 1);
+  const maxAngleNext = hipTrajectory[nextIndex]?.angle ?? -Infinity;
+
+  let closestSimilarNextIndex = nextIndex;
+  for (let i = minIndex; i < nextIndex; i++) {
+    const angle = hipTrajectory[i]?.angle;
+    if (angle != null && Math.abs(angle - maxAngleNext) <= tolerance) {
+      closestSimilarNextIndex = i;
+      break;
+    }
+  }
+
+  // --- PREV PEAK ---
+  const prevIndex = findMaxAngleIndex(0, minIndex);
+  const maxAnglePrev = hipTrajectory[prevIndex]?.angle ?? -Infinity;
+
+  let closestSimilarPrevIndex = prevIndex;
+  for (let i = minIndex; i > 0; i--) {
+    const angle = hipTrajectory[i]?.angle;
+    if (angle != null && Math.abs(angle - maxAnglePrev) <= tolerance) {
+      closestSimilarPrevIndex = i;
+      break;
+    }
+  }
+
+  return {
+    prevPeak: hipTrajectory[closestSimilarPrevIndex] ?? null,
+    nextPeak: hipTrajectory[closestSimilarNextIndex] ?? null,
+  };
+}
+
+
+
+
+
+
+
+
+
 
 
 
