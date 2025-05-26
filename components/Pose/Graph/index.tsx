@@ -262,15 +262,14 @@ const Index = ({
   
       Object.entries(recordedPositions).forEach(([joint, dataArray]) => {
         if (dataArray && dataArray.length > 0) {
-          // Tomamos el primer timestamp como referencia (cero segundos)
+          // Tomamos el primer timestamp como referencia (cero milisegundos)
           const start = dataArray[0].timestamp;
           const anglePoints = dataArray.map((d: { timestamp: number; angle: number; }) => ({
-            x: (d.timestamp - start),// / 1000,
+            x: (d.timestamp - start), // en ms,
             y: d.angle,
           }));
           newChartData[joint] = {
             anglePoints,
-            // Puedes elegir el color del primer dato o utilizar una función de colores:
             color: dataArray[0].color,
           };
         }
@@ -529,10 +528,6 @@ const Index = ({
         },
       }
     }),[JSON.stringify(datasets), JSON.stringify(annotations)]);
-
-  useEffect(() => {
-    console.log('annotations ', annotations)
-  }, [annotations])
 
   useEffect(() => {
     if (!canvasRef.current) return;

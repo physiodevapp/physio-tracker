@@ -5,10 +5,10 @@ import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallba
 import { createPortal } from 'react-dom';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
-import { CanvasKeypointName, JointDataMap, JumpHeuristicPreview, JumpMetrics, JumpPoint, Kinematics } from '@/interfaces/pose';
+import { CanvasKeypointName, JointDataMap, Kinematics } from '@/interfaces/pose';
 import { usePoseDetector } from '@/providers/PoseDetector';
 import { OrthogonalReference, useSettings } from '@/providers/Settings';
-import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame, findMaxPeaksAroundIndex } from '@/utils/pose';
+import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame, detectJumpEvents } from '@/utils/pose';
 import { formatJointName, jointConfigMap } from '@/utils/joint';
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/utils/draw';
 import { keypointPairs } from '@/utils/pose';
@@ -29,262 +29,6 @@ export type VideoAnalysisHandle = {
 };
 
 export type ProcessingStatus = 'idle' | 'processing' | 'cancelRequested' | 'cancelled' | 'processed' | 'durationExceeded';
-
-function isJumpLikeDetailed(frames: VideoFrame[]): {
-  isJump: boolean;
-  reason?: string;
-  metricsPreview?: JumpHeuristicPreview;
-} {
-  if (!frames.length) {
-    return { isJump: false, reason: "No frames provided" };
-  }
-
-  const hipName = CanvasKeypointName.RIGHT_HIP; // puedes parametrizar
-  const hipIndex = frames[0].keypoints.findIndex(kp => kp.name === hipName);
-  if (hipIndex === -1) {
-    return { isJump: false, reason: "Hip keypoint not found" };
-  }
-
-  const hipY = frames.map((f, i) => ({
-    index: i,
-    y: f.keypoints[hipIndex].y,
-  }));
-  const hipAngles = frames.map(f => f.jointData?.[hipName]?.angle ?? null);
-
-  const yValues = hipY.map(p => p.y);
-  const angleValues = hipAngles;
-
-  const minIndex = yValues.indexOf(Math.min(...yValues));
-  const start = Math.max(0, minIndex - 30);
-  const end = Math.min(yValues.length - 1, minIndex + 30);
-
-  const maxYBefore = Math.max(...yValues.slice(start, minIndex));
-  const maxYAfter = Math.max(...yValues.slice(minIndex, end + 1));
-  const validAnglesBefore = angleValues.slice(start, minIndex).filter(a => a !== null) as number[];
-  const validAnglesAfter = angleValues.slice(minIndex, end + 1).filter(a => a !== null) as number[];
-
-  const maxAngleBefore = Math.max(...validAnglesBefore);
-  const maxAngleAfter = Math.max(...validAnglesAfter);
-  const dropHeight = maxYBefore - yValues[minIndex];
-  const riseHeight = maxYAfter - yValues[minIndex];
-  const angleChange = Math.abs(maxAngleBefore - maxAngleAfter);
-
-  const metricsPreview = {
-    minIndex,
-    dropHeight,
-    riseHeight,
-    maxAngleBefore,
-    maxAngleAfter,
-    angleChange,
-  };
-
-  if (dropHeight <= 200) return { isJump: false, reason: "Insufficient drop height", metricsPreview };
-  if (riseHeight <= 200) return { isJump: false, reason: "Insufficient rise height", metricsPreview };
-  if (maxAngleBefore <= 30 || maxAngleAfter <= 30) return { isJump: false, reason: "Angle too low", metricsPreview };
-  if (angleChange <= 10) return { isJump: false, reason: "Angle change too small", metricsPreview };
-
-  return { isJump: true, metricsPreview };
-}
-
-function detectJumpEvents({
-  frames,
-  side = "right",
-  windowSize = 30,
-  minSeparation = 40,
-  angleChangeThreshold = 2, // grados
-} : {
-  frames: VideoFrame[];
-  side?: "left" | "right";
-  windowSize?: number;
-  minSeparation?: number;
-  angleChangeThreshold?: number;
-}): {
-  jumpIndex: number;
-  timestamp: number;
-  isJump: boolean;
-  reason?: string;
-  metricsPreview?: JumpHeuristicPreview;
-  metrics?: JumpMetrics | null;
-}[] {
-  if (!frames.length) return [];
-
-  const hipName =
-    side === "right"
-      ? CanvasKeypointName.RIGHT_HIP
-      : CanvasKeypointName.LEFT_HIP;
-
-  const hipIndex = frames[0].keypoints.findIndex(kp => kp.name === hipName);
-  if (hipIndex === -1) return [];
-
-  const yValues = frames.map(f => f.keypoints[hipIndex].y);
-  const candidateMinIndices: number[] = [];
-
-  for (let i = windowSize; i < yValues.length - windowSize; i++) {
-    const window = yValues.slice(i - windowSize, i + windowSize + 1);
-    const isLocalMin = yValues[i] === Math.min(...window);
-    const farFromLast =
-      candidateMinIndices.length === 0 ||
-      i - candidateMinIndices[candidateMinIndices.length - 1] > minSeparation;
-
-    if (isLocalMin && farFromLast) {
-      candidateMinIndices.push(i);
-    }
-  }
-
-  return candidateMinIndices.map(jumpIndex => {
-    const subStart = Math.max(0, jumpIndex - windowSize);
-    const subEnd = Math.min(frames.length, jumpIndex + windowSize + 1);
-    const subFrames = frames.slice(subStart, subEnd);
-
-    const { isJump, reason, metricsPreview } = isJumpLikeDetailed(subFrames);
-
-    const metrics = isJump
-      ? analyzeJumpMetrics({ frames: subFrames, side, angleChangeThreshold })
-      : null;
-
-    return {
-      jumpIndex,
-      timestamp: frames[jumpIndex].videoTime * 1000,
-      isJump,
-      reason,
-      metricsPreview,
-      metrics,
-    };
-  });
-}
-
-function analyzeJumpMetrics({
-  frames,
-  side = "right",
-  angleChangeThreshold = 2, // grados
-}: {
-  frames: VideoFrame[];
-  side: "left" | "right";
-  angleChangeThreshold?: number;
-}): JumpMetrics {
-  if (!frames.length) return null;
-
-  const getJointAngle = (frameIndex: number, jointName: CanvasKeypointName): number | null =>
-    frames[frameIndex]?.jointData?.[jointName]?.angle ?? null;
-
-  const first = frames[0];
-
-  const keypointIndexMap: Record<string, number> = {};
-  first.keypoints.forEach((kp, index) => {
-    if (kp.name) keypointIndexMap[kp.name] = index;
-  });
-
-  const hipName = side === "right" ? CanvasKeypointName.RIGHT_HIP : CanvasKeypointName.LEFT_HIP;
-  const kneeName = side === "right" ? CanvasKeypointName.RIGHT_KNEE : CanvasKeypointName.LEFT_KNEE;
-
-  const hipIndex = keypointIndexMap[hipName];
-
-  if (hipIndex === undefined) {
-    console.warn("❌ No se encontraron índices para los keypoints necesarios.");
-    return null;
-  }
-
-  const hipTrajectory: JumpPoint[] = frames.map((f, index) => ({
-    timestamp: f.videoTime * 1000,
-    y: f.keypoints[hipIndex].y,
-    angle: f.jointData?.[hipName]?.angle ?? null,
-    index,
-  }));
-  console.log('hipTrajectory ', hipTrajectory)
-
-  const angleThreshold = angleChangeThreshold;
-
-  const yMinRaw = Math.min(...hipTrajectory.map(p => p.y));
-  const minIndex = hipTrajectory.findIndex(p => p.y === yMinRaw);
-
-  let takeoffIndex = minIndex;
-  for (let i = minIndex - 1; i > 0; i--) {
-    const current = hipTrajectory[i].angle;
-    const prev = hipTrajectory[i - 1].angle;
-    if (current !== null && prev !== null) {
-      if (Math.abs(current - prev) > angleThreshold) {
-        takeoffIndex = i;
-        break;
-      }
-    }
-  }
-
-  let landingIndex = minIndex;
-  for (let i = minIndex + 1; i < hipTrajectory.length - 1; i++) {
-    const current = hipTrajectory[i].angle;
-    const next = hipTrajectory[i + 1].angle;
-    if (current !== null && next !== null) {
-      if (Math.abs(current - next) > angleThreshold) {
-        landingIndex = i;
-        break;
-      }
-    }
-  }
-
-  const flightTime =
-    takeoffIndex !== -1 && landingIndex !== -1
-      ? (hipTrajectory[landingIndex].timestamp - hipTrajectory[takeoffIndex].timestamp) / 1000
-      : null;
-  
-  // Estimación física de la altura basada en tiempo de vuelo
-  const height = flightTime ? (9.81 * Math.pow(flightTime, 2)) / 8 : 0;
-
-  const { prevPeak, nextPeak } = findMaxPeaksAroundIndex(hipTrajectory, minIndex);
-  const impulseStartIndex = prevPeak ? prevPeak.index + 1 : takeoffIndex;
-  const amortizationEndIndex = nextPeak ? nextPeak.index - 1 : landingIndex;
-
-  // console.log('impulseStartIndex ', impulseStartIndex, ' -> ', hipTrajectory[impulseStartIndex].timestamp)
-  // console.log('takeoffIndex ', takeoffIndex, ' -> ', hipTrajectory[takeoffIndex].timestamp)
-  // console.log('minIndex ', minIndex, ' -> ', hipTrajectory[minIndex].timestamp)
-  // console.log('landingIndex ', landingIndex, ' -> ', hipTrajectory[landingIndex].timestamp)
-  // console.log('amortizationEndIndex ', amortizationEndIndex, ' -> ', hipTrajectory[amortizationEndIndex].timestamp)
-
-  const impulseDurationInSeconds =
-    takeoffIndex > impulseStartIndex
-      ? (hipTrajectory[takeoffIndex].timestamp - hipTrajectory[impulseStartIndex].timestamp) / 1000
-      : null;
-
-  const amortizationDurationInSeconds =
-    amortizationEndIndex > landingIndex
-      ? (hipTrajectory[amortizationEndIndex].timestamp - hipTrajectory[landingIndex].timestamp) / 1000
-      : null;
-
-  const angles = {
-    impulseStart: {
-      timestamp: hipTrajectory[impulseStartIndex].timestamp,
-      hipAngle: getJointAngle(impulseStartIndex, hipName),
-      kneeAngle: getJointAngle(impulseStartIndex, kneeName),
-    },
-    takeoff: {
-      timestamp: hipTrajectory[takeoffIndex].timestamp,
-      hipAngle: getJointAngle(takeoffIndex, hipName),
-      kneeAngle: getJointAngle(takeoffIndex, kneeName),
-    },
-    landing: {
-      timestamp: hipTrajectory[landingIndex].timestamp,
-      hipAngle: getJointAngle(landingIndex, hipName),
-      kneeAngle: getJointAngle(landingIndex, kneeName),
-    },
-    amortizationEnd: {
-      timestamp: hipTrajectory[amortizationEndIndex].timestamp,
-      hipAngle: getJointAngle(amortizationEndIndex, hipName),
-      kneeAngle: getJointAngle(amortizationEndIndex, kneeName),
-    },
-  };
-
-  return {
-    heightInMeters: height,
-    flightTimeInSeconds: flightTime,
-    reactiveStrengthIndex: flightTime ? height / flightTime : null,
-    takeoffTimestamp: hipTrajectory[takeoffIndex].timestamp,
-    landingTimestamp: hipTrajectory[landingIndex].timestamp,
-    impulseDurationInSeconds,
-    amortizationDurationInSeconds,
-    angles,
-    sideUsed: side,
-    yMinRaw: yMinRaw,
-  };
-}
 
 interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
@@ -624,8 +368,15 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       }
     }
   };
+
   
   const handleVideoProcessing = async () => {
+    // Función utilitaria para intentar reducir frames si se supera cierto umbral
+    function tryReduceFrames(frames: VideoFrame[], threshold: number, minRequired: number = 80): VideoFrame[] {
+      const reduced = filterRepresentativeFrames(frames, threshold);
+      return reduced.length >= minRequired ? reduced : frames;
+    }
+
     processingCancelledRef.current = false;    
     setProcessingStatus('processing');
     onStatusChange?.("processing")
@@ -649,30 +400,31 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       return;
     }
 
+    /// Jump Annotations
+    await delayInMs(1_000);
+
     const framesWithJointData = allFramesDataRef.current.filter(
       (frame): frame is VideoFrame =>
         !!frame.jointData &&
         Object.values(frame.jointData).some(joint => typeof joint.angle === "number")
-    );       
-    const reducedFrames = filterRepresentativeFrames(framesWithJointData, minAngleDiff); // umbral de grados
-    //  console.log("🟢 Frames representativos:", reducedFrames.length, "de", allFramesDataRef.current.length);
+    );
 
-    if (reducedFrames.length >= 80) { // mínimo de 80 puntos en el gráfico
-      allFramesDataRef.current = reducedFrames;
-    }
-
-    const transformed = transformToRecordedPositions(reducedFrames);
-    setRecordedPositions(transformed);
-
-    /// Jump Annotations
-    await delayInSeconds(1_000);
-
+    // Detectar saltos
     const allJumps = detectJumpEvents({
-      frames: allFramesDataRef.current,
+      frames: framesWithJointData,
       side: "right",
-      angleChangeThreshold: 5,
+      angleChangeThreshold: 5, // poner en Settings
     });
+
     const validJumps = allJumps.filter(j => j.isJump);
+
+    // Lógica de visualización adaptativa
+    const framesToDisplay = validJumps.length
+      ? framesWithJointData // Mantener precisión si hay saltos válidos
+      : tryReduceFrames(framesWithJointData, minAngleDiff, 80);
+
+    const transformed = transformToRecordedPositions(framesToDisplay);
+    setRecordedPositions(transformed);
 
     if (validJumps.length) {
       const annotations: Record<string, AnnotationOptions> = {};
@@ -683,9 +435,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         const impulseStart = jump.metrics?.angles.impulseStart?.timestamp;
         const amortizationEnd = jump.metrics?.angles.amortizationEnd?.timestamp;
         const flightDuration = ((landing! - takeoff!) / 1000).toFixed(2);
-        // const impulseDuration = ((takeoff! - impulseStart!) / 1000).toFixed(2);
         const amortizationDuration = ((amortizationEnd! - landing!) / 1000).toFixed(2);
         const flightHeight = (jump.metrics!.heightInMeters * 100).toFixed(0);
+        // const impulseDuration = ((takeoff! - impulseStart!) / 1000).toFixed(2);
 
         // Box 1: solo fase de vuelo
         if (takeoff != null && landing != null) {
@@ -772,12 +524,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     onPause?.(false);
 
     if (processingStatus === "processed") {
-      console.log('object ', videoRef.current)
-      if (videoRef.current) {
-        videoRef.current.currentTime = 0; 
-        videoRef.current.pause();
-        videoRef.current.load();
-      }
+      setTrimmerRange({range: {start: 0, end: 0}, markerPosition: 0});
       setProcessingStatus("idle");
       onStatusChange?.("idle");
     }
@@ -894,7 +641,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     fileInputRef.current?.click();
   };
 
-  const delayInSeconds = (duration = 0) => new Promise(resolve => setTimeout(resolve, duration));
+  const delayInMs = (duration = 0) => new Promise(resolve => setTimeout(resolve, duration));
   
   const playFrames = useCallback(async () => {
     if (!allFramesDataRef.current.length) return;
@@ -953,7 +700,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       isPlayingUpdateRef.current = true;
       currentFrameIndexRef.current = i;
       // setVerticalLineValue(frame.videoTime * 1000);
-      await delayInSeconds();
+      await delayInMs();
       isPlayingUpdateRef.current = false;
   
       const ctx = canvasRef.current?.getContext("2d");
@@ -1103,7 +850,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         markerPosition !== trimmerRangeRef.current.markerPosition
     ) {
       trimmerRangeRef.current = {range: {start, end}, markerPosition};
-
+      
       if (videoRef.current) {
         videoRef.current.currentTime = markerPosition;
       }
