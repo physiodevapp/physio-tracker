@@ -329,57 +329,33 @@ function findAngleEventIndex(
 }
 
 /// estimateAmortizationEndIndex original
-// function estimateAmortizationEndIndex(
-//   hipTrajectory: JumpPoint[],
-//   landingIndex: number,
-//   range: number = 12, // ventana de 12
-//   angleTolerance: number = 1
-// ): number {
-//   const end = Math.min(hipTrajectory.length, landingIndex + range);
-//   const window = hipTrajectory.slice(landingIndex + 1, end);
-
-//   if (window.length === 0) return landingIndex;
-
-//   // 1. Encontrar el valor máximo
-//   const maxAngle = Math.max(...window.map(p => p.angle ?? -Infinity));
-
-//   // 2. Buscar todos los valores cercanos al máximo
-//   const closeCandidates = window.filter(p =>
-//     p.angle != null && Math.abs(p.angle - maxAngle) <= angleTolerance
-//   );
-
-//   // 3. De esos, quedarnos con el más alejado (más tardío)
-//   const furthest = closeCandidates.reduce((a, b) =>
-//     a.index > b.index ? a : b
-//   );
-
-//   return furthest?.index ?? landingIndex;
-// }
-///
 function estimateAmortizationEndIndex(
   hipTrajectory: JumpPoint[],
   landingIndex: number,
-  range: number = 20, // numero de frames a analizar
-  angleStabilizationThreshold: number = 2 // grados
+  range: number = 12, // ventana de 12
+  angleTolerance: number = 1
 ): number {
   const end = Math.min(hipTrajectory.length, landingIndex + range);
+  const window = hipTrajectory.slice(landingIndex + 1, end);
 
-  // Calcula media de los últimos 3–4 ángulos tras el aterrizaje
-  for (let i = landingIndex + 3; i < end - 2; i++) {
-    const window = hipTrajectory.slice(i, i + 3);
-    const avg = window.reduce((sum, p) => sum + (p.angle ?? 0), 0) / window.length;
+  if (window.length === 0) return landingIndex;
 
-    // Calcula desviación respecto a todos los ángulos en esa ventana
-    const maxDiff = Math.max(...window.map(p => Math.abs((p.angle ?? 0) - avg)));
+  // 1. Encontrar el valor máximo
+  const maxAngle = Math.max(...window.map(p => p.angle ?? -Infinity));
 
-    // Si todos están suficientemente cerca entre sí, lo consideramos estabilizado
-    if (maxDiff <= angleStabilizationThreshold) {
-      return i + 2; // último índice de la ventana
-    }
-  }
+  // 2. Buscar todos los valores cercanos al máximo
+  const closeCandidates = window.filter(p =>
+    p.angle != null && Math.abs(p.angle - maxAngle) <= angleTolerance
+  );
 
-  return landingIndex + 5; // valor por defecto si no se estabiliza (evita 0.00s)
+  // 3. De esos, quedarnos con el más alejado (más tardío)
+  const furthest = closeCandidates.reduce((a, b) =>
+    a.index > b.index ? a : b
+  );
+
+  return furthest?.index ?? landingIndex;
 }
+///
 
 function analyzeJumpMetrics({
   frames,
