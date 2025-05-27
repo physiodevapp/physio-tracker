@@ -146,6 +146,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     if (ref.isRecording) {
       ref.stopRecording();
     } else {
+      setIsPoseSettingsModalOpen(false);
+      handleMainMenu(false);
+
       ref.startRecording();
     }
   }
@@ -197,7 +200,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         </motion.h1>
         <motion.button
           data-element="non-swipeable"
-          initial={{ y: 0, opacity: 1 }}
+          initial={{ y: 80, opacity: 1 }}
           animate={{ y: isLiveRecording ? 0 : 80, opacity: 1 }}
           transition={{ type: "spring", stiffness: 100, damping: 15 }}
           className="absolute z-10 bottom-4 w-16 h-16 border-[0.2rem] rounded-full p-[0.8rem]"
