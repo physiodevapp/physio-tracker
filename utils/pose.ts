@@ -202,42 +202,14 @@ export function filterRepresentativeFrames(
 ///===============///
 /// Jump analysis ///
 
-/// findMaxPeaksAroundIndex original
-// export function findMaxPeaksAroundIndex(
-//   hipTrajectory: JumpPoint[],
-//   minIndex: number,
-// ): {
-//   prevPeak: JumpPoint | null;
-//   nextPeak: JumpPoint | null;
-// } {
-//   const findMaxAngleIndex = (start: number, end: number): number => {
-//     let maxIndex = -1;
-//     let maxAngle = -Infinity;
-//     for (let i = start; i <= end; i++) {
-//       const angle = hipTrajectory[i].angle;
-//       if (angle != null && angle > maxAngle) {
-//         maxAngle = angle;
-//         maxIndex = i;
-//       }
-//     }
-//     return maxIndex;
-//   };
-
-//   const prevIndex = findMaxAngleIndex(0, minIndex);
-//   const nextIndex = findMaxAngleIndex(minIndex, hipTrajectory.length - 1);
-
-//   // const prevPeak = hipTrajectory.find(p => p.index === prevIndex) ?? null;
-//   const prevPeak = prevIndex !== -1 ? hipTrajectory[prevIndex] : null;
-//   // const nextPeak = hipTrajectory.find(p => p.index === nextIndex) ?? null;
-//   const nextPeak = nextIndex !== -1 ? hipTrajectory[nextIndex] : null;
-
-//   return { prevPeak, nextPeak };
-// }
-///
+// Encuentra los picos angulares máximos antes y después de un mínimo, utilizados para acotar las fases de impulso y amortiguación
 function findMaxPeaksAroundIndex(
+  // 🔹 Array de puntos con información de ángulo y tiempo de la cadera
   hipTrajectory: JumpPoint[],
+  // 🔹 Índice central alrededor del cual buscar los máximos (el punto más bajo de la trayectoria)
   minIndex: number,
-  tolerance: number = 1 // grados
+  // 🔹 Tolerancia en grados para considerar un punto como "similar" al máximo encontrado
+  tolerance: number = 1,
 ): {
   prevPeak: JumpPoint | null;
   nextPeak: JumpPoint | null;
@@ -287,8 +259,11 @@ function findMaxPeaksAroundIndex(
   };
 }
 
+// Aplica un suavizado por media móvil a una serie de valores numéricos, ignorando los nulos, para reducir fluctuaciones espurias
 function smoothTrajectory(
-  data: (number | null)[], 
+  // 🔹 Array de números o nulls (posiciones Y de la articulación)
+  data: (number | null)[],
+  // 🔹 Tamaño de la ventana deslizante usada para calcular la media Debe ser un número impar para mantener simetría. Cuanto mayor sea ese valor, más se suaviza... pero con el riesgo de perder precisión temporal si se pasa de largo.
   window = 3,
 ): (number | null)[] {
   return data.map((_, i) => {
@@ -298,8 +273,11 @@ function smoothTrajectory(
   });
 }
 
+// Encuentra el punto más bajo suavizado en una serie de valores verticales, útil para identificar el mínimo real reduciendo ruido
 function findSmoothedMinIndex(
+  // 🔹 Array de valores numéricos (coordenadas Y del punto de la cadera)
   yValues: number[], 
+  // 🔹 Tamaño de la ventana para el suavizado (media móvil). Cuanto mayor sea, más suave será la curva
   window = 3,
 ): number {
   const smoothed = smoothTrajectory(yValues, window) as number[];
@@ -307,11 +285,16 @@ function findSmoothedMinIndex(
   return smoothed.findIndex(v => v === min);
 }
 
+// Detecta un cambio claro en la dirección del ángulo articular (aumento o disminución) a partir de un punto inicial, si la variación acumulada supera un umbral
 function findAngleEventIndex(
+  // 🔹 Array de ángulos (pueden contener `null`) correspondientes a cada frame
   angles: (number | null)[],
+  // 🔹 Índice desde el cual comenzar a buscar el cambio
   start: number,
+  // 🔹 Dirección esperada del cambio angular
   direction: "increase" | "decrease",
-  threshold = 2 // diferencia acumulada minima de grados para considerarlo un cambio
+  // 🔹 Diferencia acumulada mínima (en grados) para que se considere un evento angular
+  threshold = 2
 ): number {
   const factor = direction === "increase" ? 1 : -1;
 
@@ -328,11 +311,15 @@ function findAngleEventIndex(
   return start;
 }
 
-/// estimateAmortizationEndIndex original
+// Detecta el fin de la fase de amortiguación tras el aterrizaje, buscando el ángulo máximo más tardío en una ventana cercana al impacto
 function estimateAmortizationEndIndex(
+  // 🔹 Array de puntos con información de ángulo y tiempo de la cadera
   hipTrajectory: JumpPoint[],
+  // 🔹 Índice donde ocurre el aterrizaje detectado
   landingIndex: number,
-  range: number = 12, // ventana de 12
+  // 🔹 Cuántos frames hacia adelante se consideran para buscar el pico angular post-aterrizaje. Por defecto, 12 frames (~0.4 s si la cámara graba a 30 fps)
+  range: number = 12,
+  // 🔹 Umbral en grados para considerar que varios valores son "similares" al máximo.
   angleTolerance: number = 1
 ): number {
   const end = Math.min(hipTrajectory.length, landingIndex + range);
@@ -355,12 +342,15 @@ function estimateAmortizationEndIndex(
 
   return furthest?.index ?? landingIndex;
 }
-///
 
+// Calcula métricas clave de un salto (altura, tiempo de vuelo, impulso, amortiguación y ángulos articulares) a partir de una serie de frames de vídeo
 function analyzeJumpMetrics({
+  // 🔹 Array de frames con keypoints y datos articulares
   frames,
+  // 🔹 Lado del cuerpo a analizar: "left" o "right"
   side = "right",
-  angleChangeThreshold = 2, // grados
+  // 🔹 Diferencia mínima de grados entre frames para detectar despegue/aterrizaje
+  angleChangeThreshold = 2,
 }: {
   frames: VideoFrame[];
   side: "left" | "right";
@@ -553,13 +543,19 @@ function isJumpLikeDetailed(frames: VideoFrame[]): {
   return { isJump: true, metricsPreview };
 }
 
+// Detecta posibles saltos en una secuencia de frames identificando mínimos locales en la trayectoria vertical de la cadera y aplicando filtros para validar si son saltos reales.
 export function detectJumpEvents({
+  // 🔹 Array de frames con keypoints y datos articulares
   frames,
+  // 🔹 Lado del cuerpo a analizar: "left" o "right"
   side = "right",
+  // 🔹 Tamaño de la ventana para buscar mínimos locales (y extraer subframes)
   windowSize = 30,
+  // 🔹 Mínima separación entre candidatos a salto, en número de frames
   minSeparation = 40,
-  angleChangeThreshold = 2, // grados
-} : {
+  // 🔹 Diferencia mínima de grados para considerar despegue/aterrizaje
+  angleChangeThreshold = 2,
+}: {
   frames: VideoFrame[];
   side?: "left" | "right";
   windowSize?: number;
