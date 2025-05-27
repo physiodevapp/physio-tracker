@@ -518,13 +518,13 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const removeVideo = () => {
     allFramesDataRef.current = [];
     setRecordedPositions(undefined);
+    setTrimmerRange({range: {start: 0, end: 0}, markerPosition: 0});
 
     isPlayingRef.current = true;
     setIsPlaying(true);
     onPause?.(false);
 
     if (processingStatus === "processed") {
-      setTrimmerRange({range: {start: 0, end: 0}, markerPosition: 0});
       setProcessingStatus("idle");
       onStatusChange?.("idle");
     }
