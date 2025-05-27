@@ -107,7 +107,7 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
   
       handleMainMenu(false);
     }
-    else {
+    else if (!isRecording){
       setIsFrozen(prev => !prev);
     }
   }

@@ -138,6 +138,17 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setShowGrid(false);
     setMode("video");
   };
+
+  const handleLiveRecord = () => {
+    const ref = liveAnalysisRef.current;
+    if (!ref) return;
+
+    if (ref.isRecording) {
+      ref.stopRecording();
+    } else {
+      ref.startRecording();
+    }
+  }
   
   useEffect(() => {
     jointAngleHistorySizeRef.current = angularHistorySize;
@@ -184,8 +195,19 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             !isFrozen ? "hidden" : "" // isFrozen
           }`}/>
         </motion.h1>
+        <motion.button
+          data-element="non-swipeable"
+          initial={{ y: 0, opacity: 1 }}
+          animate={{ y: isLiveRecording ? 0 : 80, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 100, damping: 15 }}
+          className="absolute z-10 bottom-4 w-16 h-16 border-[0.2rem] rounded-full p-[0.8rem]"
+          onClick={handleLiveRecord}>
+            <div className="w-full h-full rounded-md bg-red-500 animate-pulse"/>
+        </motion.button>
 
-        <div className="relative w-full flex-1">
+        <div 
+          {...(isLiveRecording && { "data-element": "non-swipeable" })}
+          className="relative w-full flex-1">
           {mode === "live" && (
             <LiveAnalysis 
               ref={liveAnalysisRef}
@@ -235,99 +257,92 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
         {processingStatus !== "processing" && (
           <>
-            <section 
-            data-element="non-swipeable"
-            className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full">
-            {isMainMenuOpen ?
-              <XMarkIcon 
-                className="w-6 h-6 text-white"
-                onClick={() => handleMainMenu()}
-                />
-              : <Bars3Icon 
+            <motion.section 
+              data-element="non-swipeable"
+              initial={{ x: 0, opacity: 1 }}
+              animate={{ x: isLiveRecording ? -48 : 0, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 100, damping: 15 }}
+              className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full">
+              {isMainMenuOpen ?
+                <XMarkIcon 
                   className="w-6 h-6 text-white"
                   onClick={() => handleMainMenu()}
                   />
-            }
-            {mode === "live" ? ( 
-              <>
-                <ArrowUpTrayIcon 
-                  className="w-6 h-6 text-white"
-                  onClick={handleSwitchToVideoMode}/> 
-                <div 
-                  className={`w-6 h-6 rounded-full border-2 p-[0.2rem] flex items-center justify-center ${isLiveRecording 
-                    ? 'animate-pulse'
-                    : ''
-                  }`}
-                  onClick={() => {
-                    const ref = liveAnalysisRef.current;
-                    if (!ref) return;
-
-                    if (ref.isRecording) {
-                      ref.stopRecording();
-                    } else {
-                      ref.startRecording();
-                    }
-                  }}
-                  >
-                  <div className="bg-red-500 h-full w-full rounded-full"/>
-                </div>
-              </> ) : (
-              <>
-                {videoLoaded ? (
-                  <TrashIcon 
-                    className={`w-6 h-6 ${processingStatus === "processed" 
-                      ? "text-orange-300"
-                      : "text-red-500"
-                    }`}
-                    onClick={() => {
-                      if (videoAnalysisRef.current?.isVideoLoaded()) {
-                        videoAnalysisRef.current?.removeVideo();
-                      }
-                    }}
-                    >
-                  </TrashIcon> ) : (  
-                  <>
-                    <VideoCameraIcon
-                      className="w-6 h-6 text-white"
+                : <Bars3Icon 
+                    className="w-6 h-6 text-white"
+                    onClick={() => handleMainMenu()}
+                    />
+              }
+              {mode === "live" ? ( 
+                <>
+                  <ArrowUpTrayIcon 
+                    className="w-6 h-6 text-white"
+                    onClick={handleSwitchToVideoMode}/> 
+                  <div 
+                    className="w-6 h-6 rounded-full border-2 p-[0.2rem] flex items-center justify-center"
+                    onClick={handleLiveRecord} >
+                    <div className="bg-red-500 h-full w-full rounded-full"/>
+                  </div>
+                </> ) : (
+                <>
+                  {videoLoaded ? (
+                    <TrashIcon 
+                      className={`w-6 h-6 ${processingStatus === "processed" 
+                        ? "text-orange-300"
+                        : "text-red-500"
+                      }`}
                       onClick={() => {
-                        handleWorkerLifecycle(false);
-                        
-                        setMode("live");
-                      }} />
-                    <PlusIcon
-                      className="w-6 h-6 text-white"
-                      onClick={() => {
-                        if (videoAnalysisRef.current) {
-                          videoAnalysisRef.current.handleNewVideo();
+                        if (videoAnalysisRef.current?.isVideoLoaded()) {
+                          videoAnalysisRef.current?.removeVideo();
                         }
                       }}
-                      />
-                  </>    
-                )}
-                {videoLoaded && processingStatus !== "processed" && ( 
-                  <CubeTransparentIcon
-                    className="w-6 h-6 text-white"
-                    onClick={() => {
-                      setIsPoseSettingsModalOpen(false);
+                      >
+                    </TrashIcon> ) : (  
+                    <>
+                      <VideoCameraIcon
+                        className="w-6 h-6 text-white"
+                        onClick={() => {
+                          handleWorkerLifecycle(false);
+                          
+                          setMode("live");
+                        }} />
+                      <PlusIcon
+                        className="w-6 h-6 text-white"
+                        onClick={() => {
+                          if (videoAnalysisRef.current) {
+                            videoAnalysisRef.current.handleNewVideo();
+                          }
+                        }}
+                        />
+                    </>    
+                  )}
+                  {videoLoaded && processingStatus !== "processed" && ( 
+                    <CubeTransparentIcon
+                      className="w-6 h-6 text-white"
+                      onClick={() => {
+                        setIsPoseSettingsModalOpen(false);
 
-                      videoAnalysisRef.current?.handleVideoProcessing();
+                        videoAnalysisRef.current?.handleVideoProcessing();
 
-                    }} /> 
-                )}
-                {processingStatus === "processed" && (
-                  <DocumentArrowDownIcon
-                    className="w-6 h-6 text-white"
-                    onClick={() => {
-                      if (videoAnalysisRef.current?.isVideoProcessed()) {
-                        videoAnalysisRef.current.downloadJSON();
-                      }
-                    }} /> 
-                )}
-              </>
-            )}
-            </section>
-            <section 
+                      }} /> 
+                  )}
+                  {processingStatus === "processed" && (
+                    <DocumentArrowDownIcon
+                      className="w-6 h-6 text-white"
+                      onClick={() => {
+                        if (videoAnalysisRef.current?.isVideoProcessed()) {
+                          videoAnalysisRef.current.downloadJSON();
+                        }
+                      }} /> 
+                  )}
+                </>
+              )}
+            </motion.section>
+            <motion.section 
               data-element="non-swipeable"
+              initial={{ x: 0, opacity: 1 }}
+              animate={{ x: isLiveRecording ? 48 : 0, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 100, damping: 15 }}
               className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full"
               >
               <div 
@@ -351,9 +366,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   : "opacity-100"
                 }`}
                 onClick={() => processingStatus !== "processed" && setIsPoseSettingsModalOpen(prev => !prev)} />
-            </section>
+            </motion.section>
             {processingStatus === "idle" && (
-              <div className="absolute bottom-2 right-1 z-30 flex flex-row-reverse items-center gap-2">
+              <motion.div 
+                data-element="non-swipeable"
+                initial={{ x: 0, opacity: 1 }}
+                animate={{ x: isLiveRecording ? "56%" : 0, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 100, damping: 15 }}
+                className="absolute bottom-2 right-1 z-30 flex flex-row-reverse items-center gap-2">
                 <ArrowTopRightOnSquareIcon 
                   className={`w-8 h-8 text-white transition-transform ${((!showOrthogonalOption) || orthogonalReference === undefined)
                     ? '-rotate-0 opacity-50'
@@ -379,7 +399,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                     <Bars2Icon className="absolute top-[0.025rem] left-[0.026rem] rotate-90 h-8 w-8 text-white"/>
                   </div> 
                 )}
-              </div>
+              </motion.div>
             )}
           </>
         )}
