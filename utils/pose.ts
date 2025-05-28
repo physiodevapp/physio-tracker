@@ -286,6 +286,32 @@ function findSmoothedMinIndex(
 }
 
 // Detecta un cambio claro en la dirección del ángulo articular (aumento o disminución) a partir de un punto inicial, si la variación acumulada supera un umbral
+// findAngleEventIndex original
+// function findAngleEventIndex(
+//   // 🔹 Array de ángulos (pueden contener `null`) correspondientes a cada frame
+//   angles: (number | null)[],
+//   // 🔹 Índice desde el cual comenzar a buscar el cambio
+//   start: number,
+//   // 🔹 Dirección esperada del cambio angular
+//   direction: "increase" | "decrease",
+//   // 🔹 Diferencia acumulada mínima (en grados) para que se considere un evento angular
+//   threshold = 2,
+// ): number {
+//   const factor = direction === "increase" ? 1 : -1;
+
+//   for (let i = start; i < angles.length - 3; i++) {
+//     if ([angles[i], angles[i + 1], angles[i + 2]].every(v => v != null)) {
+//       const a = angles[i]!, b = angles[i + 1]!, c = angles[i + 2]!;
+//       const diffs = [b - a, c - b];
+//       const consistent = diffs.every(d => d * factor > 0);
+//       const magnitude = diffs.reduce((acc, d) => acc + Math.abs(d), 0);
+//       if (consistent && magnitude > threshold) return i;
+//     }
+//   }
+
+//   return start;
+// }
+//
 function findAngleEventIndex(
   // 🔹 Array de ángulos (pueden contener `null`) correspondientes a cada frame
   angles: (number | null)[],
@@ -294,17 +320,35 @@ function findAngleEventIndex(
   // 🔹 Dirección esperada del cambio angular
   direction: "increase" | "decrease",
   // 🔹 Diferencia acumulada mínima (en grados) para que se considere un evento angular
-  threshold = 2
+  threshold = 2,
+  minSingleStepChange = 0,
+  scanDirection: "forward" | "backward" = "forward"
 ): number {
   const factor = direction === "increase" ? 1 : -1;
 
-  for (let i = start; i < angles.length - 3; i++) {
-    if ([angles[i], angles[i + 1], angles[i + 2]].every(v => v != null)) {
-      const a = angles[i]!, b = angles[i + 1]!, c = angles[i + 2]!;
-      const diffs = [b - a, c - b];
+  const step = scanDirection === "forward" ? 1 : -1;
+  const limit = scanDirection === "forward"
+    ? angles.length - 3
+    : 2; // mínimo índice que permita [i-2, i-1, i]
+
+  for (
+    let i = start;
+    scanDirection === "forward" ? i < limit : i >= limit;
+    i += step
+  ) {
+    const a = angles[i];
+    const b = angles[i + step];
+    const c = angles[i + 2 * step];
+
+    if ([a, b, c].every(v => v != null)) {
+      const diffs = [b! - a!, c! - b!];
       const consistent = diffs.every(d => d * factor > 0);
       const magnitude = diffs.reduce((acc, d) => acc + Math.abs(d), 0);
-      if (consistent && magnitude > threshold) return i;
+      const passesSingleStep = diffs.some(d => Math.abs(d) >= minSingleStepChange);
+
+      if (consistent && magnitude >= threshold && passesSingleStep) {
+        return i;
+      }
     }
   }
 
@@ -393,30 +437,50 @@ function analyzeJumpMetrics({
   const minIndex = findSmoothedMinIndex(hipTrajectory.map(p => p.y));
 
   // let takeoffIndex = minIndex;
-  let takeoffIndex = findAngleEventIndex(hipTrajectory.map(item => item.angle), minIndex, "increase", 2);
-  for (let i = minIndex - 1; i > 0; i--) {
-    const current = hipTrajectory[i].angle;
-    const prev = hipTrajectory[i - 1].angle;
-    if (current !== null && prev !== null) {
-      if (Math.abs(current - prev) > angleThreshold) {
-        takeoffIndex = i;
-        break;
-      }
-    }
-  }
+  let takeoffIndex = findAngleEventIndex(
+    hipTrajectory.map(item => item.angle), 
+    minIndex, 
+    "increase", 
+    2,
+    angleThreshold,
+    "backward",
+  );
+  // for (let i = minIndex - 1; i > 0; i--) {
+  //   const current = hipTrajectory[i].angle;
+  //   const prev = hipTrajectory[i - 1].angle;
+  //   if (current !== null && prev !== null) {
+  //     if (
+  //       Math.abs(current - prev) > angleThreshold &&
+  //       prev - current > 0
+  //     ) {
+  //       takeoffIndex = i;
+  //       break;
+  //     }
+  //   }
+  // }
 
   // let landingIndex = minIndex;
-  let landingIndex = findAngleEventIndex(hipTrajectory.map(item => item.angle), minIndex, "decrease", 2);
-  for (let i = minIndex + 1; i < hipTrajectory.length - 1; i++) {
-    const current = hipTrajectory[i].angle;
-    const next = hipTrajectory[i + 1].angle;
-    if (current !== null && next !== null) {
-      if (Math.abs(current - next) > angleThreshold) {
-        landingIndex = i;
-        break;
-      }
-    }
-  }
+  let landingIndex = findAngleEventIndex(
+    hipTrajectory.map(item => item.angle), 
+    minIndex, 
+    "increase", 
+    2,
+    angleThreshold,
+    "forward",
+  );
+  // for (let i = minIndex + 1; i < hipTrajectory.length - 1; i++) {
+  //   const current = hipTrajectory[i].angle;
+  //   const next = hipTrajectory[i + 1].angle;
+  //   if (current !== null && next !== null) {
+  //     if (
+  //       Math.abs(current - next) > angleThreshold &&
+  //       next - current > 0
+  //     ) {
+  //       landingIndex = i;
+  //       break;
+  //     }
+  //   }
+  // }
 
   const flightTime =
     takeoffIndex !== -1 && landingIndex !== -1

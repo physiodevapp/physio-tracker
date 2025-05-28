@@ -261,7 +261,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       );
   
       allFramesDataRef.current.push({
-        videoTime: video.currentTime,
+        // videoTime: video.currentTime,
+        videoTime: video.currentTime - trimmerRangeRef.current.range.start,
         frameImage: frameCanvas,
         keypoints,
         videoWidth: video.videoWidth,
@@ -294,47 +295,97 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     frameResolveRef.current?.();
   }, [canvasRef, inputCanvasRef, detector, detectorModel, minPoseScore]);
   
-  const processFrames = async () => {
-    if (!videoRef.current || !canvasRef.current || !inputCanvasRef.current || !detector || !detectorModel) return;
+  // processFrames original
+  // const processFrames = async () => {
+  //   if (!videoRef.current || !canvasRef.current || !inputCanvasRef.current || !detector || !detectorModel) return;
   
+  //   allFramesDataRef.current = [];
+  //   setRecordedPositions(undefined);
+  
+  //   const video = videoRef.current;
+  //   const ctx = canvasRef.current.getContext('2d');
+  //   if (!ctx) return;
+  
+  //   const selectedDuration = trimmerRangeRef.current.range.end - trimmerRangeRef.current.range.start;
+  //   const desiredPoints = Math.floor(selectedDuration * pointsPerSecond);
+  //   const frameInterval = smartFrameInterval(selectedDuration, desiredPoints);
+
+  //   frameIntervalRef.current = frameInterval;
+
+  //   const startFrame = Math.floor(trimmerRangeRef.current.range.start / frameInterval);
+  //   const endFrame = Math.floor(trimmerRangeRef.current.range.end / frameInterval);
+    
+  //   const steps = endFrame - startFrame;
+  //   totalStepsRef.current = steps;
+  
+  //   video.onseeked = handleSeeked;
+  
+  //   for (let i = 0; i < steps; i++) {
+  //     if (processingCancelledRef.current) return;
+  
+  //     currentFrameIndexRef.current = i;
+  
+  //     await new Promise<void>((resolve) => {
+  //       frameResolveRef.current = resolve;
+  //       video.currentTime = i * frameInterval;
+  //     });
+  
+  //     if (i < steps - 1) {
+  //       await new Promise<void>((resolve) =>
+  //         setTimeout(resolve, Math.max(30, frameInterval * 1000))
+  //       );
+  //     }
+  //   }
+  // }; 
+  //
+  const processFrames = async () => {
+    if (
+      !videoRef.current ||
+      !canvasRef.current ||
+      !inputCanvasRef.current ||
+      !detector ||
+      !detectorModel
+    )
+      return;
+
     allFramesDataRef.current = [];
     setRecordedPositions(undefined);
-  
+
     const video = videoRef.current;
-    const ctx = canvasRef.current.getContext('2d');
+    const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
-  
-    const selectedDuration = trimmerRangeRef.current.range.end - trimmerRangeRef.current.range.start;
+
+    const { start, end } = trimmerRangeRef.current.range;
+    const selectedDuration = end - start;
+
     const desiredPoints = Math.floor(selectedDuration * pointsPerSecond);
     const frameInterval = smartFrameInterval(selectedDuration, desiredPoints);
-
     frameIntervalRef.current = frameInterval;
 
-    const startFrame = Math.floor(trimmerRangeRef.current.range.start / frameInterval);
-    const endFrame = Math.floor(trimmerRangeRef.current.range.end / frameInterval);
-    
-    const steps = endFrame - startFrame;
-    totalStepsRef.current = steps;
-  
+    const totalFrames = Math.floor(selectedDuration / frameInterval);
+    totalStepsRef.current = totalFrames;
+
+    const frameTimes = Array.from({ length: totalFrames }, (_, i) => start + i * frameInterval);
+
     video.onseeked = handleSeeked;
-  
-    for (let i = 0; i < steps; i++) {
+
+    for (let i = 0; i < frameTimes.length; i++) {
       if (processingCancelledRef.current) return;
-  
+
       currentFrameIndexRef.current = i;
-  
+
       await new Promise<void>((resolve) => {
         frameResolveRef.current = resolve;
-        video.currentTime = i * frameInterval;
+        video.currentTime = frameTimes[i];
       });
-  
-      if (i < steps - 1) {
+
+      if (i < frameTimes.length - 1) {
         await new Promise<void>((resolve) =>
           setTimeout(resolve, Math.max(30, frameInterval * 1000))
         );
       }
     }
-  }; 
+  };
 
   const analyzeAllFrames = async () => {  
     if (!jointWorkerRef.current) {
@@ -408,11 +459,12 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         !!frame.jointData &&
         Object.values(frame.jointData).some(joint => typeof joint.angle === "number")
     );
+    // console.log('framesWithJointData ', framesWithJointData)
 
     // Detectar saltos
     const allJumps = detectJumpEvents({
       frames: framesWithJointData,
-      side: "right",
+      side: "right", // poner en Settings
       angleChangeThreshold: 5, // poner en Settings
     });
 
@@ -434,7 +486,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         const landing = jump.metrics?.landingTimestamp;
         const impulseStart = jump.metrics?.angles.impulseStart?.timestamp;
         const amortizationEnd = jump.metrics?.angles.amortizationEnd?.timestamp;
-        // const flightDuration = ((landing! - takeoff!) / 1000).toFixed(2);
+        const flightDuration = ((landing! - takeoff!) / 1000).toFixed(2);
         const amortizationDuration = ((amortizationEnd! - landing!) / 1000).toFixed(2);
         const flightHeight = (jump.metrics!.heightInMeters * 100).toFixed(0);
         const impulseDuration = ((takeoff! - impulseStart!) / 1000).toFixed(2);
@@ -458,7 +510,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               content: [
                 `H: ${flightHeight} cm`,
                 `I: ${impulseDuration} s`,
-                // `F: ${flightDuration} s`,
+                `F: ${flightDuration} s`,
                 `A: ${amortizationDuration} s`,
               ],
               position: {
@@ -508,6 +560,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       nearestFrameRef.current = firstFrame;
       currentFrameIndexRef.current = 0;
       setVerticalLineValue(firstFrame.videoTime * 1_000);
+      // setVerticalLineValue((firstFrame.videoTime - allFramesDataRef.current[0].videoTime) * 1_000);
 
       isPlayingRef.current = false;
       setIsPlaying(false);
@@ -589,6 +642,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     x: number;
     values: { label: string; y: number }[];
   }) => {
+    // console.log('handleVerticalLineChange ', newValue)
     if (isPlayingUpdateRef.current) return;
 
     if (isPlayingRef.current) {
@@ -659,7 +713,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       const frame = allFramesDataRef.current[i];
       nearestFrameRef.current = frame;
 
-      setVerticalLineValue(frame.videoTime * 1000);
+      setVerticalLineValue(frame.videoTime * 1_000);
+      // setVerticalLineValue((frame.videoTime - allFramesDataRef.current[0].videoTime) * 1_000);
       updateDisplayedAngles(frame, selectedJointsRef.current);
   
       if (!isPlayingRef.current) {
