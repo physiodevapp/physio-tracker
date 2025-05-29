@@ -423,13 +423,13 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       frames: framesWithJointData,
       settings: {
         side: "right",
-        windowSize: 30,
+        localMinWindow: 30,
         minSeparation: 40,
         range: 12,
         angleTolerance: 1,
         acumulatedThreshold: 2,
         minSingleStepChange: 5,
-        window: 3,
+        slidingAvgWindow: 3,
         similarAngleTolerance: 1,
       }
     });
@@ -1080,13 +1080,13 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                       frames: allFramesDataRef.current,
                       settings: {
                         side: "right",
-                        windowSize: 30,
+                        localMinWindow: 30,
                         minSeparation: 40,
                         range: 12,
                         angleTolerance: 1,
                         acumulatedThreshold: 2,
                         minSingleStepChange: 5,
-                        window: 3,
+                        slidingAvgWindow: 3,
                         similarAngleTolerance: 1,
                       }
                     })

@@ -266,15 +266,15 @@ function findMaxPeaksAroundIndex({
 // Aplica un suavizado por media móvil a una serie de valores numéricos, ignorando los nulos, para reducir fluctuaciones espurias
 function smoothTrajectory({
   data,
-  window = 3,
+  slidingAvgWindow = 3,
 }: {
   // 🔹 Array de números o nulls (posiciones Y de la articulación)
   data: (number | null)[];
   // 🔹 Tamaño de la ventana deslizante usada para calcular la media Debe ser un número impar para mantener simetría. Cuanto mayor sea ese valor, más se suaviza... pero con el riesgo de perder precisión temporal si se pasa de largo.
-  window: number;
+  slidingAvgWindow: number;
 }): (number | null)[] {
   return data.map((_, i) => {
-    const values = data.slice(Math.max(0, i - Math.floor(window / 2)), i + Math.ceil(window / 2))
+    const values = data.slice(Math.max(0, i - Math.floor(slidingAvgWindow / 2)), i + Math.ceil(slidingAvgWindow / 2))
       .filter(v => v !== null) as number[];
     return values.length ? values.reduce((a, b) => a + b) / values.length : null;
   });
@@ -283,14 +283,14 @@ function smoothTrajectory({
 // Encuentra el punto más bajo suavizado en una serie de valores verticales, útil para identificar el mínimo real reduciendo ruido
 function findSmoothedMinIndex({
   yValues, 
-  window = 3,
+  slidingAvgWindow = 3,
 }: {
   // 🔹 Array de valores numéricos (coordenadas Y del punto de la cadera)
   yValues: number[];
   // 🔹 Tamaño de la ventana para el suavizado (media móvil). Cuanto mayor sea, más suave será la curva
-  window: number;
+  slidingAvgWindow: number;
 }): number {
-  const smoothed = smoothTrajectory({data: yValues, window}) as number[];
+  const smoothed = smoothTrajectory({data: yValues, slidingAvgWindow}) as number[];
   const min = Math.min(...smoothed);
   return smoothed.findIndex(v => v === min);
 }
@@ -390,6 +390,7 @@ function analyzeJumpMetrics({
   frames,
   // 🔹 Lado del cuerpo a analizar: "left" o "right"
   side = "right",
+  // 🔹 Articulación utilizada para la deteccion de saltos
   joint = "knee",
   // 🔹 Cuántos frames hacia adelante se consideran para buscar el pico angular post-aterrizaje. Por defecto, 12 frames (~0.4 s si la cámara graba a 30 fps)
   range = 12,
@@ -400,7 +401,7 @@ function analyzeJumpMetrics({
   // 🔹 Diferencia mínima de grados para considerar despegue/aterrizaje
   minSingleStepChange = 5,
   // 🔹 Tamaño de la ventana deslizante usada para calcular la media Debe ser un número impar para mantener simetría. Cuanto mayor sea ese valor, más se suaviza... pero con el riesgo de perder precisión temporal si se pasa de largo
-  window = 3,
+  slidingAvgWindow = 3,
   // 🔹 Tolerancia en grados para considerar un punto como "similar" al máximo encontrado
   similarAngleTolerance = 1,
 }: {
@@ -411,7 +412,7 @@ function analyzeJumpMetrics({
   range: number;
   angleTolerance: number;
   acumulatedThreshold?: number;
-  window?: number;
+  slidingAvgWindow?: number;
   similarAngleTolerance?: number;
 }): JumpMetrics {
   if (!frames.length) return null;
@@ -451,7 +452,7 @@ function analyzeJumpMetrics({
   const yMinRaw = Math.min(...jointTrajectory.map(p => p.y));
   const minIndex = findSmoothedMinIndex({
     yValues: jointTrajectory.map(p => p.y),
-    window,
+    slidingAvgWindow,
   });
 
   const takeoffIndex = findAngleEventIndex({
@@ -538,12 +539,12 @@ function analyzeJumpMetrics({
 
 function isJumpLikeDetailed({
   frames,
-  window = 3,
+  slidingAvgWindow = 3,
   side = "right",
   joint = "knee",
 }: {
   frames: VideoFrame[]
-  window: number;
+  slidingAvgWindow: number;
   side: "left" | "right";
   joint?: "knee" | "hip";
 }): {
@@ -574,7 +575,7 @@ function isJumpLikeDetailed({
   }));
 
   const yValues = jointTrajectory.map(p => p.y);
-  const minIndex = findSmoothedMinIndex({yValues, window});
+  const minIndex = findSmoothedMinIndex({yValues, slidingAvgWindow});
   
   const start = Math.max(0, minIndex - 30);
   const end = Math.min(yValues.length - 1, minIndex + 30);
@@ -615,13 +616,13 @@ export function detectJumpEvents({
   settings: {
     side = "right",
     joint = "knee",
-    windowSize = 30,
+    localMinWindow = 30,
     minSeparation = 40,
     minSingleStepChange = 5,
     range = 12,
     angleTolerance = 1,
     acumulatedThreshold = 2,
-    window = 3,
+    slidingAvgWindow = 3,
     similarAngleTolerance = 1,
   },
 }: {
@@ -632,7 +633,7 @@ export function detectJumpEvents({
     side?: "left" | "right";
     joint?: "knee" | "hip";
     // 🔹 Tamaño de la ventana para buscar mínimos locales (y extraer subframes)
-    windowSize?: number;
+    localMinWindow?: number;
     // 🔹 Mínima separación entre candidatos a salto, en número de frames
     minSeparation?: number;
     // 🔹 Cuántos frames hacia adelante se consideran para buscar el pico angular post-aterrizaje. Por defecto, 12 frames (~0.4 s si la cámara graba a 30 fps)
@@ -644,7 +645,7 @@ export function detectJumpEvents({
     // 🔹 Diferencia mínima de grados para considerar despegue/aterrizaje
     minSingleStepChange?: number;
     // 🔹 Tamaño de la ventana deslizante usada para calcular la media. Debe ser un número impar para mantener simetría. Cuanto mayor sea ese valor, más se suaviza... pero con el riesgo de perder precisión temporal si se pasa de largo
-    window?: number;
+    slidingAvgWindow?: number;
     // 🔹 Tolerancia en grados para considerar un punto como "similar" al máximo encontrado
     similarAngleTolerance?: number;
   }
@@ -672,8 +673,8 @@ export function detectJumpEvents({
   const yValues = frames.map(f => f.keypoints[jointIndex].y);
   const candidateMinIndices: number[] = [];
 
-  for (let i = windowSize; i < yValues.length - windowSize; i++) {
-    const window = yValues.slice(i - windowSize, i + windowSize + 1);
+  for (let i = localMinWindow; i < yValues.length - localMinWindow; i++) {
+    const window = yValues.slice(i - localMinWindow, i + localMinWindow + 1);
     const isLocalMin = yValues[i] === Math.min(...window);
     const farFromLast =
       candidateMinIndices.length === 0 ||
@@ -685,13 +686,13 @@ export function detectJumpEvents({
   }
 
   return candidateMinIndices.map(jumpIndex => {
-    const subStart = Math.max(0, jumpIndex - windowSize);
-    const subEnd = Math.min(frames.length, jumpIndex + windowSize + 1);
+    const subStart = Math.max(0, jumpIndex - localMinWindow);
+    const subEnd = Math.min(frames.length, jumpIndex + localMinWindow + 1);
     const subFrames = frames.slice(subStart, subEnd);
 
     const { isJump, reason, metricsPreview } = isJumpLikeDetailed({
       frames: subFrames, 
-      window,
+      slidingAvgWindow,
       side,
       joint,
     });
@@ -705,7 +706,7 @@ export function detectJumpEvents({
           range,
           angleTolerance,
           acumulatedThreshold,
-          window,
+          slidingAvgWindow,
           similarAngleTolerance,
         })
       : null;
