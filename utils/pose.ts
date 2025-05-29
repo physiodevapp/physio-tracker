@@ -203,14 +203,18 @@ export function filterRepresentativeFrames(
 /// Jump analysis ///
 
 // Encuentra los picos angulares máximos antes y después de un mínimo, utilizados para acotar las fases de impulso y amortiguación
-function findMaxPeaksAroundIndex(
+function findMaxPeaksAroundIndex({
+  hipTrajectory,
+  minIndex,
+  similarAngleTolerance = 1,
+}: {
   // 🔹 Array de puntos con información de ángulo y tiempo de la cadera
-  hipTrajectory: JumpPoint[],
+  hipTrajectory: JumpPoint[];
   // 🔹 Índice central alrededor del cual buscar los máximos (el punto más bajo de la trayectoria)
-  minIndex: number,
+  minIndex: number;
   // 🔹 Tolerancia en grados para considerar un punto como "similar" al máximo encontrado
-  tolerance: number = 1,
-): {
+  similarAngleTolerance: number;
+}): {
   prevPeak: JumpPoint | null;
   nextPeak: JumpPoint | null;
 } {
@@ -234,7 +238,7 @@ function findMaxPeaksAroundIndex(
   let closestSimilarNextIndex = nextIndex;
   for (let i = minIndex; i < nextIndex; i++) {
     const angle = hipTrajectory[i]?.angle;
-    if (angle != null && Math.abs(angle - maxAngleNext) <= tolerance) {
+    if (angle != null && Math.abs(angle - maxAngleNext) <= similarAngleTolerance) {
       closestSimilarNextIndex = i;
       break;
     }
@@ -247,7 +251,7 @@ function findMaxPeaksAroundIndex(
   let closestSimilarPrevIndex = prevIndex;
   for (let i = minIndex; i > 0; i--) {
     const angle = hipTrajectory[i]?.angle;
-    if (angle != null && Math.abs(angle - maxAnglePrev) <= tolerance) {
+    if (angle != null && Math.abs(angle - maxAnglePrev) <= similarAngleTolerance) {
       closestSimilarPrevIndex = i;
       break;
     }
@@ -260,12 +264,15 @@ function findMaxPeaksAroundIndex(
 }
 
 // Aplica un suavizado por media móvil a una serie de valores numéricos, ignorando los nulos, para reducir fluctuaciones espurias
-function smoothTrajectory(
-  // 🔹 Array de números o nulls (posiciones Y de la articulación)
-  data: (number | null)[],
-  // 🔹 Tamaño de la ventana deslizante usada para calcular la media Debe ser un número impar para mantener simetría. Cuanto mayor sea ese valor, más se suaviza... pero con el riesgo de perder precisión temporal si se pasa de largo.
+function smoothTrajectory({
+  data,
   window = 3,
-): (number | null)[] {
+}: {
+  // 🔹 Array de números o nulls (posiciones Y de la articulación)
+  data: (number | null)[];
+  // 🔹 Tamaño de la ventana deslizante usada para calcular la media Debe ser un número impar para mantener simetría. Cuanto mayor sea ese valor, más se suaviza... pero con el riesgo de perder precisión temporal si se pasa de largo.
+  window: number;
+}): (number | null)[] {
   return data.map((_, i) => {
     const values = data.slice(Math.max(0, i - Math.floor(window / 2)), i + Math.ceil(window / 2))
       .filter(v => v !== null) as number[];
@@ -274,31 +281,41 @@ function smoothTrajectory(
 }
 
 // Encuentra el punto más bajo suavizado en una serie de valores verticales, útil para identificar el mínimo real reduciendo ruido
-function findSmoothedMinIndex(
-  // 🔹 Array de valores numéricos (coordenadas Y del punto de la cadera)
-  yValues: number[], 
-  // 🔹 Tamaño de la ventana para el suavizado (media móvil). Cuanto mayor sea, más suave será la curva
+function findSmoothedMinIndex({
+  yValues, 
   window = 3,
-): number {
-  const smoothed = smoothTrajectory(yValues, window) as number[];
+}: {
+  // 🔹 Array de valores numéricos (coordenadas Y del punto de la cadera)
+  yValues: number[];
+  // 🔹 Tamaño de la ventana para el suavizado (media móvil). Cuanto mayor sea, más suave será la curva
+  window: number;
+}): number {
+  const smoothed = smoothTrajectory({data: yValues, window}) as number[];
   const min = Math.min(...smoothed);
   return smoothed.findIndex(v => v === min);
 }
 
 // Detecta un cambio claro en la dirección del ángulo articular (aumento o disminución) a partir de un punto inicial, si la variación acumulada supera un umbral
 
-function findAngleEventIndex(
-  // 🔹 Array de ángulos (pueden contener `null`) correspondientes a cada frame
-  angles: (number | null)[],
-  // 🔹 Índice desde el cual comenzar a buscar el cambio
-  start: number,
-  // 🔹 Dirección esperada del cambio angular
-  direction: "increase" | "decrease",
-  // 🔹 Diferencia acumulada mínima (en grados) para que se considere un evento angular
-  threshold = 2,
+function findAngleEventIndex({
+  angles,
+  start,
+  direction,
+  acumulatedThreshold = 2,
   minSingleStepChange = 0,
-  scanDirection: "forward" | "backward" = "forward"
-): number {
+  scanDirection = "forward"
+}: {
+  // 🔹 Array de ángulos (pueden contener `null`) correspondientes a cada frame
+  angles: (number | null)[];
+  // 🔹 Índice desde el cual comenzar a buscar el cambio
+  start: number;
+  // 🔹 Dirección esperada del cambio angular
+  direction: "increase" | "decrease";
+  // 🔹 Diferencia acumulada mínima (en grados) para que se considere un evento angular
+  acumulatedThreshold: number;
+  minSingleStepChange: number;
+  scanDirection: "forward" | "backward";
+}): number {
   const factor = direction === "increase" ? 1 : -1;
 
   const step = scanDirection === "forward" ? 1 : -1;
@@ -321,7 +338,7 @@ function findAngleEventIndex(
       const magnitude = diffs.reduce((acc, d) => acc + Math.abs(d), 0);
       const passesSingleStep = diffs.some(d => Math.abs(d) >= minSingleStepChange);
 
-      if (consistent && magnitude >= threshold && passesSingleStep) {
+      if (consistent && magnitude >= acumulatedThreshold && passesSingleStep) {
         return i;
       }
     }
@@ -331,16 +348,21 @@ function findAngleEventIndex(
 }
 
 // Detecta el fin de la fase de amortiguación tras el aterrizaje, buscando el ángulo máximo más tardío en una ventana cercana al impacto
-function estimateAmortizationEndIndex(
+function estimateAmortizationEndIndex({
   // 🔹 Array de puntos con información de ángulo y tiempo de la cadera
-  hipTrajectory: JumpPoint[],
+  hipTrajectory,
   // 🔹 Índice donde ocurre el aterrizaje detectado
-  landingIndex: number,
+  landingIndex,
   // 🔹 Cuántos frames hacia adelante se consideran para buscar el pico angular post-aterrizaje. Por defecto, 12 frames (~0.4 s si la cámara graba a 30 fps)
-  range: number = 12,
-  // 🔹 Umbral en grados para considerar que varios valores son "similares" al máximo.
-  angleTolerance: number = 1
-): number {
+  range = 12,
+  // 🔹 Umbral en grados para considerar que varios valores son "similares" al máximo
+  angleTolerance = 1,
+}: {
+  hipTrajectory: JumpPoint[];
+  landingIndex: number;
+  range: number;
+  angleTolerance: number;
+}): number {
   const end = Math.min(hipTrajectory.length, landingIndex + range);
   const window = hipTrajectory.slice(landingIndex + 1, end);
 
@@ -366,14 +388,33 @@ function estimateAmortizationEndIndex(
 function analyzeJumpMetrics({
   // 🔹 Array de frames con keypoints y datos articulares
   frames,
-  // 🔹 Lado del cuerpo a analizar: "left" o "right"
-  side = "right",
-  // 🔹 Diferencia mínima de grados entre frames para detectar despegue/aterrizaje
-  angleChangeThreshold = 2,
+  settings: {
+    // 🔹 Lado del cuerpo a analizar: "left" o "right"
+    side = "right",
+    // 🔹 Cuántos frames hacia adelante se consideran para buscar el pico angular post-aterrizaje. Por defecto, 12 frames (~0.4 s si la cámara graba a 30 fps)
+    range = 12,
+    // 🔹 Umbral en grados para considerar que varios valores son "similares" al máximo
+    angleTolerance = 1,
+    // 🔹 Diferencia acumulada mínima (en grados) para que se considere un evento angular
+    acumulatedThreshold = 2,
+    // 🔹 Diferencia mínima de grados para considerar despegue/aterrizaje
+    minSingleStepChange = 5,
+    // 🔹 Tamaño de la ventana deslizante usada para calcular la media Debe ser un número impar para mantener simetría. Cuanto mayor sea ese valor, más se suaviza... pero con el riesgo de perder precisión temporal si se pasa de largo
+    window = 3,
+    // 🔹 Tolerancia en grados para considerar un punto como "similar" al máximo encontrado
+    similarAngleTolerance = 1,
+  }
 }: {
   frames: VideoFrame[];
-  side: "left" | "right";
-  angleChangeThreshold?: number;
+  settings: {
+    side: "left" | "right";
+    minSingleStepChange?: number;
+    range: number;
+    angleTolerance: number;
+    acumulatedThreshold?: number;
+    window?: number;
+    similarAngleTolerance?: number;
+  }
 }): JumpMetrics {
   if (!frames.length) return null;
 
@@ -398,57 +439,66 @@ function analyzeJumpMetrics({
   }
 
   const hipTrajectory: JumpPoint[] = frames.map((f, index) => ({
-    timestamp: f.videoTime * 1000,
+    timestamp: f.videoTime * 1_000,
     y: f.keypoints[hipIndex].y,
     angle: f.jointData?.[hipName]?.angle ?? null,
     index,
   }));
   // console.log('hipTrajectory ', hipTrajectory)
 
-  const angleThreshold = angleChangeThreshold;
-
   const yMinRaw = Math.min(...hipTrajectory.map(p => p.y));
-  const minIndex = findSmoothedMinIndex(hipTrajectory.map(p => p.y));
+  const minIndex = findSmoothedMinIndex({
+    yValues: hipTrajectory.map(p => p.y),
+    window,
+  });
 
-  const takeoffIndex = findAngleEventIndex(
-    hipTrajectory.map(item => item.angle), 
-    minIndex, 
-    "increase", 
-    2,
-    angleThreshold,
-    "backward",
-  );
+  const takeoffIndex = findAngleEventIndex({
+    angles: hipTrajectory.map(item => item.angle), 
+    start: minIndex, 
+    direction: "increase", 
+    acumulatedThreshold,
+    minSingleStepChange,
+    scanDirection: "backward",
+  });
 
-  const landingIndex = findAngleEventIndex(
-    hipTrajectory.map(item => item.angle), 
-    minIndex, 
-    "increase", 
-    2,
-    angleThreshold,
-    "forward",
-  );
+  const landingIndex = findAngleEventIndex({
+    angles: hipTrajectory.map(item => item.angle), 
+    start: minIndex, 
+    direction: "increase", 
+    acumulatedThreshold,
+    minSingleStepChange,
+    scanDirection: "forward",
+  });
 
   const flightTime =
     takeoffIndex !== -1 && landingIndex !== -1
-      ? (hipTrajectory[landingIndex].timestamp - hipTrajectory[takeoffIndex].timestamp) / 1000
+      ? (hipTrajectory[landingIndex].timestamp - hipTrajectory[takeoffIndex].timestamp) / 1_000
       : null;
   
   // Estimación física de la altura basada en tiempo de vuelo
   const height = flightTime ? (9.81 * Math.pow(flightTime, 2)) / 8 : 0;
 
-  const { prevPeak } = findMaxPeaksAroundIndex(hipTrajectory, minIndex);
+  const { prevPeak } = findMaxPeaksAroundIndex({
+    hipTrajectory, 
+    minIndex,
+    similarAngleTolerance,
+  });
   const impulseStartIndex = prevPeak ? prevPeak.index + 1 : takeoffIndex;
-  const amortizationEndIndex = estimateAmortizationEndIndex(hipTrajectory, landingIndex);
-
+  const amortizationEndIndex = estimateAmortizationEndIndex({
+    hipTrajectory, 
+    landingIndex,
+    range,
+    angleTolerance,
+  });
 
   const impulseDurationInSeconds =
     takeoffIndex > impulseStartIndex
-      ? (hipTrajectory[takeoffIndex].timestamp - hipTrajectory[impulseStartIndex].timestamp) / 1000
+      ? (hipTrajectory[takeoffIndex].timestamp - hipTrajectory[impulseStartIndex].timestamp) / 1_000
       : null;
 
   const amortizationDurationInSeconds =
     amortizationEndIndex > landingIndex
-      ? (hipTrajectory[amortizationEndIndex].timestamp - hipTrajectory[landingIndex].timestamp) / 1000
+      ? (hipTrajectory[amortizationEndIndex].timestamp - hipTrajectory[landingIndex].timestamp) / 1_000
       : null;
 
   const angles = {
@@ -488,7 +538,13 @@ function analyzeJumpMetrics({
   };
 }
 
-function isJumpLikeDetailed(frames: VideoFrame[]): {
+function isJumpLikeDetailed({
+  frames,
+  window = 3
+}: {
+  frames: VideoFrame[]
+  window: number;
+}): {
   isJump: boolean;
   reason?: string;
   metricsPreview?: JumpHeuristicPreview;
@@ -509,7 +565,7 @@ function isJumpLikeDetailed(frames: VideoFrame[]): {
   }));
 
   const yValues = hipTrajectory.map(p => p.y);
-  const minIndex = findSmoothedMinIndex(yValues);
+  const minIndex = findSmoothedMinIndex({yValues, window});
   
   const start = Math.max(0, minIndex - 30);
   const end = Math.min(yValues.length - 1, minIndex + 30);
@@ -546,22 +602,41 @@ function isJumpLikeDetailed(frames: VideoFrame[]): {
 
 // Detecta posibles saltos en una secuencia de frames identificando mínimos locales en la trayectoria vertical de la cadera y aplicando filtros para validar si son saltos reales.
 export function detectJumpEvents({
-  // 🔹 Array de frames con keypoints y datos articulares
   frames,
-  // 🔹 Lado del cuerpo a analizar: "left" o "right"
-  side = "right",
-  // 🔹 Tamaño de la ventana para buscar mínimos locales (y extraer subframes)
-  windowSize = 30,
-  // 🔹 Mínima separación entre candidatos a salto, en número de frames
-  minSeparation = 40,
-  // 🔹 Diferencia mínima de grados para considerar despegue/aterrizaje
-  angleChangeThreshold = 2,
+  settings: {
+    side = "right",
+    windowSize = 30,
+    minSeparation = 40,
+    minSingleStepChange = 5,
+    range = 12,
+    angleTolerance = 1,
+    acumulatedThreshold = 2,
+    window = 3,
+    similarAngleTolerance = 1,
+  },
 }: {
+  // 🔹 Array de frames con keypoints y datos articulares
   frames: VideoFrame[];
-  side?: "left" | "right";
-  windowSize?: number;
-  minSeparation?: number;
-  angleChangeThreshold?: number;
+  settings: {
+    // 🔹 Lado del cuerpo a analizar: "left" o "right"
+    side?: "left" | "right";
+    // 🔹 Tamaño de la ventana para buscar mínimos locales (y extraer subframes)
+    windowSize?: number;
+    // 🔹 Mínima separación entre candidatos a salto, en número de frames
+    minSeparation?: number;
+    // 🔹 Cuántos frames hacia adelante se consideran para buscar el pico angular post-aterrizaje. Por defecto, 12 frames (~0.4 s si la cámara graba a 30 fps)
+    range?: number;
+    // 🔹 Umbral en grados para considerar que varios valores son "similares" al máximo
+    angleTolerance?: number;
+    // 🔹 Diferencia acumulada mínima (en grados) para que se considere un evento angular
+    acumulatedThreshold?: number;
+    // 🔹 Diferencia mínima de grados para considerar despegue/aterrizaje
+    minSingleStepChange?: number;
+    // 🔹 Tamaño de la ventana deslizante usada para calcular la media Debe ser un número impar para mantener simetría. Cuanto mayor sea ese valor, más se suaviza... pero con el riesgo de perder precisión temporal si se pasa de largo
+    window?: number;
+    // 🔹 Tolerancia en grados para considerar un punto como "similar" al máximo encontrado
+    similarAngleTolerance?: number;
+  }
 }): {
   jumpIndex: number;
   timestamp: number;
@@ -600,13 +675,20 @@ export function detectJumpEvents({
     const subEnd = Math.min(frames.length, jumpIndex + windowSize + 1);
     const subFrames = frames.slice(subStart, subEnd);
 
-    const { isJump, reason, metricsPreview } = isJumpLikeDetailed(subFrames);
+    const { isJump, reason, metricsPreview } = isJumpLikeDetailed({frames: subFrames, window});
 
     const metrics = isJump
       ? analyzeJumpMetrics({ 
           frames: subFrames, 
-          side, 
-          angleChangeThreshold 
+          settings: {
+            side, 
+            minSingleStepChange,
+            range,
+            angleTolerance,
+            acumulatedThreshold,
+            window,
+            similarAngleTolerance,
+          }
         })
       : null;
 

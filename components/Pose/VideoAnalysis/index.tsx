@@ -295,49 +295,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     frameResolveRef.current?.();
   }, [canvasRef, inputCanvasRef, detector, detectorModel, minPoseScore]);
   
-  // processFrames original
-  // const processFrames = async () => {
-  //   if (!videoRef.current || !canvasRef.current || !inputCanvasRef.current || !detector || !detectorModel) return;
-  
-  //   allFramesDataRef.current = [];
-  //   setRecordedPositions(undefined);
-  
-  //   const video = videoRef.current;
-  //   const ctx = canvasRef.current.getContext('2d');
-  //   if (!ctx) return;
-  
-  //   const selectedDuration = trimmerRangeRef.current.range.end - trimmerRangeRef.current.range.start;
-  //   const desiredPoints = Math.floor(selectedDuration * pointsPerSecond);
-  //   const frameInterval = smartFrameInterval(selectedDuration, desiredPoints);
-
-  //   frameIntervalRef.current = frameInterval;
-
-  //   const startFrame = Math.floor(trimmerRangeRef.current.range.start / frameInterval);
-  //   const endFrame = Math.floor(trimmerRangeRef.current.range.end / frameInterval);
-    
-  //   const steps = endFrame - startFrame;
-  //   totalStepsRef.current = steps;
-  
-  //   video.onseeked = handleSeeked;
-  
-  //   for (let i = 0; i < steps; i++) {
-  //     if (processingCancelledRef.current) return;
-  
-  //     currentFrameIndexRef.current = i;
-  
-  //     await new Promise<void>((resolve) => {
-  //       frameResolveRef.current = resolve;
-  //       video.currentTime = i * frameInterval;
-  //     });
-  
-  //     if (i < steps - 1) {
-  //       await new Promise<void>((resolve) =>
-  //         setTimeout(resolve, Math.max(30, frameInterval * 1000))
-  //       );
-  //     }
-  //   }
-  // }; 
-  //
   const processFrames = async () => {
     if (
       !videoRef.current ||
@@ -464,8 +421,17 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     // Detectar saltos
     const allJumps = detectJumpEvents({
       frames: framesWithJointData,
-      side: "right", // poner en Settings
-      angleChangeThreshold: 5, // poner en Settings
+      settings: {
+        side: "right",
+        windowSize: 30,
+        minSeparation: 40,
+        range: 12,
+        angleTolerance: 1,
+        acumulatedThreshold: 2,
+        minSingleStepChange: 5,
+        window: 3,
+        similarAngleTolerance: 1,
+      }
     });
 
     const validJumps = allJumps.filter(j => j.isJump);
@@ -1108,12 +1074,21 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               <div className='absolute left-1/2 -translate-x-1/2 bottom-2 px-4 py-1 text-xl text-center bg-black/40 rounded-full'>{nearestFrameRef.current?.videoTime.toFixed(2)} s</div> 
               <div className='absolute right-0 bottom-0 pr-2 pb-2 flex flex-row gap-1'>             
                 <ArrowUturnDownIcon 
-                  className='w-10 h-10 p-[0.1rem] text-white'
+                  className='hidden w-10 h-10 p-[0.1rem] text-white'
                   onClick={() => {                    
                     const allJumps = detectJumpEvents({
                       frames: allFramesDataRef.current,
-                      side: "right",
-                      angleChangeThreshold: 5,
+                      settings: {
+                        side: "right",
+                        windowSize: 30,
+                        minSeparation: 40,
+                        range: 12,
+                        angleTolerance: 1,
+                        acumulatedThreshold: 2,
+                        minSingleStepChange: 5,
+                        window: 3,
+                        similarAngleTolerance: 1,
+                      }
                     })
                     const validJumps = allJumps.filter(j => j.isJump);
                     console.log('validJumps ', validJumps)
