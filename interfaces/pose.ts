@@ -77,23 +77,19 @@ export type JumpMetrics = {
   angles: {
     impulseStart?: {
       timestamp: number;
-      hipAngle: number | null;
-      kneeAngle: number | null;
+      jointAngle: number | null;
     };
     takeoff?: {
       timestamp: number;
-      hipAngle: number | null;
-      kneeAngle: number | null;
+      jointAngle: number | null;
     };
     landing?: {
       timestamp: number;
-      hipAngle: number | null;
-      kneeAngle: number | null;
+      jointAngle: number | null;
     };
     amortizationEnd?: {
       timestamp: number;
-      hipAngle: number | null;
-      kneeAngle: number | null;
+      jointAngle: number | null;
     };
   };
 } | null;
