@@ -447,7 +447,7 @@ function analyzeJumpMetrics({
     angle: f.jointData?.[jointName]?.angle ?? null,
     index,
   }));
-  // console.log('jointTrajectory ', jointTrajectory)
+  console.log('jointTrajectory ', jointTrajectory)
 
   const yMinRaw = Math.min(...jointTrajectory.map(p => p.y));
   const minIndex = findSmoothedMinIndex({
@@ -667,8 +667,14 @@ export function detectJumpEvents({
       ? CanvasKeypointName.RIGHT_KNEE
       : CanvasKeypointName.LEFT_KNEE;
   const jointIndex = frames[0].keypoints.findIndex(kp => kp.name === jointName);
-
+  
   if (jointIndex === -1) return [];
+
+  frames = frames.filter(f => {
+    const kp = f.keypoints[jointIndex];
+    return kp && typeof kp.y === "number";
+  });
+  console.log('frames ', frames)
 
   const yValues = frames.map(f => f.keypoints[jointIndex].y);
   const candidateMinIndices: number[] = [];
@@ -724,6 +730,153 @@ export function detectJumpEvents({
 
 /// Jump analysis ///
 ///===============///
+
+/// Beta jump analysis
+export function detectJumpEventsByAngle({
+  frames,
+  side = "right",
+  joint = "knee",
+  slidingAvgWindow = 3,
+  minAngle = 20,
+  minAngleChange = 25,
+  minPrepFlexion = 45,
+  minLandFlexion = 45,
+  searchWindow = 15,
+}: {
+  frames: VideoFrame[];
+  side?: "left" | "right";
+  joint?: "knee" | "hip";
+  slidingAvgWindow?: number;
+  minAngle?: number;
+  minAngleChange?: number;
+  minPrepFlexion?: number;
+  minLandFlexion?: number;
+  searchWindow?: number;
+}): {
+  takeoffIndex: number;
+  landingIndex: number;
+  cushionIndex: number;
+  prepIndex: number;
+  metrics: {
+    angleBefore: number;
+    angleAtTakeoff: number;
+    angleAtLanding: number;
+    angleAtCushion: number;
+    angleChange: number;
+    timeAtAngleBefore: number;
+    timeAtTakeoff: number;
+    timeAtLanding: number;
+    timeAtCushion: number;
+  };
+}[] {
+  if (!frames.length) return [];
+
+  const jointName = joint === "hip"
+    ? side === "right"
+      ? CanvasKeypointName.RIGHT_HIP
+      : CanvasKeypointName.LEFT_HIP
+    : side === "right"
+      ? CanvasKeypointName.RIGHT_KNEE
+      : CanvasKeypointName.LEFT_KNEE;
+
+  const angleValues = frames.map(f => f.jointData?.[jointName]?.angle ?? null);
+  const validAngles = angleValues.map((a, i) => ({ angle: a, index: i })).filter(a => a.angle !== null) as { angle: number; index: number }[];
+  console.log('validAngles ', validAngles)
+
+  const smoothedAngles = validAngles.map((p, i, arr) => {
+    const start = Math.max(0, i - Math.floor(slidingAvgWindow / 2));
+    const end = Math.min(arr.length, i + Math.ceil(slidingAvgWindow / 2));
+    const window = arr.slice(start, end).map(a => a.angle);
+    const avg = window.reduce((sum, val) => sum + val, 0) / window.length;
+    return { index: p.index, angle: avg };
+  });
+
+  const jumpEvents: {
+    takeoffIndex: number;
+    landingIndex: number;
+    cushionIndex: number;
+    prepIndex: number;
+    metrics: {
+      angleBefore: number;
+      angleAtTakeoff: number;
+      angleAtLanding: number;
+      angleAtCushion: number;
+      angleChange: number;
+      timeAtAngleBefore: number;
+      timeAtTakeoff: number;
+      timeAtLanding: number;
+      timeAtCushion: number;
+    };
+  }[] = [];
+
+  for (let i = 1; i < smoothedAngles.length - 1; i++) {
+    const prev = smoothedAngles[i - 1].angle;
+    const curr = smoothedAngles[i].angle;
+    const next = smoothedAngles[i + 1].angle;
+
+    if (curr < minAngle && curr < prev && curr < next) {
+      const preWindow = smoothedAngles.slice(Math.max(0, i - searchWindow), i);
+      const postWindow = smoothedAngles.slice(i + 1, i + 1 + searchWindow);
+
+      const prepPoint = preWindow.reduce((acc, p) => (p.angle >= acc.angle ? p : acc), preWindow[0]);
+
+      let landingIndex = -1;
+      for (let j = 1; j < postWindow.length; j++) {
+        const a = postWindow[j - 1].angle;
+        const b = postWindow[j].angle;
+        if (a <= minAngle && b > a) {
+          landingIndex = postWindow[j].index;
+          break;
+        }
+      }
+      if (landingIndex === -1) continue;
+
+      const cushionPoint = postWindow.reduce((acc, p) => (p.angle >= acc.angle ? p : acc), postWindow[0]);
+
+      const angleChange = Math.abs(prepPoint.angle - curr);
+
+      if (
+        prepPoint.angle >= minPrepFlexion &&
+        cushionPoint.angle >= minLandFlexion &&
+        angleChange >= minAngleChange
+      ) {
+        const takeoffIndex = smoothedAngles[i].index;
+
+        jumpEvents.push({
+          takeoffIndex,
+          prepIndex: prepPoint.index,
+          landingIndex,
+          cushionIndex: cushionPoint.index,
+          metrics: {
+            angleBefore: prepPoint.angle,
+            angleAtTakeoff: curr,
+            angleAtLanding: angleValues[landingIndex] ?? curr,
+            angleAtCushion: cushionPoint.angle,
+            angleChange,
+            timeAtAngleBefore: frames[prepPoint.index].videoTime,
+            timeAtTakeoff: frames[takeoffIndex].videoTime,
+            timeAtLanding: frames[landingIndex].videoTime,
+            timeAtCushion: frames[cushionPoint.index].videoTime,
+          },
+        });
+
+        i += searchWindow;
+      }
+    }
+  }
+
+  return jumpEvents;
+}
+
+
+
+
+
+
+
+
+
+
 
 
 

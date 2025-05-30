@@ -8,7 +8,7 @@ import * as tf from '@tensorflow/tfjs-core';
 import { CanvasKeypointName, JointDataMap, Kinematics } from '@/interfaces/pose';
 import { usePoseDetector } from '@/providers/PoseDetector';
 import { OrthogonalReference, useSettings } from '@/providers/Settings';
-import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame, detectJumpEvents } from '@/utils/pose';
+import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame, detectJumpEvents, detectJumpEventsByAngle } from '@/utils/pose';
 import { formatJointName, jointConfigMap } from '@/utils/joint';
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/utils/draw';
 import { keypointPairs } from '@/utils/pose';
@@ -423,8 +423,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       frames: framesWithJointData,
       settings: {
         side: "right",
-        localMinWindow: 30,
-        minSeparation: 40,
+        joint: "knee",
+        localMinWindow: 30, // 30
+        minSeparation: 40, // 40
         range: 12,
         angleTolerance: 1,
         acumulatedThreshold: 2,
@@ -435,6 +436,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     });
 
     const validJumps = allJumps.filter(j => j.isJump);
+    console.log('allJumps detected ', allJumps);
+    console.log('validJumps detected ', validJumps);
 
     // Lógica de visualización adaptativa
     const framesToDisplay = validJumps.length
@@ -1074,7 +1077,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               <div className='absolute left-1/2 -translate-x-1/2 bottom-2 px-4 py-1 text-xl text-center bg-black/40 rounded-full'>{nearestFrameRef.current?.videoTime.toFixed(2)} s</div> 
               <div className='absolute right-0 bottom-0 pr-2 pb-2 flex flex-row gap-1'>             
                 <ArrowUturnDownIcon 
-                  className='hidden w-10 h-10 p-[0.1rem] text-white'
+                  className='w-10 h-10 p-[0.1rem] text-white'
                   onClick={() => {                    
                     const allJumps = detectJumpEvents({
                       frames: allFramesDataRef.current,
@@ -1091,7 +1094,23 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                       }
                     })
                     const validJumps = allJumps.filter(j => j.isJump);
+                    console.log('allJumps ', allJumps);
                     console.log('validJumps ', validJumps)
+
+                    const jumpsByAngle = detectJumpEventsByAngle({
+                      frames: allFramesDataRef.current,
+                      side: "right",
+                      joint: "knee",
+                      slidingAvgWindow: 3,
+                      minAngle: 20,
+                      minAngleChange: 20,
+                      minPrepFlexion: 45,
+                      minLandFlexion: 45,
+                      searchWindow: 20,
+                    })
+                    console.log('beta jumping detection ', jumpsByAngle);
+
+
                   }} />
                 {((zoomStatus === "in" && aspectRatio < 1) ||
                 (zoomStatus === "out" && aspectRatio >= 1)) ? (
