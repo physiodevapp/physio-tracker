@@ -1,4 +1,5 @@
 import type * as poseDetection from '@tensorflow-models/pose-detection';
+import { AnnotationOptions } from 'chartjs-plugin-annotation';
 
 export enum CanvasKeypointName {
   LEFT_SHOULDER = "left_shoulder",
@@ -60,47 +61,20 @@ export interface UpdateJointParams {
 
 export type JointConfigMap = Partial<{ [key in CanvasKeypointName]: { invert: boolean } }>;
 
-export type JumpPoint = { timestamp: number; y: number; angle: number | null; index: number };
+export type DragLimits = Record<string, { min: number; max: number }>;
 
-export type JumpMetrics = {
-  heightInMeters: number;
-  flightTimeInSeconds: number | null;
-  reactiveStrengthIndex: number | null;
-  impulseDurationInSeconds: number | null;
-  amortizationDurationInSeconds: number | null;
-  takeoffTimestamp: number | null;
-  landingTimestamp: number | null;
-  scaleUsed?: number;
-  sideUsed: "left" | "right";
-  yStartRaw?: number;
-  yMinRaw: number;
-  angles: {
-    impulseStart?: {
-      timestamp: number;
-      jointAngle: number | null;
-    };
-    takeoff?: {
-      timestamp: number;
-      jointAngle: number | null;
-    };
-    landing?: {
-      timestamp: number;
-      jointAngle: number | null;
-    };
-    amortizationEnd?: {
-      timestamp: number;
-      jointAngle: number | null;
-    };
-  };
-} | null;
+export type PoseAnnotations = Record<string, AnnotationOptions>
 
-export type JumpHeuristicPreview = {
-  minIndex: number;
-  dropHeight: number;
-  riseHeight: number;
-  maxAngleBefore: number;
-  maxAngleAfter: number;
-  angleChange: number;
-};
-
+export interface JumpPoint {
+  index: number;
+  angle: number;
+  videoTime: number;
+  yValue: number;
+}
+export type Jump = {
+    impulsePoint: JumpPoint;
+    takeoffPoint: JumpPoint;
+    landingPoint: JumpPoint;
+    cushionPoint: JumpPoint;
+}
 

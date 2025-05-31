@@ -5,11 +5,13 @@ import {
   ChartConfiguration,
   registerables,
   ActiveDataPoint,
+  ChartEvent,
 } from "chart.js";
-import { JointColors, CanvasKeypointName, Kinematics } from "@/interfaces/pose";
+import { JointColors, CanvasKeypointName, Kinematics, DragLimits, PoseAnnotations } from "@/interfaces/pose";
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ArrowsPointingInIcon } from "@heroicons/react/24/outline";
 import annotationPlugin, { AnnotationOptions } from "chartjs-plugin-annotation";
+import { getAllAnnotations, IAnnotation } from "@/utils/chart";
 
 // Registro de componentes de Chart.js
 ChartJS.register(
@@ -44,7 +46,8 @@ interface IndexProps {
   verticalLineValue?: number;
   hiddenLegendsRef?: React.RefObject<Set<number>>;
   onToggleLegend?: (index: number, hidden: boolean) => void;
-  annotations?: Record<string, AnnotationOptions>;
+  annotations?: PoseAnnotations;
+  dragLimits?: DragLimits;
 }
 
 const areAllDatasetsHidden = (chart: ChartJS): boolean => {
@@ -61,7 +64,38 @@ const customCrosshairPlugin = ({
   hiddenLegendsRef: React.RefObject<Set<number>>;
 }) => ({
   id: 'customCrosshair',
-  afterDraw(chart: ChartJS) {
+  afterEvent(chart: ChartJS & {
+    _isDraggingAnnotation?: boolean;
+    _customCrosshairX?: number | undefined;
+  }, args: { 
+    event: ChartEvent 
+  }) {
+    // ❌ Bloquear si se está arrastrando una anotación
+    if (chart._isDraggingAnnotation) return;
+
+    const { chartArea } = chart;
+    const { event } = args;
+
+    if (!event || event.x == null || event.y == null) return;
+
+    if (
+      event.x >= chartArea.left &&
+      event.x <= chartArea.right &&
+      event.y >= chartArea.top &&
+      event.y <= chartArea.bottom
+    ) {
+      chart._customCrosshairX = event.x;
+    } else {
+      chart._customCrosshairX = undefined;
+    }
+  },
+  afterDraw(chart: ChartJS & {
+      _isDraggingAnnotation?: boolean;
+      _customCrosshairX?: number | undefined;
+  }) {
+    // ❌ Bloquear si se está arrastrando una anotación
+    if (chart._isDraggingAnnotation) return;
+
     const xMs = tooltipXRef.current;
     const allHidden = areAllDatasetsHidden(chart);
 
@@ -158,6 +192,163 @@ const getNearestJointValues = (
   }).filter((val): val is { label: CanvasKeypointName; y: number } => val !== null);
 }; 
 
+function customDragger(
+  minGap: number = 260, // ms
+  dragLimits: DragLimits,
+  onDragEnd?: (updatedLines: Record<string, number>) => void,
+) {
+  let element: IAnnotation | null = null;
+  let lastEvent: ChartEvent | null = null;
+  let isUpdateScheduled = false;
+  let activeKey: string | null = null;
+  let dragEndHandler: ((ev: Event) => void) | null = null;
+
+  function createDragEndHandler(chart: ChartJS & { _isDraggingAnnotation: boolean; }): (ev: Event) => void {
+    return () => {
+      if (typeof onDragEnd === 'function') {
+        const annotations = getAllAnnotations(chart);
+
+        ///
+        const updated: Record<string, number> = {};
+
+        Object.entries(annotations).forEach(([key, ann]) => {
+          if (
+            key.startsWith("takeoffLine_") ||
+            key.startsWith("landingLine_")
+          ) {
+            updated[key] = ann.xMin;
+          }
+        });
+
+        onDragEnd?.(updated);
+        ///
+      }
+      chart._isDraggingAnnotation = false;
+      element = null;
+      lastEvent = null;
+      activeKey = null;
+
+      if (dragEndHandler) {
+        window.removeEventListener('mouseup', dragEndHandler);
+        window.removeEventListener('touchend', dragEndHandler);
+        dragEndHandler = null;
+      }
+    };
+  }
+
+  return {
+    id: 'customDragger',
+
+    beforeEvent(chart: ChartJS & {
+        _isDraggingAnnotation: boolean;
+    }, args: { event: ChartEvent } & { changed?: boolean }) {
+      const event = args.event;
+
+      const clientX =
+        event.x ?? (event.native as TouchEvent | undefined)?.touches?.[0]?.clientX ?? 0;
+
+      const annotations = getAllAnnotations(chart);
+      if (!annotations || typeof annotations !== 'object' || Array.isArray(annotations)) return;
+
+      const xScale = chart.scales.x;
+      if (!xScale || xScale.min === undefined || xScale.max === undefined) return;
+
+      const draggableKeys = Object.keys(annotations).filter(key =>
+        key.startsWith('takeoffLine_') || key.startsWith('landingLine_')
+      );
+      for (const key of draggableKeys) {
+        const ann = annotations[key];
+        if (!ann || ann.type !== 'line') continue;
+
+         const xPixel = xScale.getPixelForValue(ann.xMin);
+        // const tolerance = ann.borderWidth / 2;
+        ///
+        const visibleWidth = ann.borderWidth ?? 2;
+        const extraPadding = 10; // ⬅️ área invisible extra para tocar
+        const tolerance = visibleWidth / 2 + extraPadding;
+        ///
+
+        if (
+          (event.type === 'mousedown' || event.native?.type === 'touchstart') &&
+          clientX >= xPixel - tolerance &&
+          clientX <= xPixel + tolerance
+        ) {
+          element = ann;
+          activeKey = key;
+          lastEvent = event;
+          chart._isDraggingAnnotation = true;
+
+          dragEndHandler = createDragEndHandler(chart);
+          window.addEventListener('mouseup', dragEndHandler);
+          window.addEventListener('touchend', dragEndHandler);
+          return;
+        }
+      }
+
+      if (
+        (event.type === 'mousemove' || event.native?.type === 'touchmove') &&
+        element &&
+        lastEvent &&
+        activeKey
+      ) {
+        const prevX =
+          lastEvent.x ?? (lastEvent.native as TouchEvent | undefined)?.touches?.[0]?.clientX ?? 0;
+        const moveX = clientX - prevX;
+
+        const pixelsPerUnit = xScale.width / (xScale.max - xScale.min);
+        const deltaValue = moveX / pixelsPerUnit;
+
+        const nextX = element.xMin + deltaValue;
+        const minVisible = xScale.min;
+        const maxVisible = xScale.max;
+
+        const margin = (maxVisible - minVisible) * 0.02;
+        const safeMin = minVisible + margin;
+        const safeMax = maxVisible - margin;
+
+        const limits = dragLimits?.[activeKey];
+        if (
+          (limits && (nextX < limits.min || nextX > limits.max)) ||
+          nextX < safeMin || nextX > safeMax
+        ) {
+          return;
+        }
+
+        const [type, indexStr] = activeKey.split('_'); // Ej: ['takeoffLine', '0']
+        const otherKey =
+          type === 'takeoffLine' ? `landingLine_${indexStr}` :
+          type === 'landingLine' ? `takeoffLine_${indexStr}` : null;
+
+        if (otherKey && annotations[otherKey]) {
+          const otherX = annotations[otherKey].xMin;
+
+          if (
+            (type === 'takeoffLine' && nextX >= otherX - minGap) ||
+            (type === 'landingLine' && nextX <= otherX + minGap)
+          ) {
+            return; // ❌ Muy cerca de la otra línea del mismo salto
+          }
+        }
+
+        element.xMin = nextX;
+        element.xMax = nextX;
+
+        if (!isUpdateScheduled) {
+          isUpdateScheduled = true;
+          requestAnimationFrame(() => {
+            chart.update('none');
+            isUpdateScheduled = false;
+          });
+        }
+
+        lastEvent = event;
+        args.changed = true;
+        return;
+      }
+    }
+  };
+}
+
 const Index = ({
   joints,
   valueTypes = [Kinematics.ANGLE],
@@ -168,6 +359,7 @@ const Index = ({
   hiddenLegendsRef,
   onToggleLegend,
   annotations,
+  dragLimits,
 }: IndexProps) => {
   const [isZoomed, setIsZoomed] = useState(false);
   const tooltipXRef = useRef<number>(0);
@@ -284,6 +476,23 @@ const Index = ({
     }
   }, [recordedPositions]); 
 
+  const processedAnnotations = useMemo(() => {
+    const updated: Record<string, any> = {};
+
+    Object.entries(annotations ?? {}).forEach(([key, ann]) => {
+      if (key.startsWith("takeoffLine_") || key.startsWith("landingLine_")) {
+        updated[key] = {
+          ...ann,
+          draggable: true,
+        };
+      } else {
+        updated[key] = ann;
+      }
+    });
+
+    return updated;
+  }, [annotations]);
+
   const chartConfig = useMemo<ChartConfiguration>(
     () => ({
       type: "line",
@@ -291,11 +500,18 @@ const Index = ({
         datasets,
       },
       plugins: [
+        customDragger(
+          100,
+          dragLimits!,
+          () => {
+            console.log('dragged!')
+          },
+        ),
         customCrosshairPlugin({
           recordedPositions: recordedPositions!,
           tooltipXRef,
           hiddenLegendsRef: hiddenLegendsRef!,
-        })
+        }),
       ],
       options: {
         responsive: true,
@@ -361,7 +577,7 @@ const Index = ({
             },
           },
           annotation: {
-            annotations: annotations ?? {},
+            annotations: processedAnnotations ?? {},
           },
           legend: {
             display: true,

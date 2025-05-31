@@ -4,14 +4,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { motion } from "framer-motion";
-import { CanvasKeypointName, JointDataMap, Kinematics } from "@/interfaces/pose";
+import { CanvasKeypointName, JointDataMap, Jump, Kinematics } from "@/interfaces/pose";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
 import { OrthogonalReference, useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
 import { jointOptions, formatJointName } from '@/utils/joint';
-import { PauseIcon } from "@heroicons/react/24/outline";
+import { ArrowUturnDownIcon, PauseIcon } from "@heroicons/react/24/outline";
 import { CameraIcon, UserIcon, Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, VideoCameraIcon, CubeTransparentIcon, DocumentArrowDownIcon, TrashIcon, PlusIcon, Bars2Icon } from "@heroicons/react/24/solid";
 import LiveAnalysis, { LiveAnalysisHandle } from "@/components/Pose/LiveAnalysis";
 import VideoAnalysis, { ProcessingStatus, VideoAnalysisHandle } from "@/components/Pose/VideoAnalysis";
@@ -43,6 +43,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('idle');
+
+  const [jumpsDetected, setJumpsDetected] = useState<Jump[] | null>(null);
 
   const [showGrid, setShowGrid] = useState(false);
 
@@ -254,7 +256,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 setProcessingStatus("idle");
               }} 
               onPause={(value) => setIsFrozen(value)} 
-              initialUrl={recordedVideoUrl} />
+              initialUrl={recordedVideoUrl} 
+              onJumpsDetected={(jumps) => setJumpsDetected(jumps)} />
           )}
         </div>
 
@@ -363,12 +366,18 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               <UserIcon 
                 className={`h-6 w-6 cursor-pointer text-white`}
                 onClick={() => setIsPoseModalOpen((prev) => !prev)} />
-              <Cog6ToothIcon 
-                className={`h-6 w-6 cursor-pointer text-white ${processingStatus === "processed" 
-                  ? "opacity-40"
-                  : "opacity-100"
-                }`}
-                onClick={() => processingStatus !== "processed" && setIsPoseSettingsModalOpen(prev => !prev)} />
+              {processingStatus !== "processed" ? (
+                <Cog6ToothIcon 
+                  className={`h-6 w-6 cursor-pointer text-white`}
+                  onClick={() => setIsPoseSettingsModalOpen(prev => !prev)} />
+              ) : null}
+              {processingStatus === "processed" ? (
+                <ArrowUturnDownIcon
+                  className={`h-6 w-6 cursor-pointer text-white ${jumpsDetected?.length ?? 0 > 0 
+                    ? "animate-bounce"
+                    : ""
+                  }`} />
+              ) : null }
             </motion.section>
             {processingStatus === "idle" && (
               <motion.div 
