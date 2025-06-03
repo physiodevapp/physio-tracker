@@ -5,10 +5,10 @@ import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallba
 import { createPortal } from 'react-dom';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
-import { CanvasKeypointName, JointDataMap, Kinematics } from '@/interfaces/pose';
+import { CanvasKeypointName, DragLimits, JointDataMap, Jump, Kinematics, PoseAnnotations } from '@/interfaces/pose';
 import { usePoseDetector } from '@/providers/PoseDetector';
 import { OrthogonalReference, useSettings } from '@/providers/Settings';
-import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame, detectJumpEvents } from '@/utils/pose';
+import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame, detectJumpWindowsByAngle } from '@/utils/pose';
 import { formatJointName, jointConfigMap } from '@/utils/joint';
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/utils/draw';
 import { keypointPairs } from '@/utils/pose';
@@ -17,7 +17,6 @@ import VideoTrimmer from '@/components/Pose/VideoTrimmer';
 import { TrimmerProps } from '../VideoTrimmer/CustomRangeSlider';
 import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
 import { ArrowUturnDownIcon } from '@heroicons/react/24/outline';
-import { AnnotationOptions } from 'chartjs-plugin-annotation';
 
 export type VideoAnalysisHandle = {
   handleVideoProcessing: () => void;
@@ -26,6 +25,7 @@ export type VideoAnalysisHandle = {
   downloadJSON: () => void;
   removeVideo: () => void;
   handleNewVideo: () => void;
+  handleFramesBasedOnJumps: (mode: "detect" | "dismiss") => void;
 };
 
 export type ProcessingStatus = 'idle' | 'processing' | 'cancelRequested' | 'cancelled' | 'processed' | 'durationExceeded';
@@ -45,6 +45,9 @@ interface IndexProps {
   onLoaded?: (value: boolean) => void;
   onStatusChange?: (status: ProcessingStatus) => void;
   initialUrl: string | null;
+  onJumpsDetected?: (jumps: Jump[]) => void;
+  isPoseJumpSettingsModalOpen: boolean;
+  setIsPoseJumpSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
@@ -62,6 +65,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   onLoaded,
   onStatusChange,
   initialUrl,
+  onJumpsDetected,
+  isPoseJumpSettingsModalOpen,
+  setIsPoseJumpSettingsModalOpen,
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -108,7 +114,18 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     angularHistorySize,
     pointsPerSecond, 
     minAngleDiff,
+    jump,
   } = settings.pose;
+  const { 
+    mode,
+    side,
+    joint,
+    maxTakeoffFlexion,
+    maxLandingFlexion,
+    minFlexionBeforeJump,
+    minFlexionAfterLanding,
+    searchWindow,
+   } = jump;
   const selectedJointsRef = useRef(selectedJoints);
 
   const maxDuration = 30; // segundos
@@ -119,12 +136,20 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const nearestFrameRef = useRef<VideoFrame>(null);
   const [recordedPositions, setRecordedPositions] = useState<RecordedPositions>();
 
-  const [chartAnnotations, setChartAnnotations] = useState<Record<string, AnnotationOptions> | null>(null);
-
+  const [chartAnnotations, setChartAnnotations] = useState<PoseAnnotations | null>(null);
+  const [dragLimits, setDragLimits] = useState<DragLimits | null>(null);
+  
+  const draggableLinesUpdatedRef = useRef<Record<string, number> | null>(null)
 
   const handleClickOnCanvas = () => { 
-    if (isPoseSettingsModalOpen || isMainMenuOpen) {
+    if (
+      isPoseSettingsModalOpen || 
+      isPoseJumpSettingsModalOpen ||
+      isMainMenuOpen
+    ) {
       setIsPoseSettingsModalOpen(false);
+
+      setIsPoseJumpSettingsModalOpen(false);
   
       handleMainMenu(false);
     }
@@ -377,14 +402,187 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     }
   };
 
-  
-  const handleVideoProcessing = async () => {
-    // Función utilitaria para intentar reducir frames si se supera cierto umbral
+  const handleFramesBasedOnJumps = (mode: "idle" | "detect" | "dismiss" = "detect") => {
+    if (isPoseJumpSettingsModalOpen) {
+      setIsPoseJumpSettingsModalOpen(false);
+    }
+
+    if (mode === "dismiss") {
+      setChartAnnotations(null);
+      setDragLimits(null);
+
+      onJumpsDetected?.([]);
+
+      return;
+    }
+
+    const framesWithJointData = allFramesDataRef.current.filter(
+      (frame): frame is VideoFrame =>
+        !!frame.jointData &&
+        Object.values(frame.jointData).some(joint => typeof joint.angle === "number")
+    );
+    // console.log('framesWithJointData ', framesWithJointData)
+
+    const jumpsByAngle = mode === "detect" 
+      ? handleJumpsDetection() 
+      : [];
+
     function tryReduceFrames(frames: VideoFrame[], threshold: number, minRequired: number = 80): VideoFrame[] {
       const reduced = filterRepresentativeFrames(frames, threshold);
       return reduced.length >= minRequired ? reduced : frames;
     }
 
+    // Lógica de visualización adaptativa
+    const framesToDisplay = jumpsByAngle.length
+      ? framesWithJointData // Mantener precisión si hay saltos válidos
+      : tryReduceFrames(framesWithJointData, minAngleDiff, 80);
+
+    const transformed = transformToRecordedPositions(framesToDisplay);
+    setRecordedPositions(transformed);
+  }
+
+  const handleJumpsDetection = () => {
+    const jumpsByAngle = detectJumpWindowsByAngle({
+      frames: allFramesDataRef.current,
+      mode,
+      side,
+      joint,
+      maxTakeoffFlexion,
+      maxLandingFlexion,
+      minFlexionBeforeJump,
+      minFlexionAfterLanding,
+      searchWindow,
+      slidingAvgWindow: 3,
+      trendWindow: 3,
+    });
+
+    // console.log('handleJumpsDetection ', jumpsByAngle)
+    if (jumpsByAngle.length > 0) {
+      const annotations: PoseAnnotations = {};
+      const dragLimits: DragLimits = {};
+
+      jumpsByAngle.forEach((jump, i) => {
+        let { 
+          impulsePoint, 
+          takeoffPoint, 
+          landingPoint, 
+          cushionPoint 
+        } = jump;
+
+        if (draggableLinesUpdatedRef.current) {
+          if (draggableLinesUpdatedRef.current[`impulseLine_${i}`] !== undefined) {
+            impulsePoint = { ...impulsePoint, videoTime: draggableLinesUpdatedRef.current[`impulseLine_${i}`] / 1_000 };
+          }
+          if (draggableLinesUpdatedRef.current[`takeoffLine_${i}`] !== undefined) {
+            takeoffPoint = { ...takeoffPoint, videoTime: draggableLinesUpdatedRef.current[`takeoffLine_${i}`] / 1_000 };
+          }
+          if (draggableLinesUpdatedRef.current[`landingLine_${i}`] !== undefined) {
+            landingPoint = { ...landingPoint, videoTime: draggableLinesUpdatedRef.current[`landingLine_${i}`] / 1_000 };
+          }
+          if (draggableLinesUpdatedRef.current[`cushionLine_${i}`] !== undefined) {
+            cushionPoint = { ...cushionPoint, videoTime: draggableLinesUpdatedRef.current[`cushionLine_${i}`] / 1_000 };
+          }
+        }
+        draggableLinesUpdatedRef.current = null;
+
+        const impulseTimestamp = impulsePoint.videoTime * 1_000;
+        const takeoffTimestamp = takeoffPoint.videoTime * 1_000;
+        const landingTimestamp = landingPoint.videoTime * 1_000;
+        const cushionTimestamp = cushionPoint.videoTime * 1_000;
+        const amortizationDuration = ((cushionTimestamp! - landingTimestamp!) / 1000).toFixed(2);
+        
+        const flightDuration = ((landingTimestamp! - takeoffTimestamp!) / 1_000).toFixed(2);
+        const impulseDuration = ((takeoffTimestamp! - impulseTimestamp!) / 1_000).toFixed(2);
+        const g = 9.81; // m/s²
+        console.log()
+        const flightHeight = (((g * Math.pow(Number(flightDuration), 2)) / 8) * 100).toFixed(0);
+
+        if (impulseTimestamp != null && cushionTimestamp != null) {
+          // 🔹 Línea draggable: takeoff
+          annotations[`takeoffLine_${i}`] = {
+            type: "line",
+            xMin: takeoffTimestamp,
+            xMax: takeoffTimestamp,
+            borderColor: 'rgba(43, 210, 219, 0.59)',
+            borderWidth: 2,
+            label: {
+              content: `Takeoff J.${i + 1}`,
+              display: false,
+              position: 'start',
+              backgroundColor: "rgba(0,0,255,0.2)",
+            },
+          };
+
+          // 🔹 Línea draggable: landing
+          annotations[`landingLine_${i}`] = {
+            type: "line",
+            xMin: landingTimestamp,
+            xMax: landingTimestamp,
+            borderColor: 'rgba(43, 210, 219, 0.59)',
+            borderWidth: 2,
+            label: {
+              content: `Landing J.${i + 1}`,
+              display: false,
+              position: 'start',
+              backgroundColor: "rgba(0,128,0,0.2)",
+            },
+          };
+
+          // 🔹 Guardamos los límites de las líneas
+          dragLimits[`takeoffLine_${i}`] = {
+            min: impulseTimestamp,
+            max: cushionTimestamp,
+          };
+
+          dragLimits[`landingLine_${i}`] = {
+            min: impulseTimestamp,
+            max: cushionTimestamp,
+          };
+
+          // Box: impulso + vuelo + amortiguación
+          annotations[`fullJumpBox_${i}`] = {
+            type: "box",
+            xMin: impulseTimestamp,
+            xMax: cushionTimestamp,
+            yMax: 200,
+            yMin: -60,
+            backgroundColor: "rgba(0, 255, 100, 0.1)",
+            borderColor: "rgba(0, 255, 100, 0.5)",
+            borderWidth: 1,
+            label: {
+              display: true,
+              font: {
+                weight: 'lighter', // o 'normal' o '400'
+              },
+              content: [
+                `H: ${flightHeight} cm`,
+                `I: ${impulseDuration} s`,
+                `F: ${flightDuration} s`,
+                `A: ${amortizationDuration} s`,
+              ],
+              position: {
+                x: 'center',
+                y: '10%',
+              },
+              textAlign: 'start',
+            },
+          };
+        }
+      });
+
+      setChartAnnotations(annotations);
+      setDragLimits(dragLimits);
+    } else {
+      setChartAnnotations(null);
+      setDragLimits(null);
+    }
+
+    onJumpsDetected?.(jumpsByAngle);
+
+    return jumpsByAngle;
+  }
+  
+  const handleVideoProcessing = async () => {
     processingCancelledRef.current = false;    
     setProcessingStatus('processing');
     onStatusChange?.("processing")
@@ -408,109 +606,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       return;
     }
 
-    /// Jump Annotations
-    await delayInMs(1_000);
+    await delayInMs(2_000);
 
-    const framesWithJointData = allFramesDataRef.current.filter(
-      (frame): frame is VideoFrame =>
-        !!frame.jointData &&
-        Object.values(frame.jointData).some(joint => typeof joint.angle === "number")
-    );
-    // console.log('framesWithJointData ', framesWithJointData)
-
-    // Detectar saltos
-    const allJumps = detectJumpEvents({
-      frames: framesWithJointData,
-      settings: {
-        side: "right",
-        windowSize: 30,
-        minSeparation: 40,
-        range: 12,
-        angleTolerance: 1,
-        acumulatedThreshold: 2,
-        minSingleStepChange: 5,
-        window: 3,
-        similarAngleTolerance: 1,
-      }
-    });
-
-    const validJumps = allJumps.filter(j => j.isJump);
-
-    // Lógica de visualización adaptativa
-    const framesToDisplay = validJumps.length
-      ? framesWithJointData // Mantener precisión si hay saltos válidos
-      : tryReduceFrames(framesWithJointData, minAngleDiff, 80);
-
-    const transformed = transformToRecordedPositions(framesToDisplay);
-    setRecordedPositions(transformed);
-
-    if (validJumps.length) {
-      const annotations: Record<string, AnnotationOptions> = {};
-
-      validJumps.forEach((jump, i) => {
-        const takeoff = jump.metrics?.takeoffTimestamp;
-        const landing = jump.metrics?.landingTimestamp;
-        const impulseStart = jump.metrics?.angles.impulseStart?.timestamp;
-        const amortizationEnd = jump.metrics?.angles.amortizationEnd?.timestamp;
-        const flightDuration = ((landing! - takeoff!) / 1000).toFixed(2);
-        const amortizationDuration = ((amortizationEnd! - landing!) / 1000).toFixed(2);
-        const flightHeight = (jump.metrics!.heightInMeters * 100).toFixed(0);
-        const impulseDuration = ((takeoff! - impulseStart!) / 1000).toFixed(2);
-
-        // Box 1: solo fase de vuelo
-        if (takeoff != null && landing != null) {
-          annotations[`flightBox_${i}`] = {
-            type: "box",
-            xMin: takeoff,
-            xMax: landing,
-            yMax: 200,
-            yMin: -60,
-            backgroundColor: "rgba(0, 200, 255, 0.1)",
-            borderColor: "rgba(0, 200, 255, 0.5)",
-            borderWidth: 1,
-            label: {
-              display: true,
-              font: {
-                weight: 'lighter', // o 'normal' o '400'
-              },
-              content: [
-                `H: ${flightHeight} cm`,
-                `I: ${impulseDuration} s`,
-                `F: ${flightDuration} s`,
-                `A: ${amortizationDuration} s`,
-              ],
-              position: {
-                x: 'center',
-                y: '10%',
-              },
-              textAlign: 'start',
-            },
-          };
-        }
-
-        // Box 2: impulso + vuelo + amortiguación
-        if (impulseStart != null && amortizationEnd != null) {
-          annotations[`fullJumpBox_${i}`] = {
-            type: "box",
-            xMin: impulseStart,
-            xMax: amortizationEnd,
-            yMax: 200,
-            yMin: -60,
-            backgroundColor: "rgba(0, 255, 100, 0.1)",
-            borderColor: "rgba(0, 255, 100, 0.5)",
-            borderWidth: 1,
-            label: {
-              display: false,
-              content: `Full Jump ${i + 1}`,
-              position: "start",
-            },
-          };
-        }
-      });
-
-      setChartAnnotations(annotations);
-    }
-    ///
+    handleFramesBasedOnJumps("idle");
 
     setProcessingStatus("processed");
     onStatusChange?.("processed");
@@ -535,9 +633,14 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   };
 
   const removeVideo = () => {
+    setIsPoseJumpSettingsModalOpen(false);
+
     allFramesDataRef.current = [];
     setRecordedPositions(undefined);
     setTrimmerRange({range: {start: 0, end: 0}, markerPosition: 0});
+
+    setChartAnnotations(null);
+    setDragLimits(null);
 
     isPlayingRef.current = true;
     setIsPlaying(true);
@@ -665,7 +768,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   
   const playFrames = useCallback(async () => {
     if (!allFramesDataRef.current.length) return;
-
   
     isPlayingRef.current = true;
     setIsPlaying(true);
@@ -943,6 +1045,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     downloadJSON,
     removeVideo,
     handleNewVideo,
+    handleFramesBasedOnJumps,
   }));
 
   return (
@@ -1034,7 +1137,10 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           <canvas
             ref={canvasRef}
             onClick={() => {
-              if (processingStatus !== "processed") return;
+              if (
+                processingStatus !== "processed" ||
+                isPoseJumpSettingsModalOpen
+              ) return;
               
               if (isPlaying) {
                 isPlayingRef.current = false;
@@ -1075,24 +1181,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               <div className='absolute right-0 bottom-0 pr-2 pb-2 flex flex-row gap-1'>             
                 <ArrowUturnDownIcon 
                   className='hidden w-10 h-10 p-[0.1rem] text-white'
-                  onClick={() => {                    
-                    const allJumps = detectJumpEvents({
-                      frames: allFramesDataRef.current,
-                      settings: {
-                        side: "right",
-                        windowSize: 30,
-                        minSeparation: 40,
-                        range: 12,
-                        angleTolerance: 1,
-                        acumulatedThreshold: 2,
-                        minSingleStepChange: 5,
-                        window: 3,
-                        similarAngleTolerance: 1,
-                      }
-                    })
-                    const validJumps = allJumps.filter(j => j.isJump);
-                    console.log('validJumps ', validJumps)
-                  }} />
+                  onClick={() => handleFramesBasedOnJumps("detect")} />
                 {((zoomStatus === "in" && aspectRatio < 1) ||
                 (zoomStatus === "out" && aspectRatio >= 1)) ? (
                   <MagnifyingGlassPlusIcon 
@@ -1146,7 +1235,14 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
               forceUpdateUI();
             }} 
-            annotations={chartAnnotations!} />
+            annotations={chartAnnotations!} 
+            dragLimits={dragLimits!} 
+            onDraggableLinesUpdated={(draggableLinesUpdated) => {
+              draggableLinesUpdatedRef.current = draggableLinesUpdated;
+
+              handleFramesBasedOnJumps("detect");
+            }}
+            />
         ) : null }
       </div>
 

@@ -1,4 +1,4 @@
-import { CanvasKeypointName, JointConfigMap, JointDataMap, JumpHeuristicPreview, JumpMetrics, JumpPoint } from "@/interfaces/pose";
+import { CanvasKeypointName, JointConfigMap, JointDataMap, Jump, JumpPoint } from "@/interfaces/pose";
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import { RefObject } from "react";
 
@@ -185,8 +185,7 @@ export function filterRepresentativeFrames(
           count++;
         }
       }
-    }
-    
+    }    
 
     const avgDelta = totalDelta / (count || 1);
 
@@ -199,512 +198,304 @@ export function filterRepresentativeFrames(
   return selectedFrames;
 }
 
-///===============///
-/// Jump analysis ///
-
-// Encuentra los picos angulares máximos antes y después de un mínimo, utilizados para acotar las fases de impulso y amortiguación
-function findMaxPeaksAroundIndex({
-  hipTrajectory,
-  minIndex,
-  similarAngleTolerance = 1,
-}: {
-  // 🔹 Array de puntos con información de ángulo y tiempo de la cadera
-  hipTrajectory: JumpPoint[];
-  // 🔹 Índice central alrededor del cual buscar los máximos (el punto más bajo de la trayectoria)
-  minIndex: number;
-  // 🔹 Tolerancia en grados para considerar un punto como "similar" al máximo encontrado
-  similarAngleTolerance: number;
-}): {
-  prevPeak: JumpPoint | null;
-  nextPeak: JumpPoint | null;
-} {
-  const findMaxAngleIndex = (start: number, end: number): number => {
-    let maxIndex = -1;
-    let maxAngle = -Infinity;
-    for (let i = start; i <= end; i++) {
-      const angle = hipTrajectory[i]?.angle;
-      if (angle != null && angle > maxAngle) {
-        maxAngle = angle;
-        maxIndex = i;
-      }
-    }
-    return maxIndex;
-  };
-
-  // --- NEXT PEAK ---
-  const nextIndex = findMaxAngleIndex(minIndex, hipTrajectory.length - 1);
-  const maxAngleNext = hipTrajectory[nextIndex]?.angle ?? -Infinity;
-
-  let closestSimilarNextIndex = nextIndex;
-  for (let i = minIndex; i < nextIndex; i++) {
-    const angle = hipTrajectory[i]?.angle;
-    if (angle != null && Math.abs(angle - maxAngleNext) <= similarAngleTolerance) {
-      closestSimilarNextIndex = i;
-      break;
-    }
-  }
-
-  // --- PREV PEAK ---
-  const prevIndex = findMaxAngleIndex(0, minIndex);
-  const maxAnglePrev = hipTrajectory[prevIndex]?.angle ?? -Infinity;
-
-  let closestSimilarPrevIndex = prevIndex;
-  for (let i = minIndex; i > 0; i--) {
-    const angle = hipTrajectory[i]?.angle;
-    if (angle != null && Math.abs(angle - maxAnglePrev) <= similarAngleTolerance) {
-      closestSimilarPrevIndex = i;
-      break;
-    }
-  }
-
-  return {
-    prevPeak: hipTrajectory[closestSimilarPrevIndex] ?? null,
-    nextPeak: hipTrajectory[closestSimilarNextIndex] ?? null,
-  };
-}
-
-// Aplica un suavizado por media móvil a una serie de valores numéricos, ignorando los nulos, para reducir fluctuaciones espurias
-function smoothTrajectory({
-  data,
-  window = 3,
-}: {
-  // 🔹 Array de números o nulls (posiciones Y de la articulación)
-  data: (number | null)[];
-  // 🔹 Tamaño de la ventana deslizante usada para calcular la media Debe ser un número impar para mantener simetría. Cuanto mayor sea ese valor, más se suaviza... pero con el riesgo de perder precisión temporal si se pasa de largo.
-  window: number;
-}): (number | null)[] {
-  return data.map((_, i) => {
-    const values = data.slice(Math.max(0, i - Math.floor(window / 2)), i + Math.ceil(window / 2))
-      .filter(v => v !== null) as number[];
-    return values.length ? values.reduce((a, b) => a + b) / values.length : null;
-  });
-}
-
-// Encuentra el punto más bajo suavizado en una serie de valores verticales, útil para identificar el mínimo real reduciendo ruido
-function findSmoothedMinIndex({
-  yValues, 
-  window = 3,
-}: {
-  // 🔹 Array de valores numéricos (coordenadas Y del punto de la cadera)
-  yValues: number[];
-  // 🔹 Tamaño de la ventana para el suavizado (media móvil). Cuanto mayor sea, más suave será la curva
-  window: number;
-}): number {
-  const smoothed = smoothTrajectory({data: yValues, window}) as number[];
-  const min = Math.min(...smoothed);
-  return smoothed.findIndex(v => v === min);
-}
-
-// Detecta un cambio claro en la dirección del ángulo articular (aumento o disminución) a partir de un punto inicial, si la variación acumulada supera un umbral
-
-function findAngleEventIndex({
-  angles,
-  start,
-  direction,
-  acumulatedThreshold = 2,
-  minSingleStepChange = 0,
-  scanDirection = "forward"
-}: {
-  // 🔹 Array de ángulos (pueden contener `null`) correspondientes a cada frame
-  angles: (number | null)[];
-  // 🔹 Índice desde el cual comenzar a buscar el cambio
-  start: number;
-  // 🔹 Dirección esperada del cambio angular
-  direction: "increase" | "decrease";
-  // 🔹 Diferencia acumulada mínima (en grados) para que se considere un evento angular
-  acumulatedThreshold: number;
-  minSingleStepChange: number;
-  scanDirection: "forward" | "backward";
-}): number {
-  const factor = direction === "increase" ? 1 : -1;
-
-  const step = scanDirection === "forward" ? 1 : -1;
-  const limit = scanDirection === "forward"
-    ? angles.length - 3
-    : 2; // mínimo índice que permita [i-2, i-1, i]
-
-  for (
-    let i = start;
-    scanDirection === "forward" ? i < limit : i >= limit;
-    i += step
-  ) {
-    const a = angles[i];
-    const b = angles[i + step];
-    const c = angles[i + 2 * step];
-
-    if ([a, b, c].every(v => v != null)) {
-      const diffs = [b! - a!, c! - b!];
-      const consistent = diffs.every(d => d * factor > 0);
-      const magnitude = diffs.reduce((acc, d) => acc + Math.abs(d), 0);
-      const passesSingleStep = diffs.some(d => Math.abs(d) >= minSingleStepChange);
-
-      if (consistent && magnitude >= acumulatedThreshold && passesSingleStep) {
-        return i;
-      }
-    }
-  }
-
-  return start;
-}
-
-// Detecta el fin de la fase de amortiguación tras el aterrizaje, buscando el ángulo máximo más tardío en una ventana cercana al impacto
-function estimateAmortizationEndIndex({
-  // 🔹 Array de puntos con información de ángulo y tiempo de la cadera
-  hipTrajectory,
-  // 🔹 Índice donde ocurre el aterrizaje detectado
-  landingIndex,
-  // 🔹 Cuántos frames hacia adelante se consideran para buscar el pico angular post-aterrizaje. Por defecto, 12 frames (~0.4 s si la cámara graba a 30 fps)
-  range = 12,
-  // 🔹 Umbral en grados para considerar que varios valores son "similares" al máximo
-  angleTolerance = 1,
-}: {
-  hipTrajectory: JumpPoint[];
-  landingIndex: number;
-  range: number;
-  angleTolerance: number;
-}): number {
-  const end = Math.min(hipTrajectory.length, landingIndex + range);
-  const window = hipTrajectory.slice(landingIndex + 1, end);
-
-  if (window.length === 0) return landingIndex;
-
-  // 1. Encontrar el valor máximo
-  const maxAngle = Math.max(...window.map(p => p.angle ?? -Infinity));
-
-  // 2. Buscar todos los valores cercanos al máximo
-  const closeCandidates = window.filter(p =>
-    p.angle != null && Math.abs(p.angle - maxAngle) <= angleTolerance
-  );
-
-  // 3. De esos, quedarnos con el más alejado (más tardío)
-  const furthest = closeCandidates.reduce((a, b) =>
-    a.index > b.index ? a : b
-  );
-
-  return furthest?.index ?? landingIndex;
-}
-
-// Calcula métricas clave de un salto (altura, tiempo de vuelo, impulso, amortiguación y ángulos articulares) a partir de una serie de frames de vídeo
-function analyzeJumpMetrics({
-  // 🔹 Array de frames con keypoints y datos articulares
+/// Beta jump analysis
+export function detectJumpWindowsByAngle({
   frames,
-  settings: {
-    // 🔹 Lado del cuerpo a analizar: "left" o "right"
-    side = "right",
-    // 🔹 Cuántos frames hacia adelante se consideran para buscar el pico angular post-aterrizaje. Por defecto, 12 frames (~0.4 s si la cámara graba a 30 fps)
-    range = 12,
-    // 🔹 Umbral en grados para considerar que varios valores son "similares" al máximo
-    angleTolerance = 1,
-    // 🔹 Diferencia acumulada mínima (en grados) para que se considere un evento angular
-    acumulatedThreshold = 2,
-    // 🔹 Diferencia mínima de grados para considerar despegue/aterrizaje
-    minSingleStepChange = 5,
-    // 🔹 Tamaño de la ventana deslizante usada para calcular la media Debe ser un número impar para mantener simetría. Cuanto mayor sea ese valor, más se suaviza... pero con el riesgo de perder precisión temporal si se pasa de largo
-    window = 3,
-    // 🔹 Tolerancia en grados para considerar un punto como "similar" al máximo encontrado
-    similarAngleTolerance = 1,
-  }
+  mode ="strict",
+  side = "right",
+  joint = "knee",
+  maxTakeoffFlexion = 20, // mejor crear max?TakeoffFlexion y max?LandingFlexion y hacerlos dinamicos
+  maxLandingFlexion = 20,
+  minFlexionBeforeJump = 45,
+  minFlexionAfterLanding = 45,
+  slidingAvgWindow = 3,
+  searchWindow = 15,
+  trendWindow = 3,
 }: {
   frames: VideoFrame[];
-  settings: {
-    side: "left" | "right";
-    minSingleStepChange?: number;
-    range: number;
-    angleTolerance: number;
-    acumulatedThreshold?: number;
-    window?: number;
-    similarAngleTolerance?: number;
-  }
-}): JumpMetrics {
-  if (!frames.length) return null;
-
-  const getJointAngle = (frameIndex: number, jointName: CanvasKeypointName): number | null =>
-    frames[frameIndex]?.jointData?.[jointName]?.angle ?? null;
-
-  const first = frames[0];
-
-  const keypointIndexMap: Record<string, number> = {};
-  first.keypoints.forEach((kp, index) => {
-    if (kp.name) keypointIndexMap[kp.name] = index;
-  });
-
-  const hipName = side === "right" ? CanvasKeypointName.RIGHT_HIP : CanvasKeypointName.LEFT_HIP;
-  const kneeName = side === "right" ? CanvasKeypointName.RIGHT_KNEE : CanvasKeypointName.LEFT_KNEE;
-
-  const hipIndex = keypointIndexMap[hipName];
-
-  if (hipIndex === undefined) {
-    console.warn("❌ No se encontraron índices para los keypoints necesarios.");
-    return null;
-  }
-
-  const hipTrajectory: JumpPoint[] = frames.map((f, index) => ({
-    timestamp: f.videoTime * 1_000,
-    y: f.keypoints[hipIndex].y,
-    angle: f.jointData?.[hipName]?.angle ?? null,
-    index,
-  }));
-  // console.log('hipTrajectory ', hipTrajectory)
-
-  const yMinRaw = Math.min(...hipTrajectory.map(p => p.y));
-  const minIndex = findSmoothedMinIndex({
-    yValues: hipTrajectory.map(p => p.y),
-    window,
-  });
-
-  const takeoffIndex = findAngleEventIndex({
-    angles: hipTrajectory.map(item => item.angle), 
-    start: minIndex, 
-    direction: "increase", 
-    acumulatedThreshold,
-    minSingleStepChange,
-    scanDirection: "backward",
-  });
-
-  const landingIndex = findAngleEventIndex({
-    angles: hipTrajectory.map(item => item.angle), 
-    start: minIndex, 
-    direction: "increase", 
-    acumulatedThreshold,
-    minSingleStepChange,
-    scanDirection: "forward",
-  });
-
-  const flightTime =
-    takeoffIndex !== -1 && landingIndex !== -1
-      ? (hipTrajectory[landingIndex].timestamp - hipTrajectory[takeoffIndex].timestamp) / 1_000
-      : null;
-  
-  // Estimación física de la altura basada en tiempo de vuelo
-  const height = flightTime ? (9.81 * Math.pow(flightTime, 2)) / 8 : 0;
-
-  const { prevPeak } = findMaxPeaksAroundIndex({
-    hipTrajectory, 
-    minIndex,
-    similarAngleTolerance,
-  });
-  const impulseStartIndex = prevPeak ? prevPeak.index + 1 : takeoffIndex;
-  const amortizationEndIndex = estimateAmortizationEndIndex({
-    hipTrajectory, 
-    landingIndex,
-    range,
-    angleTolerance,
-  });
-
-  const impulseDurationInSeconds =
-    takeoffIndex > impulseStartIndex
-      ? (hipTrajectory[takeoffIndex].timestamp - hipTrajectory[impulseStartIndex].timestamp) / 1_000
-      : null;
-
-  const amortizationDurationInSeconds =
-    amortizationEndIndex > landingIndex
-      ? (hipTrajectory[amortizationEndIndex].timestamp - hipTrajectory[landingIndex].timestamp) / 1_000
-      : null;
-
-  const angles = {
-    impulseStart: {
-      timestamp: hipTrajectory[impulseStartIndex].timestamp,
-      hipAngle: getJointAngle(impulseStartIndex, hipName),
-      kneeAngle: getJointAngle(impulseStartIndex, kneeName),
-    },
-    takeoff: {
-      timestamp: hipTrajectory[takeoffIndex].timestamp,
-      hipAngle: getJointAngle(takeoffIndex, hipName),
-      kneeAngle: getJointAngle(takeoffIndex, kneeName),
-    },
-    landing: {
-      timestamp: hipTrajectory[landingIndex].timestamp,
-      hipAngle: getJointAngle(landingIndex, hipName),
-      kneeAngle: getJointAngle(landingIndex, kneeName),
-    },
-    amortizationEnd: {
-      timestamp: hipTrajectory[amortizationEndIndex].timestamp,
-      hipAngle: getJointAngle(amortizationEndIndex, hipName),
-      kneeAngle: getJointAngle(amortizationEndIndex, kneeName),
-    },
-  };
-
-  return {
-    heightInMeters: height,
-    flightTimeInSeconds: flightTime,
-    reactiveStrengthIndex: flightTime ? height / flightTime : null,
-    takeoffTimestamp: hipTrajectory[takeoffIndex].timestamp,
-    landingTimestamp: hipTrajectory[landingIndex].timestamp,
-    impulseDurationInSeconds,
-    amortizationDurationInSeconds,
-    angles,
-    sideUsed: side,
-    yMinRaw: yMinRaw,
-  };
-}
-
-function isJumpLikeDetailed({
-  frames,
-  window = 3
-}: {
-  frames: VideoFrame[]
-  window: number;
-}): {
-  isJump: boolean;
-  reason?: string;
-  metricsPreview?: JumpHeuristicPreview;
-} {
-  if (!frames.length) return { isJump: false, reason: "No frames provided" };
-
-  const hipName = CanvasKeypointName.RIGHT_HIP;
-  const hipIndex = frames[0].keypoints.findIndex(kp => kp.name === hipName);
-  if (hipIndex === -1) {
-    return { isJump: false, reason: "Hip keypoint not found" };
-  }
-
-  const hipTrajectory: JumpPoint[] = frames.map((f, index) => ({
-    timestamp: f.videoTime * 1_000,
-    y: f.keypoints[hipIndex].y,
-    angle: f.jointData?.[hipName]?.angle ?? null,
-    index,
-  }));
-
-  const yValues = hipTrajectory.map(p => p.y);
-  const minIndex = findSmoothedMinIndex({yValues, window});
-  
-  const start = Math.max(0, minIndex - 30);
-  const end = Math.min(yValues.length - 1, minIndex + 30);
-  
-  const maxYBefore = Math.max(...yValues.slice(start, minIndex));
-  const maxYAfter = Math.max(...yValues.slice(minIndex, end + 1));
-  
-  const angleValues = [...hipTrajectory].map(item => item.angle);
-  const validAnglesBefore = angleValues.slice(start, minIndex).filter(a => a !== null) as number[];
-  const validAnglesAfter = angleValues.slice(minIndex, end + 1).filter(a => a !== null) as number[];
-
-  const maxAngleBefore = Math.max(...validAnglesBefore);
-  const maxAngleAfter = Math.max(...validAnglesAfter);
-  const dropHeight = maxYBefore - yValues[minIndex];
-  const riseHeight = maxYAfter - yValues[minIndex];
-  const angleChange = Math.abs(maxAngleBefore - maxAngleAfter);
-
-  const metricsPreview = {
-    minIndex,
-    dropHeight,
-    riseHeight,
-    maxAngleBefore,
-    maxAngleAfter,
-    angleChange,
-  };
-
-  if (dropHeight <= 200) return { isJump: false, reason: "Insufficient drop height", metricsPreview };
-  if (riseHeight <= 200) return { isJump: false, reason: "Insufficient rise height", metricsPreview };
-  if (maxAngleBefore <= 30 || maxAngleAfter <= 30) return { isJump: false, reason: "Angle too low", metricsPreview };
-  if (angleChange <= 10) return { isJump: false, reason: "Angle change too small", metricsPreview };
-
-  return { isJump: true, metricsPreview };
-}
-
-// Detecta posibles saltos en una secuencia de frames identificando mínimos locales en la trayectoria vertical de la cadera y aplicando filtros para validar si son saltos reales.
-export function detectJumpEvents({
-  frames,
-  settings: {
-    side = "right",
-    windowSize = 30,
-    minSeparation = 40,
-    minSingleStepChange = 5,
-    range = 12,
-    angleTolerance = 1,
-    acumulatedThreshold = 2,
-    window = 3,
-    similarAngleTolerance = 1,
-  },
-}: {
-  // 🔹 Array de frames con keypoints y datos articulares
-  frames: VideoFrame[];
-  settings: {
-    // 🔹 Lado del cuerpo a analizar: "left" o "right"
-    side?: "left" | "right";
-    // 🔹 Tamaño de la ventana para buscar mínimos locales (y extraer subframes)
-    windowSize?: number;
-    // 🔹 Mínima separación entre candidatos a salto, en número de frames
-    minSeparation?: number;
-    // 🔹 Cuántos frames hacia adelante se consideran para buscar el pico angular post-aterrizaje. Por defecto, 12 frames (~0.4 s si la cámara graba a 30 fps)
-    range?: number;
-    // 🔹 Umbral en grados para considerar que varios valores son "similares" al máximo
-    angleTolerance?: number;
-    // 🔹 Diferencia acumulada mínima (en grados) para que se considere un evento angular
-    acumulatedThreshold?: number;
-    // 🔹 Diferencia mínima de grados para considerar despegue/aterrizaje
-    minSingleStepChange?: number;
-    // 🔹 Tamaño de la ventana deslizante usada para calcular la media Debe ser un número impar para mantener simetría. Cuanto mayor sea ese valor, más se suaviza... pero con el riesgo de perder precisión temporal si se pasa de largo
-    window?: number;
-    // 🔹 Tolerancia en grados para considerar un punto como "similar" al máximo encontrado
-    similarAngleTolerance?: number;
-  }
-}): {
-  jumpIndex: number;
-  timestamp: number;
-  isJump: boolean;
-  reason?: string;
-  metricsPreview?: JumpHeuristicPreview;
-  metrics?: JumpMetrics | null;
-}[] {
+  mode?: "strict" | "smoothed"
+  side?: "left" | "right";
+  joint?: "knee" | "hip";
+  maxTakeoffFlexion?: number;
+  maxLandingFlexion?: number;
+  minFlexionBeforeJump?: number;
+  minFlexionAfterLanding?: number;
+  slidingAvgWindow?: number;
+  searchWindow?: number;
+  trendWindow?: number;
+}): Jump[] {
   if (!frames.length) return [];
 
-  const hipName =
-    side === "right"
-      ? CanvasKeypointName.RIGHT_HIP
-      : CanvasKeypointName.LEFT_HIP;
+  const jointName =
+    joint === "hip"
+      ? side === "right"
+        ? CanvasKeypointName.RIGHT_HIP
+        : CanvasKeypointName.LEFT_HIP
+      : side === "right"
+      ? CanvasKeypointName.RIGHT_KNEE
+      : CanvasKeypointName.LEFT_KNEE;
 
-  const hipIndex = frames[0].keypoints.findIndex(kp => kp.name === hipName);
-  if (hipIndex === -1) return [];
+  const angleValues = frames.map((f) => ({
+    angle: f.jointData?.[jointName]?.angle ?? null,
+    yValue: f.keypoints.find(kp => kp.name === jointName)?.y ?? null,
+    videoTime: f.videoTime,
+  }));
+  const validAngles = angleValues
+    .map((a, i) => ({
+      index: i,
+      angle: a.angle,
+      yValue: a.yValue,
+      videoTime: a.videoTime,
+    }))
+    .filter((a) => a.angle !== null) as JumpPoint[];
+  const smoothedAngles: JumpPoint[] = validAngles.map((p, i, arr) => {
+    const start = Math.max(0, i - Math.floor(slidingAvgWindow / 2));
+    const end = Math.min(arr.length, i + Math.ceil(slidingAvgWindow / 2));
+    const window = arr.slice(start, end).map((a) => ({
+      angle: a.angle,
+      yValue: a.yValue,
+    }));
+    const avgAngle = window.reduce((sum, val) => sum + val.angle, 0) / window.length;
+    const avgY = window.reduce((sum, val) => sum + val.yValue, 0) / window.length;
 
-  const yValues = frames.map(f => f.keypoints[hipIndex].y);
-  const candidateMinIndices: number[] = [];
+    return {
+      index: p.index,
+      angle: avgAngle,
+      yValue: avgY,
+      videoTime: p.videoTime, // ✅ Mantenemos el mismo timestamp
+    };
+  });
+  // console.log('angleValues ', angleValues)
+  // console.log('validAngles ',validAngles)
+  // console.log('smoothedAngles ', smoothedAngles)
 
-  for (let i = windowSize; i < yValues.length - windowSize; i++) {
-    const window = yValues.slice(i - windowSize, i + windowSize + 1);
-    const isLocalMin = yValues[i] === Math.min(...window);
-    const farFromLast =
-      candidateMinIndices.length === 0 ||
-      i - candidateMinIndices[candidateMinIndices.length - 1] > minSeparation;
+  const results: Jump[] = [];
 
-    if (isLocalMin && farFromLast) {
-      candidateMinIndices.push(i);
+  // solo para elegir en el bucle y el prev, curr o next
+  const angles = (mode === "smoothed") ? smoothedAngles : validAngles;
+
+  for (let i = 1; i < angles.length - 1; i++) {
+    const prev = angles[i - 1].angle;
+    const curr = angles[i].angle;
+    const next = angles[i + 1].angle;
+
+    // Detectar mínimo local (centro del vuelo)
+    if (curr < maxTakeoffFlexion && curr < prev && curr < next) {
+      const preWindowSmoothed = smoothedAngles.slice(Math.max(0, i - searchWindow), i);
+      const postWindowSmoothed = smoothedAngles.slice(i + 1, i + 1 + searchWindow);
+      
+      const impulsePoint = findImpulsePoint(
+        preWindowSmoothed, 
+        trendWindow,
+      );
+      // console.log('impulsePoint ', impulsePoint)
+      if (!impulsePoint) continue;
+
+      const cushionPoint = findCushionPoint(
+        postWindowSmoothed, 
+        trendWindow,
+      );
+      // console.log('cushionPoint ', cushionPoint)
+      if (!cushionPoint) continue;
+      
+      if (
+        impulsePoint.angle >= minFlexionBeforeJump &&
+        cushionPoint.angle >= minFlexionAfterLanding
+      ) {
+        // console.log('minimo local ', validAngles[i])
+        const fromImpulseToMin = validAngles.slice(
+          validAngles.findIndex(p => p.index === impulsePoint.index),
+          i + 1 // i + 1 = índice del mínimo local (centro del salto)
+        );
+        const takeoffPoint = findTakeoffPoint(
+          fromImpulseToMin,
+          trendWindow,
+          maxTakeoffFlexion,
+        ); 
+        // console.log('takeoffPoint ', takeoffPoint)    
+  
+        const fromMinToCushion = validAngles.slice(
+          i,
+          validAngles.findIndex(p => p.index === cushionPoint.index) + 1
+        );
+        const landingPoint = findLandingPoint(
+          fromMinToCushion,
+          trendWindow,
+          maxLandingFlexion,
+        );
+        // console.log('landingPoint ', landingPoint)
+
+        results.push({
+          impulsePoint,
+          takeoffPoint: takeoffPoint ?? impulsePoint,
+          landingPoint: landingPoint ?? cushionPoint,
+          cushionPoint,
+        });
+        i += searchWindow;
+      }
     }
   }
 
-  return candidateMinIndices.map(jumpIndex => {
-    const subStart = Math.max(0, jumpIndex - windowSize);
-    const subEnd = Math.min(frames.length, jumpIndex + windowSize + 1);
-    const subFrames = frames.slice(subStart, subEnd);
-
-    const { isJump, reason, metricsPreview } = isJumpLikeDetailed({frames: subFrames, window});
-
-    const metrics = isJump
-      ? analyzeJumpMetrics({ 
-          frames: subFrames, 
-          settings: {
-            side, 
-            minSingleStepChange,
-            range,
-            angleTolerance,
-            acumulatedThreshold,
-            window,
-            similarAngleTolerance,
-          }
-        })
-      : null;
-
-    return {
-      jumpIndex,
-      timestamp: frames[jumpIndex].videoTime * 1000,
-      isJump,
-      reason,
-      metricsPreview,
-      metrics,
-    };
-  });
+  return results;
 }
 
-/// Jump analysis ///
-///===============///
+function findImpulsePoint(preWindow: JumpPoint[], trendWindow: number): JumpPoint | null {
+  let impulseCandidate: JumpPoint | null = null;
+
+  for (let j = 0; j <= preWindow.length - trendWindow; j++) {
+    let trendValid = true;
+    for (let k = 1; k < trendWindow; k++) {
+      if (preWindow[j + k].angle <= preWindow[j + k - 1].angle) {
+        trendValid = false;
+        break;
+      }
+    }
+
+    if (trendValid) {
+      const segment = preWindow.slice(j, j + trendWindow);
+      const localPeak = segment.reduce(
+        (max, p) => (p.angle > max.angle ? p : max),
+        segment[0]
+      );
+      if (!impulseCandidate || localPeak.angle > impulseCandidate.angle) {
+        impulseCandidate = localPeak;
+      }
+    }
+  }
+
+  return impulseCandidate;
+}
+
+function findTakeoffPoint(
+  segment: JumpPoint[],
+  trendWindow: number,
+  maxTakeoffFlexion?: number,
+): JumpPoint | null {
+  // console.log('findTakeoffPoint ', segment)
+  let maxFlexionCandidate: JumpPoint | null = null;
+  let comboCandidate: JumpPoint | null = null;
+
+  for (let j = 0; j <= segment.length - trendWindow; j++) {
+    let isDescending = true;
+
+    // Verificamos que haya una tendencia descendente de al menos trendWindow
+    for (let k = 1; k < trendWindow; k++) {
+
+      if (segment[j + k].angle >= segment[j + k - 1].angle) {
+        isDescending = false;
+        break;
+      }
+    }
+
+    const candidate = segment[j + trendWindow - 1];
+
+    if (maxTakeoffFlexion !== undefined && candidate.angle <= maxTakeoffFlexion) {
+      if (maxFlexionCandidate === null) {
+        maxFlexionCandidate = candidate;
+      }
+      if (isDescending) {
+        comboCandidate = candidate;
+        // En el primer match robusto, comparamos con maxFlexionCandidate
+        if (
+          maxFlexionCandidate &&
+          maxFlexionCandidate.videoTime < comboCandidate.videoTime
+        ) {
+          return maxFlexionCandidate;
+        } else {
+          return comboCandidate;
+        }
+      }
+    }
+  }
+
+  // Si nunca se encontró un isDescending true, pero sí un maxFlexionCandidate
+  return maxFlexionCandidate || null;
+}
+
+function findLandingPoint(
+  segment: JumpPoint[],
+  trendWindow: number,
+  maxTakeoffFlexion?: number,
+): JumpPoint | null {
+  let maxFlexionCandidate: JumpPoint | null = null;
+  let comboCandidate: JumpPoint | null = null;
+
+  for (let j = segment.length - trendWindow; j >= 0; j--) {
+    let isDescending = true;
+    for (let k = 0; k < trendWindow - 1; k++) {
+      if (segment[j + k + 1].angle - segment[j + k].angle <= 0) {
+        isDescending = false;
+        break;
+      }
+    }
+
+    const candidate = segment[j + trendWindow - 1];
+
+    if (maxTakeoffFlexion !== undefined && candidate.angle <= maxTakeoffFlexion) {
+      if (maxFlexionCandidate === null) {
+        maxFlexionCandidate = candidate;
+      }
+
+      if (isDescending) {
+        comboCandidate = candidate;
+        // En el primer match robusto, comparamos con maxFlexionCandidate
+        if (
+          maxFlexionCandidate &&
+          maxFlexionCandidate.videoTime > comboCandidate.videoTime
+        ) {
+          return maxFlexionCandidate;
+        } else {
+          return comboCandidate;
+        }
+      }
+    }
+  }
+  // Si nunca se encontró un isDescending true, pero sí un maxFlexionCandidate
+  return maxFlexionCandidate || null;
+}
+
+function findCushionPoint(postWindow: JumpPoint[], trendWindow: number): JumpPoint | null {
+  let cushionCandidate: JumpPoint | null = null;
+
+  for (let j = 0; j <= postWindow.length - trendWindow; j++) {
+    let trendValid = true;
+    for (let k = 1; k < trendWindow; k++) {
+      if (postWindow[j + k].angle <= postWindow[j + k - 1].angle) {
+        trendValid = false;
+        break;
+      }
+    }
+
+    if (trendValid) {
+      const segment = postWindow.slice(j, j + trendWindow);
+      const localPeak = segment.reduce(
+        (max, p) => (p.angle > max.angle ? p : max),
+        segment[0]
+      );
+      if (!cushionCandidate || localPeak.angle > cushionCandidate.angle) {
+        cushionCandidate = localPeak;
+      }
+    }
+  }
+
+  return cushionCandidate;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
