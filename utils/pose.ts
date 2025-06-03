@@ -201,12 +201,10 @@ export function filterRepresentativeFrames(
 /// Beta jump analysis
 export function detectJumpWindowsByAngle({
   frames,
+  mode ="strict",
   side = "right",
   joint = "knee",
-  minJumpTrendingFlexion = 15,
-  minFlightTrendingFlexion = 25,
-  minFlightFlexion = 20,
-  minSingleStepFlexion = 5,
+  maxTakeoffFlexion = 20, // mejor crear max?TakeoffFlexion y max?LandingFlexion y hacerlos dinamicos
   maxLandingFlexion = 20,
   minFlexionBeforeJump = 45,
   minFlexionAfterLanding = 45,
@@ -215,18 +213,10 @@ export function detectJumpWindowsByAngle({
   trendWindow = 3,
 }: {
   frames: VideoFrame[];
+  mode?: "strict" | "smoothed"
   side?: "left" | "right";
   joint?: "knee" | "hip";
-  // Asegura que el ángulo del candidato haya aumentado lo suficiente 
-  // con respecto al punto más bajo durante el vuelo 
-  // (referenceAngle, que normalmente es curr).
-  // Esto garantiza una flexión real, no solo una oscilación mínima
-  minJumpTrendingFlexion?:number;
-  minFlightTrendingFlexion?: number;
-  // Si el ángulo está por debajo de minFlightFlexion, 
-  // es muy probable que el pie no haya tocado aún el suelo
-  minFlightFlexion?: number;
-  minSingleStepFlexion?: number;
+  maxTakeoffFlexion?: number;
   maxLandingFlexion?: number;
   minFlexionBeforeJump?: number;
   minFlexionAfterLanding?: number;
@@ -281,67 +271,64 @@ export function detectJumpWindowsByAngle({
 
   const results: Jump[] = [];
 
-  for (let i = 1; i < smoothedAngles.length - 1; i++) {
-    const prev = validAngles[i - 1].angle;
-    const curr = validAngles[i].angle;
-    const next = validAngles[i + 1].angle;
+  // solo para elegir en el bucle y el prev, curr o next
+  const angles = (mode === "smoothed") ? smoothedAngles : validAngles;
+
+  for (let i = 1; i < angles.length - 1; i++) {
+    const prev = angles[i - 1].angle;
+    const curr = angles[i].angle;
+    const next = angles[i + 1].angle;
 
     // Detectar mínimo local (centro del vuelo)
-    if (curr < minFlightFlexion && curr < prev && curr < next) {
+    if (curr < maxTakeoffFlexion && curr < prev && curr < next) {
       const preWindowSmoothed = smoothedAngles.slice(Math.max(0, i - searchWindow), i);
       const postWindowSmoothed = smoothedAngles.slice(i + 1, i + 1 + searchWindow);
-
+      
       const impulsePoint = findImpulsePoint(
         preWindowSmoothed, 
-        trendWindow
+        trendWindow,
       );
-      if (!impulsePoint) continue; // saltamos si no hay tendencia válida
+      // console.log('impulsePoint ', impulsePoint)
+      if (!impulsePoint) continue;
 
       const cushionPoint = findCushionPoint(
         postWindowSmoothed, 
         trendWindow,
       );
+      // console.log('cushionPoint ', cushionPoint)
       if (!cushionPoint) continue;
-
-      const fromImpulseToMin = validAngles.slice(
-        validAngles.findIndex(p => p.index === impulsePoint.index),
-        i // i = índice del mínimo local (centro del salto)
-      );
-      const takeoffPoint = findTakeoffPoint(
-        fromImpulseToMin,
-        trendWindow,
-        minFlightFlexion,
-        minFlightTrendingFlexion,
-        impulsePoint.angle,
-      );     
-      if (!takeoffPoint) continue;
-
-      const fromMinToCushion = validAngles.slice(
-        i + 1,
-        validAngles.findIndex(p => p.index === cushionPoint.index)
-      );
-      const landingPoint = findLandingPoint(
-        fromMinToCushion,
-        trendWindow,
-        minFlightFlexion,
-        minFlightTrendingFlexion,
-        curr, // ángulo mínimo del salto, en el frame i
-        minSingleStepFlexion,
-        maxLandingFlexion,
-      );
-      if (!landingPoint) continue;
-
-      const angleChange = Math.abs(impulsePoint.angle - curr);
-
+      
       if (
         impulsePoint.angle >= minFlexionBeforeJump &&
-        cushionPoint.angle >= minFlexionAfterLanding &&
-        angleChange >= minJumpTrendingFlexion
+        cushionPoint.angle >= minFlexionAfterLanding
       ) {
+        // console.log('minimo local ', validAngles[i])
+        const fromImpulseToMin = validAngles.slice(
+          validAngles.findIndex(p => p.index === impulsePoint.index),
+          i + 1 // i + 1 = índice del mínimo local (centro del salto)
+        );
+        const takeoffPoint = findTakeoffPoint(
+          fromImpulseToMin,
+          trendWindow,
+          maxTakeoffFlexion,
+        ); 
+        // console.log('takeoffPoint ', takeoffPoint)    
+  
+        const fromMinToCushion = validAngles.slice(
+          i,
+          validAngles.findIndex(p => p.index === cushionPoint.index) + 1
+        );
+        const landingPoint = findLandingPoint(
+          fromMinToCushion,
+          trendWindow,
+          maxLandingFlexion,
+        );
+        // console.log('landingPoint ', landingPoint)
+
         results.push({
           impulsePoint,
-          takeoffPoint,
-          landingPoint,
+          takeoffPoint: takeoffPoint ?? impulsePoint,
+          landingPoint: landingPoint ?? cushionPoint,
           cushionPoint,
         });
         i += searchWindow;
@@ -382,98 +369,89 @@ function findImpulsePoint(preWindow: JumpPoint[], trendWindow: number): JumpPoin
 function findTakeoffPoint(
   segment: JumpPoint[],
   trendWindow: number,
-  minFlightFlexion?: number,      // ← umbral de corte (por debajo sería vuelo)
-  minTrendingFlexion?: number,    // ← cambio mínimo desde impulsePoint
-  referenceAngle?: number         // ← ángulo de impulsePoint
+  maxTakeoffFlexion?: number,
 ): JumpPoint | null {
   // console.log('findTakeoffPoint ', segment)
-  let lastValid: JumpPoint | null = null;
+  let maxFlexionCandidate: JumpPoint | null = null;
+  let comboCandidate: JumpPoint | null = null;
 
   for (let j = 0; j <= segment.length - trendWindow; j++) {
-    let descending = true;
+    let isDescending = true;
 
     // Verificamos que haya una tendencia descendente de al menos trendWindow
     for (let k = 1; k < trendWindow; k++) {
+
       if (segment[j + k].angle >= segment[j + k - 1].angle) {
-        descending = false;
+        isDescending = false;
         break;
       }
     }
 
-    if (!descending) continue;
-
     const candidate = segment[j + trendWindow - 1];
 
-    // ⚠️ Corte por minFlightFlexion: ya estaría volando si pasa el umbral
-    if (minFlightFlexion !== undefined && candidate.angle < minFlightFlexion) continue;
-
-    // ⚠️ Verificar cambio angular suficiente desde impulse
-    if (
-      minTrendingFlexion !== undefined &&
-      referenceAngle !== undefined &&
-      (referenceAngle - candidate.angle) < minTrendingFlexion
-    ) continue;
-
-    lastValid = candidate;
+    if (maxTakeoffFlexion !== undefined && candidate.angle <= maxTakeoffFlexion) {
+      if (maxFlexionCandidate === null) {
+        maxFlexionCandidate = candidate;
+      }
+      if (isDescending) {
+        comboCandidate = candidate;
+        // En el primer match robusto, comparamos con maxFlexionCandidate
+        if (
+          maxFlexionCandidate &&
+          maxFlexionCandidate.videoTime < comboCandidate.videoTime
+        ) {
+          return maxFlexionCandidate;
+        } else {
+          return comboCandidate;
+        }
+      }
+    }
   }
 
-  return lastValid;
+  // Si nunca se encontró un isDescending true, pero sí un maxFlexionCandidate
+  return maxFlexionCandidate || null;
 }
 
 function findLandingPoint(
   segment: JumpPoint[],
   trendWindow: number,
-  minFlightFlexion?: number,
-  minTrendingFlexion?: number,
-  referenceAngle?: number,
-  minSingleStepFlexion?: number,
-  maxLandingFlexion?: number
+  maxTakeoffFlexion?: number,
 ): JumpPoint | null {
-  let bestCandidate: JumpPoint | null = null;
+  let maxFlexionCandidate: JumpPoint | null = null;
+  let comboCandidate: JumpPoint | null = null;
 
-  for (let j = 0; j <= segment.length - trendWindow; j++) {
-    let ascending = true;
-
-    for (let k = 1; k < trendWindow; k++) {
-      if (segment[j + k].angle <= segment[j + k - 1].angle) {
-        ascending = false;
+  for (let j = segment.length - trendWindow; j >= 0; j--) {
+    let isDescending = true;
+    for (let k = 0; k < trendWindow - 1; k++) {
+      if (segment[j + k + 1].angle - segment[j + k].angle <= 0) {
+        isDescending = false;
         break;
       }
     }
 
-    if (!ascending) continue;
-
     const candidate = segment[j + trendWindow - 1];
 
-    // 1. Corte por ángulo mínimo (aún en vuelo)
-    if (minFlightFlexion !== undefined && candidate.angle < minFlightFlexion) continue;
+    if (maxTakeoffFlexion !== undefined && candidate.angle <= maxTakeoffFlexion) {
+      if (maxFlexionCandidate === null) {
+        maxFlexionCandidate = candidate;
+      }
 
-    // 2. Corte por ángulo máximo opcional (demasiada flexión para un contacto)
-    if (maxLandingFlexion !== undefined && candidate.angle > maxLandingFlexion) continue;
-
-    // 3. Corte por cambio desde el ángulo mínimo del salto
-    if (
-      minTrendingFlexion !== undefined &&
-      referenceAngle !== undefined &&
-      (candidate.angle - referenceAngle) < minTrendingFlexion
-    ) continue;
-
-    // 4. Verificación de salto brusco en un solo paso
-    const delta = segment[j + 1].angle - segment[j].angle;
-    if (
-      minSingleStepFlexion !== undefined &&
-      delta >= minSingleStepFlexion
-    ) {
-      return segment[j + 1]; // preferimos el impacto real
-    }
-
-    // 5. Si todo pasa, y no se ha devuelto antes, guardamos el candidato
-    if (!bestCandidate) {
-      bestCandidate = candidate;
+      if (isDescending) {
+        comboCandidate = candidate;
+        // En el primer match robusto, comparamos con maxFlexionCandidate
+        if (
+          maxFlexionCandidate &&
+          maxFlexionCandidate.videoTime > comboCandidate.videoTime
+        ) {
+          return maxFlexionCandidate;
+        } else {
+          return comboCandidate;
+        }
+      }
     }
   }
-
-  return bestCandidate;
+  // Si nunca se encontró un isDescending true, pero sí un maxFlexionCandidate
+  return maxFlexionCandidate || null;
 }
 
 function findCushionPoint(postWindow: JumpPoint[], trendWindow: number): JumpPoint | null {

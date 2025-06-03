@@ -72,9 +72,9 @@ export interface JumpPoint {
   yValue: number;
 }
 export type Jump = {
-    impulsePoint: JumpPoint;
-    takeoffPoint: JumpPoint;
-    landingPoint: JumpPoint;
-    cushionPoint: JumpPoint;
+  impulsePoint: JumpPoint;
+  takeoffPoint: JumpPoint;
+  landingPoint: JumpPoint;
+  cushionPoint: JumpPoint;
 }
 

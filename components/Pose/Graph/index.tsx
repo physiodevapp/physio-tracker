@@ -48,6 +48,7 @@ interface IndexProps {
   onToggleLegend?: (index: number, hidden: boolean) => void;
   annotations?: PoseAnnotations;
   dragLimits?: DragLimits;
+  onDraggableLinesUpdated?: (draggableLinesUpdated: Record<string, number>) => void;
 }
 
 const areAllDatasetsHidden = (chart: ChartJS): boolean => {
@@ -360,6 +361,7 @@ const Index = ({
   onToggleLegend,
   annotations,
   dragLimits,
+  onDraggableLinesUpdated,
 }: IndexProps) => {
   const [isZoomed, setIsZoomed] = useState(false);
   const tooltipXRef = useRef<number>(0);
@@ -503,8 +505,8 @@ const Index = ({
         customDragger(
           100,
           dragLimits!,
-          () => {
-            console.log('dragged!')
+          (updatedLines) => {
+            onDraggableLinesUpdated?.(updatedLines)
           },
         ),
         customCrosshairPlugin({

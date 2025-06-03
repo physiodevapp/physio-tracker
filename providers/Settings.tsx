@@ -14,6 +14,16 @@ interface PoseSettings {
   orthogonalReference: OrthogonalReference;
   pointsPerSecond: number;
   minAngleDiff: number;
+  jump: {
+    side: "right" | "left",
+    joint: "hip" | "knee",
+    mode: "strict" | "smoothed",
+    maxTakeoffFlexion: number,
+    maxLandingFlexion: number,
+    minFlexionBeforeJump: number,
+    minFlexionAfterLanding: number,
+    searchWindow: number,
+  }
 }
 
 interface ColorSettings {
@@ -77,6 +87,14 @@ interface SettingsContextProps {
   setOrthogonalReference: (value: OrthogonalReference) => void;
   setPointsPerSecond: (value: number) => void;
   setMinAngleDiff: (value: number) => void;
+  setJumpSide: (value: "right" | "left") => void;
+  setJumpJoint: (value: "hip" | "knee") => void;
+  setJumpMode: (value: "strict" | "smoothed") => void;
+  setMaxTakeoffFlexion: (value: number) => void;
+  setMaxLandingFlexion: (value: number) => void;
+  setMinFlexionBeforeJump: (value: number) => void;
+  setMinFlexionAfterLanding: (value: number) => void;
+  setSearchWindow: (value: number) => void;
   // Setters para color
   setRedHueLower1: (value: number) => void;
   setRedHueUpper1: (value: number) => void;
@@ -115,6 +133,7 @@ interface SettingsContextProps {
   setAutoStartAfterCalibration: (value: boolean) => void;
   // Función para resetear los settings
   resetPoseSettings: () => void;
+  resetPoseJumpSettings: () => void;
   resetForceSettings: () => void;
   resetColorSettings: () => void;
   resetBalanceSettings: () => void;
@@ -133,8 +152,18 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       angularHistorySize: 5,
       poseModel: poseDetection.SupportedModels.MoveNet,
       orthogonalReference: undefined,
-      pointsPerSecond: 20,
-      minAngleDiff: 2,
+      pointsPerSecond: 30,
+      minAngleDiff: 1,
+      jump: {
+        side: "right",
+        joint: "knee",
+        mode: "strict",
+        maxTakeoffFlexion: 10,
+        maxLandingFlexion: 10,
+        minFlexionBeforeJump: 45,
+        minFlexionAfterLanding: 45,
+        searchWindow: 20,
+      }
     },
     color: {
       redHueLower1: 0,
@@ -206,15 +235,49 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const setOrthogonalReference = (value: OrthogonalReference) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, orthogonalReference: value } }));
   };
-  const resetPoseSettings = () => {
+  const setJumpSide = (value: "right" | "left") => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, jump: { ...prev.pose.jump, side: value } } }));
+  };
+  const setJumpJoint = (value: "hip" | "knee") => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, jump: { ...prev.pose.jump, joint: value } } }));
+  };
+  const setJumpMode = (value: "strict" | "smoothed") => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, jump: { ...prev.pose.jump, mode: value } } }));
+  };
+  const setMaxTakeoffFlexion = (value: number) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, jump: { ...prev.pose.jump, maxTakeoffFlexion: value } } }));
+  };
+  const setMaxLandingFlexion = (value: number) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, jump: { ...prev.pose.jump, maxLandingFlexion: value } } }));
+  };
+  const setMinFlexionBeforeJump = (value: number) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, jump: { ...prev.pose.jump, minFlexionBeforeJump: value } } }));
+  };
+  const setMinFlexionAfterLanding = (value: number) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, jump: { ...prev.pose.jump, minFlexionAfterLanding: value } } }));
+  };
+  const setSearchWindow = (value: number) => {
+    setSettings(prev => ({ ...prev, pose: { ...prev.pose, jump: { ...prev.pose.jump, searchWindow: value } } }));
+  };
+  const resetPoseSettings = () => { // revisar el reset sin jump
     setSettings(prev => ({
       ...prev,
       pose: {
         ...defaultConfig.pose,
+        jump: prev.pose.jump,
         selectedJoints: prev.pose.selectedJoints,
       },
     }));
   };
+  const resetPoseJumpSettings = () => { // revisar el reset solo del jump
+    setSettings(prev => ({
+      ...prev,
+      pose: {
+        ...prev.pose,
+        jump: defaultConfig.pose.jump,
+      }
+    }))
+  }
 
   // Setters para color
   const setRedHueLower1 = (value: number) => setSettings(prev => ({ ...prev, color: { ...prev.color, redHueLower1: value } }));
@@ -294,7 +357,16 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setOrthogonalReference,
         setPointsPerSecond,
         setMinAngleDiff,
+        setJumpSide,
+        setJumpJoint,
+        setJumpMode,
+        setMaxTakeoffFlexion,
+        setMaxLandingFlexion,
+        setMinFlexionBeforeJump,
+        setMinFlexionAfterLanding,
+        setSearchWindow,
         resetPoseSettings,
+        resetPoseJumpSettings,
         setRedHueLower1,
         setRedHueUpper1,
         setRedHueLower2,

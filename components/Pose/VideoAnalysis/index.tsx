@@ -25,6 +25,7 @@ export type VideoAnalysisHandle = {
   downloadJSON: () => void;
   removeVideo: () => void;
   handleNewVideo: () => void;
+  handleFramesBasedOnJumps: (mode: "detect" | "dismiss") => void;
 };
 
 export type ProcessingStatus = 'idle' | 'processing' | 'cancelRequested' | 'cancelled' | 'processed' | 'durationExceeded';
@@ -45,6 +46,8 @@ interface IndexProps {
   onStatusChange?: (status: ProcessingStatus) => void;
   initialUrl: string | null;
   onJumpsDetected?: (jumps: Jump[]) => void;
+  isPoseJumpSettingsModalOpen: boolean;
+  setIsPoseJumpSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
@@ -63,6 +66,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   onStatusChange,
   initialUrl,
   onJumpsDetected,
+  isPoseJumpSettingsModalOpen,
+  setIsPoseJumpSettingsModalOpen,
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -109,7 +114,18 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     angularHistorySize,
     pointsPerSecond, 
     minAngleDiff,
+    jump,
   } = settings.pose;
+  const { 
+    mode,
+    side,
+    joint,
+    maxTakeoffFlexion,
+    maxLandingFlexion,
+    minFlexionBeforeJump,
+    minFlexionAfterLanding,
+    searchWindow,
+   } = jump;
   const selectedJointsRef = useRef(selectedJoints);
 
   const maxDuration = 30; // segundos
@@ -122,10 +138,18 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
   const [chartAnnotations, setChartAnnotations] = useState<PoseAnnotations | null>(null);
   const [dragLimits, setDragLimits] = useState<DragLimits | null>(null);
+  
+  const draggableLinesUpdatedRef = useRef<Record<string, number> | null>(null)
 
   const handleClickOnCanvas = () => { 
-    if (isPoseSettingsModalOpen || isMainMenuOpen) {
+    if (
+      isPoseSettingsModalOpen || 
+      isPoseJumpSettingsModalOpen ||
+      isMainMenuOpen
+    ) {
       setIsPoseSettingsModalOpen(false);
+
+      setIsPoseJumpSettingsModalOpen(false);
   
       handleMainMenu(false);
     }
@@ -378,36 +402,89 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     }
   };
 
+  const handleFramesBasedOnJumps = (mode: "idle" | "detect" | "dismiss" = "detect") => {
+    if (isPoseJumpSettingsModalOpen) {
+      setIsPoseJumpSettingsModalOpen(false);
+    }
+
+    if (mode === "dismiss") {
+      setChartAnnotations(null);
+      setDragLimits(null);
+
+      onJumpsDetected?.([]);
+
+      return;
+    }
+
+    const framesWithJointData = allFramesDataRef.current.filter(
+      (frame): frame is VideoFrame =>
+        !!frame.jointData &&
+        Object.values(frame.jointData).some(joint => typeof joint.angle === "number")
+    );
+    // console.log('framesWithJointData ', framesWithJointData)
+
+    const jumpsByAngle = mode === "detect" 
+      ? handleJumpsDetection() 
+      : [];
+
+    function tryReduceFrames(frames: VideoFrame[], threshold: number, minRequired: number = 80): VideoFrame[] {
+      const reduced = filterRepresentativeFrames(frames, threshold);
+      return reduced.length >= minRequired ? reduced : frames;
+    }
+
+    // Lógica de visualización adaptativa
+    const framesToDisplay = jumpsByAngle.length
+      ? framesWithJointData // Mantener precisión si hay saltos válidos
+      : tryReduceFrames(framesWithJointData, minAngleDiff, 80);
+
+    const transformed = transformToRecordedPositions(framesToDisplay);
+    setRecordedPositions(transformed);
+  }
+
   const handleJumpsDetection = () => {
     const jumpsByAngle = detectJumpWindowsByAngle({
       frames: allFramesDataRef.current,
-      side: "right",
-      joint: "knee",
-      minJumpTrendingFlexion: 6,
-      minFlightTrendingFlexion: 6,
-      minFlightFlexion: 3,
-      minSingleStepFlexion: 5,
-      maxLandingFlexion: 20,
-      minFlexionBeforeJump: 45,
-      minFlexionAfterLanding: 45,
+      mode,
+      side,
+      joint,
+      maxTakeoffFlexion,
+      maxLandingFlexion,
+      minFlexionBeforeJump,
+      minFlexionAfterLanding,
+      searchWindow,
       slidingAvgWindow: 3,
-      searchWindow: 40,
       trendWindow: 3,
     });
 
-    console.log('handleJumpsDetection ', jumpsByAngle)
+    // console.log('handleJumpsDetection ', jumpsByAngle)
     if (jumpsByAngle.length > 0) {
-      console.log(jumpsByAngle.length)
       const annotations: PoseAnnotations = {};
       const dragLimits: DragLimits = {};
 
       jumpsByAngle.forEach((jump, i) => {
-        const { 
+        let { 
           impulsePoint, 
           takeoffPoint, 
           landingPoint, 
           cushionPoint 
         } = jump;
+
+        if (draggableLinesUpdatedRef.current) {
+          if (draggableLinesUpdatedRef.current[`impulseLine_${i}`] !== undefined) {
+            impulsePoint = { ...impulsePoint, videoTime: draggableLinesUpdatedRef.current[`impulseLine_${i}`] / 1_000 };
+          }
+          if (draggableLinesUpdatedRef.current[`takeoffLine_${i}`] !== undefined) {
+            takeoffPoint = { ...takeoffPoint, videoTime: draggableLinesUpdatedRef.current[`takeoffLine_${i}`] / 1_000 };
+          }
+          if (draggableLinesUpdatedRef.current[`landingLine_${i}`] !== undefined) {
+            landingPoint = { ...landingPoint, videoTime: draggableLinesUpdatedRef.current[`landingLine_${i}`] / 1_000 };
+          }
+          if (draggableLinesUpdatedRef.current[`cushionLine_${i}`] !== undefined) {
+            cushionPoint = { ...cushionPoint, videoTime: draggableLinesUpdatedRef.current[`cushionLine_${i}`] / 1_000 };
+          }
+        }
+        draggableLinesUpdatedRef.current = null;
+
         const impulseTimestamp = impulsePoint.videoTime * 1_000;
         const takeoffTimestamp = takeoffPoint.videoTime * 1_000;
         const landingTimestamp = landingPoint.videoTime * 1_000;
@@ -420,58 +497,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         console.log()
         const flightHeight = (((g * Math.pow(Number(flightDuration), 2)) / 8) * 100).toFixed(0);
 
-        // Box: solo fase de vuelo
-        // if (takeoffTimestamp != null && landingTimestamp != null) {
-        //   annotations[`flightBox_${i}`] = {
-        //     type: "box",
-        //     xMin: takeoffTimestamp,
-        //     xMax: landingTimestamp,
-        //     yMax: 200,
-        //     yMin: -60,
-        //     backgroundColor: "rgba(0, 200, 255, 0.1)",
-        //     borderColor: "rgba(0, 200, 255, 0.5)",
-        //     borderWidth: 1,
-        //     label: {
-        //       display: true,
-        //       font: {
-        //         weight: 'lighter', // o 'normal' o '400'
-        //       },
-        //       content: [
-        //         `H: ${flightHeight} cm`,
-        //         `I: ${impulseDuration} s`,
-        //         `F: ${flightDuration} s`,
-        //         `A: ${amortizationDuration} s`,
-        //       ],
-        //       position: {
-        //         x: 'center',
-        //         y: '10%',
-        //       },
-        //       textAlign: 'start',
-        //     },
-        //   };
-        // }
-
-        // Box: impulso + vuelo + amortiguación
         if (impulseTimestamp != null && cushionTimestamp != null) {
-          annotations[`fullJumpBox_${i}`] = {
-            type: "box",
-            xMin: impulseTimestamp,
-            xMax: cushionTimestamp,
-            yMax: 200,
-            yMin: -60,
-            backgroundColor: "rgba(0, 255, 100, 0.1)",
-            borderColor: "rgba(0, 255, 100, 0.5)",
-            borderWidth: 1,
-            label: {
-              display: false,
-              content: `J.${i + 1}`,
-              position: {
-                x: 'center',
-                y: '10%',
-              },
-            },
-          };
-
           // 🔹 Línea draggable: takeoff
           annotations[`takeoffLine_${i}`] = {
             type: "line",
@@ -512,25 +538,51 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             min: impulseTimestamp,
             max: cushionTimestamp,
           };
+
+          // Box: impulso + vuelo + amortiguación
+          annotations[`fullJumpBox_${i}`] = {
+            type: "box",
+            xMin: impulseTimestamp,
+            xMax: cushionTimestamp,
+            yMax: 200,
+            yMin: -60,
+            backgroundColor: "rgba(0, 255, 100, 0.1)",
+            borderColor: "rgba(0, 255, 100, 0.5)",
+            borderWidth: 1,
+            label: {
+              display: true,
+              font: {
+                weight: 'lighter', // o 'normal' o '400'
+              },
+              content: [
+                `H: ${flightHeight} cm`,
+                `I: ${impulseDuration} s`,
+                `F: ${flightDuration} s`,
+                `A: ${amortizationDuration} s`,
+              ],
+              position: {
+                x: 'center',
+                y: '10%',
+              },
+              textAlign: 'start',
+            },
+          };
         }
       });
 
       setChartAnnotations(annotations);
       setDragLimits(dragLimits);
+    } else {
+      setChartAnnotations(null);
+      setDragLimits(null);
     }
-    
-    onJumpsDetected?.(jumpsByAngle)
+
+    onJumpsDetected?.(jumpsByAngle);
 
     return jumpsByAngle;
   }
   
   const handleVideoProcessing = async () => {
-    // Función utilitaria para intentar reducir frames si se supera cierto umbral
-    function tryReduceFrames(frames: VideoFrame[], threshold: number, minRequired: number = 80): VideoFrame[] {
-      const reduced = filterRepresentativeFrames(frames, threshold);
-      return reduced.length >= minRequired ? reduced : frames;
-    }
-
     processingCancelledRef.current = false;    
     setProcessingStatus('processing');
     onStatusChange?.("processing")
@@ -554,28 +606,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       return;
     }
 
-    /// Jump Annotations
     await delayInMs(2_000);
 
-    const framesWithJointData = allFramesDataRef.current.filter(
-      (frame): frame is VideoFrame =>
-        !!frame.jointData &&
-        Object.values(frame.jointData).some(joint => typeof joint.angle === "number")
-    );
-    // console.log('framesWithJointData ', framesWithJointData)
-
-    // Detectar saltos
-    const jumpsByAngle = handleJumpsDetection();
-
-    // Lógica de visualización adaptativa
-    const framesToDisplay = jumpsByAngle.length
-      ? framesWithJointData // Mantener precisión si hay saltos válidos
-      : tryReduceFrames(framesWithJointData, minAngleDiff, 80);
-    // const framesToDisplay = framesWithJointData;
-
-    const transformed = transformToRecordedPositions(framesToDisplay);
-    setRecordedPositions(transformed);
-    ///
+    handleFramesBasedOnJumps("idle");
 
     setProcessingStatus("processed");
     onStatusChange?.("processed");
@@ -600,6 +633,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   };
 
   const removeVideo = () => {
+    setIsPoseJumpSettingsModalOpen(false);
+
     allFramesDataRef.current = [];
     setRecordedPositions(undefined);
     setTrimmerRange({range: {start: 0, end: 0}, markerPosition: 0});
@@ -733,7 +768,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   
   const playFrames = useCallback(async () => {
     if (!allFramesDataRef.current.length) return;
-
   
     isPlayingRef.current = true;
     setIsPlaying(true);
@@ -1011,6 +1045,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     downloadJSON,
     removeVideo,
     handleNewVideo,
+    handleFramesBasedOnJumps,
   }));
 
   return (
@@ -1102,7 +1137,10 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           <canvas
             ref={canvasRef}
             onClick={() => {
-              if (processingStatus !== "processed") return;
+              if (
+                processingStatus !== "processed" ||
+                isPoseJumpSettingsModalOpen
+              ) return;
               
               if (isPlaying) {
                 isPlayingRef.current = false;
@@ -1142,8 +1180,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               <div className='absolute left-1/2 -translate-x-1/2 bottom-2 px-4 py-1 text-xl text-center bg-black/40 rounded-full'>{nearestFrameRef.current?.videoTime.toFixed(2)} s</div> 
               <div className='absolute right-0 bottom-0 pr-2 pb-2 flex flex-row gap-1'>             
                 <ArrowUturnDownIcon 
-                  className='w-10 h-10 p-[0.1rem] text-white'
-                  onClick={handleJumpsDetection} />
+                  className='hidden w-10 h-10 p-[0.1rem] text-white'
+                  onClick={() => handleFramesBasedOnJumps("detect")} />
                 {((zoomStatus === "in" && aspectRatio < 1) ||
                 (zoomStatus === "out" && aspectRatio >= 1)) ? (
                   <MagnifyingGlassPlusIcon 
@@ -1198,7 +1236,13 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               forceUpdateUI();
             }} 
             annotations={chartAnnotations!} 
-            dragLimits={dragLimits!} />
+            dragLimits={dragLimits!} 
+            onDraggableLinesUpdated={(draggableLinesUpdated) => {
+              draggableLinesUpdatedRef.current = draggableLinesUpdated;
+
+              handleFramesBasedOnJumps("detect");
+            }}
+            />
         ) : null }
       </div>
 
