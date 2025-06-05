@@ -769,8 +769,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       i < allFramesDataRef.current.length;
       i++
     ) {
-      console.log('play loop -> isVerticalLineUpdatedByUser.current ', isVerticalLineUpdatedByUser.current)
-      console.log('play loop -> isPlayingRef.current ', isPlayingRef.current)
+      // console.log('play loop -> isVerticalLineUpdatedByUser.current ', isVerticalLineUpdatedByUser.current)
+      // console.log('play loop -> isPlayingRef.current ', isPlayingRef.current)
       if (
         isVerticalLineUpdatedByUser.current &&
         !isPlayingRef.current
@@ -1149,11 +1149,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               ) return;
               
               if (isPlayingRef.current) {
-                console.log('canvas -> pauseFrames')
                 pauseFrames();
               }
               else {
-                console.log('canvas -> playFrames')
                 await playFrames();
               }
             }}
@@ -1226,7 +1224,10 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             {isPlaying ? (
               <div
                 className='absolute w-full h-full bg-red-500/0'
-                onClick={pauseFrames}/>
+                onClick={() => {
+                  pauseFrames();
+                }}
+                />
               ) : null}
             <PoseChart
               joints={selectedJoints}
@@ -1246,6 +1247,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                 handleVerticalLineChange(newValue);
               }}
               verticalLineValue={verticalLineValue}
+              isPlayingVideo={isPlaying}
               parentStyles="h-full" 
               hiddenLegendsRef={hiddenLegendsRef}
               onToggleLegend={(index, hidden) => {

@@ -52,6 +52,7 @@ interface IndexProps {
   annotations?: PoseAnnotations;
   dragLimits?: DragLimits;
   onDraggableLinesUpdated?: (draggableLinesUpdated: Record<string, number>) => void;
+  isPlayingVideo?: boolean;
 }
 
 const areAllDatasetsHidden = (chart: ChartJS): boolean => {
@@ -62,10 +63,12 @@ const customCrosshairPlugin = ({
   recordedPositions,
   tooltipXRef,
   hiddenLegendsRef,
+  isPlayingVideo,
 }: {
   recordedPositions: RecordedPositions;
   tooltipXRef: React.RefObject<number>;
   hiddenLegendsRef: React.RefObject<Set<number>>;
+  isPlayingVideo: boolean;
 }) => ({
   id: 'customCrosshair',
   afterEvent(chart: ChartJS & {
@@ -111,9 +114,9 @@ const customCrosshairPlugin = ({
 
     const xPixel = xScale.getPixelForValue(xMs);
 
-    // Línea vertical roja
+    // Línea vertical
     ctx.save();
-    ctx.strokeStyle = "#F66";
+    ctx.strokeStyle = isPlayingVideo ? "gray" :  "#F66"; // #F66
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(xPixel, chartArea.top);
@@ -365,6 +368,7 @@ const Index = ({
   annotations,
   dragLimits,
   onDraggableLinesUpdated,
+  isPlayingVideo,
 }: IndexProps) => {
   const [isZoomed, setIsZoomed] = useState(false);
   const tooltipXRef = useRef<number>(0);
@@ -517,6 +521,7 @@ const Index = ({
           recordedPositions: recordedPositions!,
           tooltipXRef,
           hiddenLegendsRef: hiddenLegendsRef!,
+          isPlayingVideo: isPlayingVideo ?? false,
         }),
       ],
       options: {
@@ -754,7 +759,7 @@ const Index = ({
           },
         },
       }
-    }),[JSON.stringify(datasets), JSON.stringify(annotations)]);
+    }),[JSON.stringify(datasets), JSON.stringify(annotations), isPlayingVideo]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
