@@ -37,10 +37,13 @@ export type RecordedPositions = {
 interface IndexProps {
   joints: CanvasKeypointName[]; // Lista de articulaciones a mostrar
   valueTypes?: Kinematics[]; // Se acepta un arreglo con uno o ambos valores
-  onVerticalLineChange: (newValue: {
-    x: number;
-    values: { label: string; y: number }[];
-  }) => void;
+  onVerticalLineChange: (
+    newValue: {
+      x: number;
+      values: { label: string; y: number }[];
+    },
+    clickEvent: React.PointerEvent<HTMLCanvasElement> | null
+  ) => void;
   parentStyles?: string; // Estilos CSS para el contenedor
   recordedPositions?: RecordedPositions;
   verticalLineValue?: number;
@@ -369,6 +372,7 @@ const Index = ({
   // --- Cofiguración del gráfico ----
   const chartRef = useRef<ChartJS | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lastPointerEventRef = useRef<React.PointerEvent<HTMLCanvasElement> | null>(null);
 
   // Estado para almacenar los datos por articulación
   // Para cada articulación se almacenan:
@@ -692,10 +696,15 @@ const Index = ({
                 context.chart.data.datasets as ChartDataset<'line'>[]
               );
             
-              onVerticalLineChange({
-                x: xMs / 1000, // 🎯 segundos para el componente padre
-                values,
-              });
+              const lastPointerEvent = lastPointerEventRef.current;
+              lastPointerEventRef.current = null;
+              onVerticalLineChange(
+                {
+                  x: xMs / 1000, // 🎯 segundos para el componente padre
+                  values,
+                },
+                lastPointerEvent,
+              );                          
             }        
           }
         },
@@ -714,15 +723,15 @@ const Index = ({
             title: { display: false, text: "Time (seconds)" },
             ticks: {
               display: joints.length > 0,
-              stepSize: 1_000,
-              maxTicksLimit: 12_000,
+              // stepSize: 1_000,
+              maxTicksLimit: 30_000,
               callback: (value) => {
                 // Si el valor es negativo, no se muestra nada.
                 if (Number(value) < 0 || datasets.length === 0) return "";
 
-                const seconds = Number(value) / 1000;
+                const seconds = Number(value) / 1_000;
                 
-                return seconds.toFixed(0);
+                return seconds.toFixed(1);
               },
             },
           },
@@ -766,7 +775,7 @@ const Index = ({
     };
   }, [chartConfig]);
 
-  useEffect(() => {
+  useEffect(() => {   
     const chart = chartRef.current as ChartJS;
     if (!chart || verticalLineValue === undefined) return;
     // console.log('PoseChart verticalLineValue', verticalLineValue)
@@ -829,6 +838,15 @@ const Index = ({
         <canvas 
           ref={canvasRef} 
           className='bg-white px-2 pb-2'
+          onPointerDown={(event: React.PointerEvent<HTMLCanvasElement>) => {
+            lastPointerEventRef.current = event;
+          }}
+          onPointerMove={(event: React.PointerEvent<HTMLCanvasElement>) => {
+            lastPointerEventRef.current = event;
+          }}
+          onPointerUp={() => {
+            lastPointerEventRef.current = null;
+          }}
           />
         {isZoomed ? (
           <ArrowsPointingInIcon 
