@@ -81,6 +81,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const frameResolveRef = useRef<(() => void) | null>(null);
   const totalStepsRef = useRef(0);
   const frameIntervalRef = useRef(60);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const hasTriggeredRef = useRef(false);
 
@@ -96,11 +97,12 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const [aspectRatio, setAspectRatio] = useState(1);
 
   const [isPlaying, setIsPlaying] = useState(false);
-  const isPlayingRef = useRef(isPlaying);
-  const isPlayingUpdateRef = useRef(false);
+  const isPlayingRef = useRef(false);
   const [verticalLineValue, setVerticalLineValue] = useState(0);
   const hiddenLegendsRef = useRef<Set<number>>(new Set());
   const [, forceUpdateUI] = useReducer(x => x + 1, 0);
+
+  const isVerticalLineUpdatedByUser = useRef(false);
 
   const { 
     detector, 
@@ -606,7 +608,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       return;
     }
 
-    await delayInMs(2_000);
+    await waitWithCancel(2_000);
 
     handleFramesBasedOnJumps("idle");
 
@@ -624,15 +626,13 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       nearestFrameRef.current = firstFrame;
       currentFrameIndexRef.current = 0;
       setVerticalLineValue(firstFrame.videoTime * 1_000);
-      // setVerticalLineValue((firstFrame.videoTime - allFramesDataRef.current[0].videoTime) * 1_000);
 
-      isPlayingRef.current = false;
-      setIsPlaying(false);
-      onPause?.(true);
+      pauseFrames();
     }
   };
 
   const removeVideo = () => {
+    console.log('removeVideo')
     setIsPoseJumpSettingsModalOpen(false);
 
     allFramesDataRef.current = [];
@@ -642,8 +642,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     setChartAnnotations(null);
     setDragLimits(null);
 
-    isPlayingRef.current = true;
-    setIsPlaying(true);
+    isPlayingRef.current = false;
+    setIsPlaying(false);
     onPause?.(false);
 
     if (processingStatus === "processed") {
@@ -710,32 +710,15 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const handleVerticalLineChange = useCallback(async (newValue: {
     x: number;
     values: { label: string; y: number }[];
-  }) => {
-    // console.log('handleVerticalLineChange ', newValue)
-    if (isPlayingUpdateRef.current) return;
-
-    if (isPlayingRef.current) {
-      // 🔴 Detener animación
-      isPlayingRef.current = false;
-      setIsPlaying(false);
-      onPause?.(true);
-    }
-  
-    if (processingStatus !== "processed") return;
-  
+  }) => {  
     const nearestFrame = findNearestFrame(allFramesDataRef.current, newValue.x);
     nearestFrameRef.current = nearestFrame;
-
+    const index = allFramesDataRef.current.findIndex(f => f === nearestFrame);
+    if (index !== -1) currentFrameIndexRef.current = index;
+    
     updateDisplayedAngles(nearestFrame, selectedJointsRef.current);
   
-    if (!isPlayingUpdateRef.current) {
-      const index = allFramesDataRef.current.findIndex(f => f === nearestFrame);
-      if (index !== -1) currentFrameIndexRef.current = index;
-    } else {
-      isPlayingUpdateRef.current = false;
-    }
-  
-    // 🖼 Redibuja frame seleccionado
+    //R edibuja frame seleccionado
     const ctx = canvasRef.current?.getContext("2d");
     if (ctx && nearestFrame) {
       ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
@@ -763,12 +746,20 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const handleNewVideo = () => {
     fileInputRef.current?.click();
   };
+  
+  const pauseFrames = () => {
+    isPlayingRef.current = false;
+    setIsPlaying(false);
+    onPause?.(true);
 
-  const delayInMs = (duration = 0) => new Promise(resolve => setTimeout(resolve, duration));
+    cancelWait();
+  }
   
   const playFrames = useCallback(async () => {
     if (!allFramesDataRef.current.length) return;
   
+    isVerticalLineUpdatedByUser.current = false;
+
     isPlayingRef.current = true;
     setIsPlaying(true);
     onPause?.(false);
@@ -778,17 +769,25 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       i < allFramesDataRef.current.length;
       i++
     ) {
+      console.log('play loop -> isVerticalLineUpdatedByUser.current ', isVerticalLineUpdatedByUser.current)
+      console.log('play loop -> isPlayingRef.current ', isPlayingRef.current)
+      if (
+        isVerticalLineUpdatedByUser.current &&
+        !isPlayingRef.current
+      ) {
+        isVerticalLineUpdatedByUser.current = false;
+        return;
+      }
+
       const frame = allFramesDataRef.current[i];
       nearestFrameRef.current = frame;
+      currentFrameIndexRef.current = i;
 
       setVerticalLineValue(frame.videoTime * 1_000);
-      // setVerticalLineValue((frame.videoTime - allFramesDataRef.current[0].videoTime) * 1_000);
       updateDisplayedAngles(frame, selectedJointsRef.current);
   
-      if (!isPlayingRef.current) {
-        currentFrameIndexRef.current = i;
-  
-        // Redibuja el frame en pausa
+      // Redibuja el frame en pausa
+      if (!isPlayingRef.current) {  
         const ctx = canvasRef.current?.getContext("2d");
         if (ctx) {
           ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
@@ -811,38 +810,39 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             });
           }
         }
-  
-        isPlayingRef.current = false;
-        setIsPlaying(false);
-        onPause?.(true);
 
         return;
       }
   
-      // Bloquea handleVerticalLineChange mientras cambia verticalLineValue
-      isPlayingUpdateRef.current = true;
-      currentFrameIndexRef.current = i;
-      // setVerticalLineValue(frame.videoTime * 1000);
-      await delayInMs();
-      isPlayingUpdateRef.current = false;
-  
+      // Dibuja el frame en movimiento
       const ctx = canvasRef.current?.getContext("2d");
       if (ctx) {
         ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
         ctx.drawImage(frame.frameImage, 0, 0, canvasRef.current!.width, canvasRef.current!.height);
       }
   
-      await new Promise(resolve =>
-        setTimeout(resolve, frameIntervalRef.current * 1000)
-      );
+      await waitWithCancel(frameIntervalRef.current * 1_000);
     }
   
-    currentFrameIndexRef.current = 0;
-    
-    isPlayingRef.current = false;
-    setIsPlaying(false);
-    onPause?.(true);
+    // Al terminar de recorrer el video:
+    currentFrameIndexRef.current = 0;    
+    pauseFrames();
   }, []);
+
+  const waitWithCancel = (ms: number) => {
+    return new Promise<void>((resolve) => {
+      timeoutRef.current = setTimeout(() => {
+        resolve();
+      }, ms);
+    });
+  };
+
+  const cancelWait = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
 
   const updateDisplayedAngles = (frame: VideoFrame, selectedJoints: CanvasKeypointName[]) => {
     const jointAngles: Record<string, { L?: string; R?: string }> = {};
@@ -1038,6 +1038,12 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     }
   }, [initialUrl]);
 
+  useEffect(() => {
+    return () => {
+      cancelWait(); // Limpieza al desmontar
+    };
+  }, []);
+
   useImperativeHandle(ref, () => ({
     handleVideoProcessing,
     isVideoLoaded: () => videoLoaded,
@@ -1136,19 +1142,19 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           <canvas ref={inputCanvasRef} className="hidden" />
           <canvas
             ref={canvasRef}
-            onClick={() => {
+            onClick={async () => {
               if (
                 processingStatus !== "processed" ||
                 isPoseJumpSettingsModalOpen
               ) return;
               
-              if (isPlaying) {
-                isPlayingRef.current = false;
-                setIsPlaying(false);
-                onPause?.(true);
+              if (isPlayingRef.current) {
+                console.log('canvas -> pauseFrames')
+                pauseFrames();
               }
               else {
-                playFrames();
+                console.log('canvas -> playFrames')
+                await playFrames();
               }
             }}
             className="h-full"
@@ -1214,35 +1220,56 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         </div>
 
         {processingStatus === "processed" && recordedPositions ? (
-          <PoseChart
-            joints={selectedJoints}
-            valueTypes={[Kinematics.ANGLE]} // Solo queremos ángulos
-            recordedPositions={recordedPositions} // Los datos
-            onVerticalLineChange={handleVerticalLineChange}
-            verticalLineValue={verticalLineValue}
-            parentStyles="z-10 flex-1 w-full max-w-5xl mx-auto" 
-            hiddenLegendsRef={hiddenLegendsRef}
-            onToggleLegend={(index, hidden) => {
-              if (!hiddenLegendsRef.current) {
-                hiddenLegendsRef.current = new Set();
-              }
-            
-              if (hidden) {
-                hiddenLegendsRef.current.add(index);
-              } else {
-                hiddenLegendsRef.current.delete(index);
-              }   
+          <div 
+            data-element="non-swipeable"
+            className='z-10 flex-1 w-full max-w-5xl mx-auto'>
+            {isPlaying ? (
+              <div
+                className='absolute w-full h-full bg-red-500/0'
+                onClick={pauseFrames}/>
+              ) : null}
+            <PoseChart
+              joints={selectedJoints}
+              valueTypes={[Kinematics.ANGLE]} // Solo queremos ángulos
+              recordedPositions={recordedPositions} // Los datos
+              onVerticalLineChange={(newValue, clickEvent) => {
+                // console.log('clickEvent ', clickEvent)
+                if (clickEvent === null) {
+                  isVerticalLineUpdatedByUser.current = false;
+                  return;
+                };
+                // console.log('onVerticalLineChange ')
+                isVerticalLineUpdatedByUser.current = true;
 
-              forceUpdateUI();
-            }} 
-            annotations={chartAnnotations!} 
-            dragLimits={dragLimits!} 
-            onDraggableLinesUpdated={(draggableLinesUpdated) => {
-              draggableLinesUpdatedRef.current = draggableLinesUpdated;
+                pauseFrames();
 
-              handleFramesBasedOnJumps("detect");
-            }}
-            />
+                handleVerticalLineChange(newValue);
+              }}
+              verticalLineValue={verticalLineValue}
+              parentStyles="h-full" 
+              hiddenLegendsRef={hiddenLegendsRef}
+              onToggleLegend={(index, hidden) => {
+                if (!hiddenLegendsRef.current) {
+                  hiddenLegendsRef.current = new Set();
+                }
+              
+                if (hidden) {
+                  hiddenLegendsRef.current.add(index);
+                } else {
+                  hiddenLegendsRef.current.delete(index);
+                }   
+
+                forceUpdateUI();
+              }} 
+              annotations={chartAnnotations!} 
+              dragLimits={dragLimits!} 
+              onDraggableLinesUpdated={(draggableLinesUpdated) => {
+                draggableLinesUpdatedRef.current = draggableLinesUpdated;
+
+                handleFramesBasedOnJumps("detect");
+              }}
+              />
+          </div>
         ) : null }
       </div>
 
