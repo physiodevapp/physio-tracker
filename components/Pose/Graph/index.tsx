@@ -75,7 +75,7 @@ const customCrosshairPlugin = ({
     _isDraggingAnnotation?: boolean;
     _customCrosshairX?: number | undefined;
   }, args: { 
-    event: ChartEvent 
+    event: ChartEvent
   }) {
     // ❌ Bloquear si se está arrastrando una anotación
     if (chart._isDraggingAnnotation) return;

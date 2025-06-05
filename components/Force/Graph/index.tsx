@@ -351,10 +351,10 @@ const Index: React.FC<IndexProps> = ({
               text: 'Time (ms)',
             },
             ticks: {
-              stepSize: 1000,
+              // stepSize: 1000,
               callback: (value) => {
                 const numValue = Number(value);
-                return numValue >= 0 ? `${(numValue / 1000).toFixed(0)}` : '';
+                return numValue >= 0 ? `${(numValue / 1000).toFixed(1)}` : '';
               },
             },
             min: minTime,

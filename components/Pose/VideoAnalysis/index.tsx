@@ -16,7 +16,7 @@ import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import VideoTrimmer from '@/components/Pose/VideoTrimmer';
 import { TrimmerProps } from '../VideoTrimmer/CustomRangeSlider';
 import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
-import { ArrowUturnDownIcon } from '@heroicons/react/24/outline';
+import { ArrowUturnDownIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 
 export type VideoAnalysisHandle = {
   handleVideoProcessing: () => void;
@@ -48,6 +48,7 @@ interface IndexProps {
   onJumpsDetected?: (jumps: Jump[]) => void;
   isPoseJumpSettingsModalOpen: boolean;
   setIsPoseJumpSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onCleanView?: (value: boolean) => void;
 }
 
 const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
@@ -68,10 +69,13 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   onJumpsDetected,
   isPoseJumpSettingsModalOpen,
   setIsPoseJumpSettingsModalOpen,
+  onCleanView,
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const [isCleanView, setIsCleanView] = useState(false);
 
   const keypointRadiusBase = 8;
 
@@ -485,7 +489,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             cushionPoint = { ...cushionPoint, videoTime: draggableLinesUpdatedRef.current[`cushionLine_${i}`] / 1_000 };
           }
         }
-        draggableLinesUpdatedRef.current = null;
 
         const impulseTimestamp = impulsePoint.videoTime * 1_000;
         const takeoffTimestamp = takeoffPoint.videoTime * 1_000;
@@ -579,6 +582,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       setDragLimits(null);
     }
 
+    draggableLinesUpdatedRef.current = null;
+
     onJumpsDetected?.(jumpsByAngle);
 
     return jumpsByAngle;
@@ -632,7 +637,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   };
 
   const removeVideo = () => {
-    console.log('removeVideo')
+    // console.log('removeVideo')
     setIsPoseJumpSettingsModalOpen(false);
 
     allFramesDataRef.current = [];
@@ -1181,11 +1186,31 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
           {processingStatus === "processed" ? (
             <>
-              <div className='absolute left-1/2 -translate-x-1/2 bottom-2 px-4 py-1 text-xl text-center bg-black/40 rounded-full'>{nearestFrameRef.current?.videoTime.toFixed(2)} s</div> 
-              <div className='absolute right-0 bottom-0 pr-2 pb-2 flex flex-row gap-1'>             
+              <section className={`absolute left-1/2 -translate-x-1/2 bottom-2 px-4 py-1 text-xl text-center bg-black/40 rounded-full transition-opacity duration-300 ${isCleanView 
+                ? 'opacity-0'
+                : 'opacity-100'
+                }`}>
+                {nearestFrameRef.current?.videoTime.toFixed(2)} s
+              </section> 
+              <div className='absolute right-0 bottom-0 pr-2 pb-2 flex flex-row gap-1'>           
                 <ArrowUturnDownIcon 
                   className='hidden w-10 h-10 p-[0.1rem] text-white'
-                  onClick={() => handleFramesBasedOnJumps("detect")} />
+                  onClick={() => handleFramesBasedOnJumps("detect")} />                
+                {isCleanView ? (
+                  <EyeIcon
+                    className='w-10 h-10 p-[0.1rem] text-white'
+                    onClick={() => {
+                      setIsCleanView(false);
+                      onCleanView?.(false);
+                    }}
+                  /> ) : (
+                  <EyeSlashIcon
+                    className='w-10 h-10 p-[0.1rem] text-white'
+                    onClick={() => {
+                      setIsCleanView(true);
+                      onCleanView?.(true);
+                    }}
+                  /> )} 
                 {((zoomStatus === "in" && aspectRatio < 1) ||
                 (zoomStatus === "out" && aspectRatio >= 1)) ? (
                   <MagnifyingGlassPlusIcon 

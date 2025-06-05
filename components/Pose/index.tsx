@@ -40,6 +40,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [isLiveRecording, setIsLiveRecording] = useState(false);
   const [recordedVideoUrl, setRecordedVideoUrl] = useState<string | null>(null);
 
+  const [isCleanView, setIsCleanView] = useState(false);
+
   const [mode, setMode] = useState<'live' | 'video'>('live');
 
   const [videoLoaded, setVideoLoaded] = useState(false);
@@ -191,7 +193,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         <motion.h1
           data-element="non-swipeable"
           initial={{ y: 0, opacity: 1 }}
-          animate={{ y: isMainMenuOpen ? -48 : 0, opacity: 1 }}
+          animate={{ y: (isMainMenuOpen || isCleanView) ? -52 : 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 100, damping: 15 }}
           className={`absolute z-10 inset-x-0 mx-auto w-[50vw] text-center text-xl text-white bg-[#5dadec] dark:bg-black/40 
           rounded-full py-2 pl-4 font-bold mt-2 whitespace-nowrap transition-[padding] select-none ${
@@ -205,7 +207,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         <motion.button
           data-element="non-swipeable"
           initial={{ y: 80, opacity: 1 }}
-          animate={{ y: isLiveRecording ? 0 : 80, opacity: 1 }}
+          animate={{ y: isCleanView ? 0 : 80, opacity: 1 }}
           transition={{ type: "spring", stiffness: 100, damping: 15 }}
           className="absolute z-10 bottom-4 w-16 h-16 border-[0.2rem] rounded-full p-[0.8rem]"
           onClick={handleLiveRecord}>
@@ -232,7 +234,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               onWorkerInit={() => handleWorkerLifecycle(true)}
               showGrid={showGrid}
               setShowGrid={setShowGrid}
-              onRecordingChange={setIsLiveRecording}
+              onRecordingChange={(value) => {
+                setIsLiveRecording(value);
+
+                setIsCleanView(value);
+              }}
               onRecordingFinish={(url) => {
                 console.log("🧪 URL que se pasa:", url);
                 setRecordedVideoUrl(url);
@@ -261,7 +267,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               initialUrl={recordedVideoUrl} 
               isPoseJumpSettingsModalOpen={isPoseJumpSettingsModalOpen}
               setIsPoseJumpSettingsModalOpen={setIsPoseJumpSettingsModalOpen}
-              onJumpsDetected={(jumps) => setJumpsDetected(jumps)} />
+              onJumpsDetected={(jumps) => setJumpsDetected(jumps)} 
+              onCleanView={setIsCleanView}/>
           )}
         </div>
 
@@ -270,7 +277,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             <motion.section 
               data-element="non-swipeable"
               initial={{ x: 0, opacity: 1 }}
-              animate={{ x: isLiveRecording ? -48 : 0, opacity: 1 }}
+              animate={{ x: isCleanView ? -48 : 0, opacity: 1 }}
               transition={{ type: "spring", stiffness: 100, damping: 15 }}
               className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full">
               {isMainMenuOpen ?
@@ -351,7 +358,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             <motion.section 
               data-element="non-swipeable"
               initial={{ x: 0, opacity: 1 }}
-              animate={{ x: isLiveRecording ? 48 : 0, opacity: 1 }}
+              animate={{ x: isCleanView ? 48 : 0, opacity: 1 }}
               transition={{ type: "spring", stiffness: 100, damping: 15 }}
               className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full"
               >
@@ -385,7 +392,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               <motion.div 
                 data-element="non-swipeable"
                 initial={{ x: 0, opacity: 1 }}
-                animate={{ x: isLiveRecording ? "56%" : 0, opacity: 1 }}
+                animate={{ x: isCleanView ? "56%" : 0, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 100, damping: 15 }}
                 className="absolute bottom-2 right-1 z-30 flex flex-row-reverse items-center gap-2">
                 <ArrowTopRightOnSquareIcon 
