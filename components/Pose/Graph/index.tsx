@@ -51,7 +51,7 @@ interface IndexProps {
   onToggleLegend?: (index: number, hidden: boolean) => void;
   annotations?: PoseAnnotations;
   dragLimits?: DragLimits;
-  onDraggableLinesUpdated?: (draggableLinesUpdated: Record<string, number>) => void;
+  onDraggableLinesUpdated?: (draggableLinesUpdated: Record<string, number>, draggedKey: string | null) => void;
   isPlayingVideo?: boolean;
 }
 
@@ -202,7 +202,7 @@ const getNearestJointValues = (
 function customDragger(
   minGap: number = 260, // ms
   dragLimits: DragLimits,
-  onDragEnd?: (updatedLines: Record<string, number>) => void,
+  onDragEnd?: (updatedLines: Record<string, number>, activeKey: string | null) => void,
 ) {
   let element: IAnnotation | null = null;
   let lastEvent: ChartEvent | null = null;
@@ -210,7 +210,7 @@ function customDragger(
   let activeKey: string | null = null;
   let dragEndHandler: ((ev: Event) => void) | null = null;
 
-  function createDragEndHandler(chart: ChartJS & { _isDraggingAnnotation: boolean; }): (ev: Event) => void {
+  function createDragEndHandler(chart: ChartJS & { _isDraggingAnnotation: boolean; }, activeKey: string | null): (ev: Event) => void {
     return () => {
       if (typeof onDragEnd === 'function') {
         const annotations = getAllAnnotations(chart);
@@ -227,7 +227,7 @@ function customDragger(
           }
         });
 
-        onDragEnd?.(updated);
+        onDragEnd?.(updated, activeKey);
         ///
       }
       chart._isDraggingAnnotation = false;
@@ -285,7 +285,7 @@ function customDragger(
           lastEvent = event;
           chart._isDraggingAnnotation = true;
 
-          dragEndHandler = createDragEndHandler(chart);
+          dragEndHandler = createDragEndHandler(chart, activeKey);
           window.addEventListener('mouseup', dragEndHandler);
           window.addEventListener('touchend', dragEndHandler);
           return;
@@ -513,8 +513,8 @@ const Index = ({
         customDragger(
           100,
           dragLimits!,
-          (updatedLines) => {
-            onDraggableLinesUpdated?.(updatedLines)
+          (updatedLines, activeKey) => {
+            onDraggableLinesUpdated?.(updatedLines, activeKey)
           },
         ),
         customCrosshairPlugin({

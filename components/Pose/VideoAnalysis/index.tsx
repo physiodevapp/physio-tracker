@@ -1259,7 +1259,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               valueTypes={[Kinematics.ANGLE]} // Solo queremos ángulos
               recordedPositions={recordedPositions} // Los datos
               onVerticalLineChange={(newValue, clickEvent) => {
-                // console.log('clickEvent ', clickEvent)
+                // console.log('onVerticalLineChange ', newValue)
                 if (clickEvent === null) {
                   isVerticalLineUpdatedByUser.current = false;
                   return;
@@ -1290,8 +1290,12 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               }} 
               annotations={chartAnnotations!} 
               dragLimits={dragLimits!} 
-              onDraggableLinesUpdated={(draggableLinesUpdated) => {
+              onDraggableLinesUpdated={(draggableLinesUpdated, draggedKey) => {
                 draggableLinesUpdatedRef.current = draggableLinesUpdated;
+                
+                if (draggedKey) {
+                  setVerticalLineValue(draggableLinesUpdated[draggedKey])
+                }
 
                 handleFramesBasedOnJumps("detect");
               }}
