@@ -10,7 +10,7 @@ import {
 import { JointColors, CanvasKeypointName, Kinematics, DragLimits, PoseAnnotations } from "@/interfaces/pose";
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ArrowsPointingInIcon } from "@heroicons/react/24/outline";
-import annotationPlugin, { AnnotationOptions } from "chartjs-plugin-annotation";
+import annotationPlugin, { AnnotationOptions, LineAnnotationOptions } from "chartjs-plugin-annotation";
 import { getAllAnnotations, IAnnotation } from "@/utils/chart";
 
 // Registro de componentes de Chart.js
@@ -487,14 +487,18 @@ const Index = ({
   }, [recordedPositions]); 
 
   const processedAnnotations = useMemo(() => {
-    const updated: Record<string, any> = {};
+    const updated: Record<string, AnnotationOptions> = {};
 
     Object.entries(annotations ?? {}).forEach(([key, ann]) => {
-      if (key.startsWith("takeoffLine_") || key.startsWith("landingLine_")) {
+      if (
+        (key.startsWith("takeoffLine_") || key.startsWith("landingLine_")) &&
+        ann.type === "line"
+      ) {
         updated[key] = {
           ...ann,
+          type: "line", 
           draggable: true,
-        };
+        } as { type: "line" } & LineAnnotationOptions;
       } else {
         updated[key] = ann;
       }
