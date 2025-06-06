@@ -1170,32 +1170,40 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           
           {processingStatus === "processed" && hiddenLegendsRef.current.size < selectedJoints.length ? (
             <section 
-              className="absolute z-10 bottom-2 left-0 font-bold w-40 p-2"
+              className={`absolute z-10 bottom-2 left-0 font-bold w-50 p-2`}
               style={{
                 background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
               }}> 
               {
-                anglesToDisplay
+                anglesToDisplay.length > 0 
+                ? anglesToDisplay
                   .filter((_, index) => !hiddenLegendsRef.current.has(index))
                   .map((angle, index) => (
                     <p key={index} className="text-white">{angle}</p>
                   ))
+                : "Nothing detected"
               }
             </section> 
           ) : null }
 
           {processingStatus === "processed" ? (
             <>
-              <section className={`absolute left-1/2 -translate-x-1/2 bottom-2 px-4 py-1 text-xl text-center bg-black/40 rounded-full transition-opacity duration-300 ${isCleanView 
+              {/* <section className={`absolute left-1/2 -translate-x-1/2 bottom-2 px-4 py-1 text-xl text-center bg-black/40 rounded-full transition-opacity duration-300 ${isCleanView 
                 ? 'opacity-0'
                 : 'opacity-100'
                 }`}>
                 {nearestFrameRef.current?.videoTime.toFixed(2)} s
-              </section> 
+              </section>  */}
               <div className='absolute right-0 bottom-0 pr-2 pb-2 flex flex-row gap-1'>           
                 <ArrowUturnDownIcon 
                   className='hidden w-10 h-10 p-[0.1rem] text-white'
-                  onClick={() => handleFramesBasedOnJumps("detect")} />                
+                  onClick={() => handleFramesBasedOnJumps("detect")} /> 
+                <section className={`px-4 py-1 text-xl text-center bg-black/40 rounded-full transition-opacity duration-300 ${isCleanView 
+                  ? 'opacity-0'
+                  : 'opacity-100'
+                  }`}>
+                  {nearestFrameRef.current?.videoTime.toFixed(2)} s
+                </section>             
                 {isCleanView ? (
                   <EyeIcon
                     className='w-10 h-10 p-[0.1rem] text-white'
