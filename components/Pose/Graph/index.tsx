@@ -343,7 +343,9 @@ function customDragger(
         if (!isUpdateScheduled) {
           isUpdateScheduled = true;
           requestAnimationFrame(() => {
-            chart.update('none');
+            if (chart) {
+              chart.update('none');
+            }
             isUpdateScheduled = false;
           });
         }
@@ -838,6 +840,13 @@ const Index = ({
       chart.draw();
     }
   }, [verticalLineValue, chartData]); 
+
+  useEffect(() => {
+    return () => {
+      chartRef.current?.destroy();
+      chartRef.current = null;
+    };
+  }, []);
  
   return (
     <div 

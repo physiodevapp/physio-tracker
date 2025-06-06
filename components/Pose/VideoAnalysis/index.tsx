@@ -475,6 +475,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           cushionPoint 
         } = jump;
 
+        // console.log('draggableLinesUpdatedRef ', draggableLinesUpdatedRef.current)
         if (draggableLinesUpdatedRef.current) {
           if (draggableLinesUpdatedRef.current[`impulseLine_${i}`] !== undefined) {
             impulsePoint = { ...impulsePoint, videoTime: draggableLinesUpdatedRef.current[`impulseLine_${i}`] / 1_000 };
@@ -499,7 +500,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         const flightDuration = ((landingTimestamp! - takeoffTimestamp!) / 1_000).toFixed(2);
         const impulseDuration = ((takeoffTimestamp! - impulseTimestamp!) / 1_000).toFixed(2);
         const g = 9.81; // m/s²
-        console.log()
         const flightHeight = (((g * Math.pow(Number(flightDuration), 2)) / 8) * 100).toFixed(0);
 
         if (impulseTimestamp != null && cushionTimestamp != null) {
