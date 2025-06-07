@@ -145,8 +145,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const [chartAnnotations, setChartAnnotations] = useState<PoseAnnotations | null>(null);
   const [dragLimits, setDragLimits] = useState<DragLimits | null>(null);
   
-  const draggableLinesUpdatedRef = useRef<Record<string, number> | null>(null)
-
   const handleClickOnCanvas = () => { 
     if (
       isPoseSettingsModalOpen || 
@@ -468,28 +466,12 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       const dragLimits: DragLimits = {};
 
       jumpsByAngle.forEach((jump, i) => {
-        let { 
+        const { 
           impulsePoint, 
           takeoffPoint, 
           landingPoint, 
           cushionPoint 
         } = jump;
-
-        // console.log('draggableLinesUpdatedRef ', draggableLinesUpdatedRef.current)
-        if (draggableLinesUpdatedRef.current) {
-          if (draggableLinesUpdatedRef.current[`impulseLine_${i}`] !== undefined) {
-            impulsePoint = { ...impulsePoint, videoTime: draggableLinesUpdatedRef.current[`impulseLine_${i}`] / 1_000 };
-          }
-          if (draggableLinesUpdatedRef.current[`takeoffLine_${i}`] !== undefined) {
-            takeoffPoint = { ...takeoffPoint, videoTime: draggableLinesUpdatedRef.current[`takeoffLine_${i}`] / 1_000 };
-          }
-          if (draggableLinesUpdatedRef.current[`landingLine_${i}`] !== undefined) {
-            landingPoint = { ...landingPoint, videoTime: draggableLinesUpdatedRef.current[`landingLine_${i}`] / 1_000 };
-          }
-          if (draggableLinesUpdatedRef.current[`cushionLine_${i}`] !== undefined) {
-            cushionPoint = { ...cushionPoint, videoTime: draggableLinesUpdatedRef.current[`cushionLine_${i}`] / 1_000 };
-          }
-        }
 
         const impulseTimestamp = impulsePoint.videoTime * 1_000;
         const takeoffTimestamp = takeoffPoint.videoTime * 1_000;
@@ -557,7 +539,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             label: {
               display: true,
               font: {
-                weight: 'lighter', // o 'normal' o '400'
+                weight: 'normal', // o 'normal' o '400'
               },
               content: [
                 `H: ${flightHeight} cm`,
@@ -581,8 +563,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       setChartAnnotations(null);
       setDragLimits(null);
     }
-
-    draggableLinesUpdatedRef.current = null;
 
     onJumpsDetected?.(jumpsByAngle);
 
@@ -723,7 +703,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     
     updateDisplayedAngles(nearestFrame, selectedJointsRef.current);
   
-    //R edibuja frame seleccionado
+    // Redibuja frame seleccionado
     const ctx = canvasRef.current?.getContext("2d");
     if (ctx && nearestFrame) {
       ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
@@ -1188,17 +1168,11 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
           {processingStatus === "processed" ? (
             <>
-              {/* <section className={`absolute left-1/2 -translate-x-1/2 bottom-2 px-4 py-1 text-xl text-center bg-black/40 rounded-full transition-opacity duration-300 ${isCleanView 
-                ? 'opacity-0'
-                : 'opacity-100'
-                }`}>
-                {nearestFrameRef.current?.videoTime.toFixed(2)} s
-              </section>  */}
               <div className='absolute right-0 bottom-0 pr-2 pb-2 flex flex-row gap-1'>           
                 <ArrowUturnDownIcon 
                   className='hidden w-10 h-10 p-[0.1rem] text-white'
                   onClick={() => handleFramesBasedOnJumps("detect")} /> 
-                <section className={`px-4 py-1 text-xl text-center bg-black/40 rounded-full transition-opacity duration-300 ${isCleanView 
+                <section className={`flex justify-center items-center px-4 py-1 text-xl text-center bg-black/40 rounded-full transition-opacity duration-300 ${isCleanView 
                   ? 'opacity-0'
                   : 'opacity-100'
                   }`}>
@@ -1275,7 +1249,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                 // console.log('onVerticalLineChange ')
                 isVerticalLineUpdatedByUser.current = true;
 
-                pauseFrames();
+                if (isPlayingRef.current) {
+                  pauseFrames();
+                }
 
                 handleVerticalLineChange(newValue);
               }}
@@ -1298,15 +1274,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               }} 
               annotations={chartAnnotations!} 
               dragLimits={dragLimits!} 
-              onDraggableLinesUpdated={(draggableLinesUpdated, draggedKey) => {
-                draggableLinesUpdatedRef.current = draggableLinesUpdated;
-                
-                if (draggedKey) {
-                  setVerticalLineValue(draggableLinesUpdated[draggedKey])
-                }
-
-                handleFramesBasedOnJumps("detect");
-              }}
               />
           </div>
         ) : null }

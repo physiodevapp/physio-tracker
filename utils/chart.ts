@@ -1,4 +1,5 @@
 import {Chart as ChartJS} from 'chart.js';
+import { BoxLabelOptions } from 'chartjs-plugin-annotation';
 
 export interface DataPoint {
   x: number;
@@ -116,6 +117,7 @@ export interface IAnnotation {
   xMin: number,
   xMax: number,
   borderWidth: number,
+  label?: BoxLabelOptions,
 }
 export function getAllAnnotations(chart: ChartJS): Record<string, IAnnotation> {
   const annotationPlugin = chart.config.options?.plugins?.annotation;

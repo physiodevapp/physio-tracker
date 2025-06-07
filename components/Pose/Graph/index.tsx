@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { RefObject, useEffect, useMemo, useRef, useState } from "react";
 import {
   Chart as ChartJS,
   ChartDataset,
@@ -19,6 +19,11 @@ ChartJS.register(
   zoomPlugin,
   annotationPlugin, 
 );
+
+interface ExtendedChart extends ChartJS {
+  _isDraggingAnnotation?: boolean | undefined;
+  _customCrosshairX?: number | undefined;
+}
 
 // Definimos la interfaz para cada punto de datos
 interface DataPoint {
@@ -71,10 +76,7 @@ const customCrosshairPlugin = ({
   isPlayingVideo: boolean;
 }) => ({
   id: 'customCrosshair',
-  afterEvent(chart: ChartJS & {
-    _isDraggingAnnotation?: boolean;
-    _customCrosshairX?: number | undefined;
-  }, args: { 
+  afterEvent(chart: ExtendedChart, args: { 
     event: ChartEvent
   }) {
     // ❌ Bloquear si se está arrastrando una anotación
@@ -96,10 +98,7 @@ const customCrosshairPlugin = ({
       chart._customCrosshairX = undefined;
     }
   },
-  afterDraw(chart: ChartJS & {
-      _isDraggingAnnotation?: boolean;
-      _customCrosshairX?: number | undefined;
-  }) {
+  afterDraw(chart: ExtendedChart) {
     // ❌ Bloquear si se está arrastrando una anotación
     if (chart._isDraggingAnnotation) return;
 
@@ -203,6 +202,7 @@ function customDragger(
   minGap: number = 260, // ms
   dragLimits: DragLimits,
   onDragEnd?: (updatedLines: Record<string, number>, activeKey: string | null) => void,
+  tooltipXForDraggableLinesRef?: RefObject<number>,
 ) {
   let element: IAnnotation | null = null;
   let lastEvent: ChartEvent | null = null;
@@ -210,25 +210,76 @@ function customDragger(
   let activeKey: string | null = null;
   let dragEndHandler: ((ev: Event) => void) | null = null;
 
-  function createDragEndHandler(chart: ChartJS & { _isDraggingAnnotation: boolean; }, activeKey: string | null): (ev: Event) => void {
+  function createDragEndHandler(chart: ExtendedChart, activeKey: string | null): (ev: Event) => void {
     return () => {
       if (typeof onDragEnd === 'function') {
         const annotations = getAllAnnotations(chart);
 
-        ///
-        const updated: Record<string, number> = {};
+        const draggableLinesUpdated: Record<string, number> = {};
 
-        Object.entries(annotations).forEach(([key, ann]) => {
+        const entries = Object.entries(annotations);
+        // Primero ordenamos las entradas: takeoff/landing primero, luego fullJumpBox
+        const sortedEntries = entries.sort(([keyA], [keyB]) => {
+          const isAImportant = keyA.startsWith("takeoffLine_") || keyA.startsWith("landingLine_");
+          const isBImportant = keyB.startsWith("takeoffLine_") || keyB.startsWith("landingLine_");
+
+          if (isAImportant === isBImportant) return 0;
+          return isAImportant ? -1 : 1;
+        });
+
+        sortedEntries.forEach(([key, ann]) => {
           if (
             key.startsWith("takeoffLine_") ||
             key.startsWith("landingLine_")
           ) {
-            updated[key] = ann.xMin;
+            draggableLinesUpdated[key] = ann.xMin;
+          }
+          else if (key.startsWith('fullJumpBox_')){
+            const boxIndex = key.split('_').at(-1);
+            const takeoffKey = `takeoffLine_${boxIndex}`;
+            const landingKey = `landingLine_${boxIndex}`;
+
+            // Condicional para usar tooltipXRefCurrent si el key es el activo
+            const takeoffTimestamp = activeKey === takeoffKey
+              ? tooltipXForDraggableLinesRef!.current
+              : annotations[takeoffKey]?.xMin;
+
+            const landingTimestamp = activeKey === landingKey
+              ? tooltipXForDraggableLinesRef!.current
+              : annotations[landingKey]?.xMin;
+            // console.log('activeKey -> ', activeKey)
+            // console.log('tooltipXForDraggableLinesRefCurrent -> ', tooltipXForDraggableLinesRef!.current)
+
+            const impulseTimestamp = ann.xMin;
+            const cushionTimestamp = ann.xMax;
+
+            const amortizationDuration = ((cushionTimestamp! - landingTimestamp!) / 1000).toFixed(2);
+            const flightDuration = ((landingTimestamp! - takeoffTimestamp!) / 1_000).toFixed(2);
+            const impulseDuration = ((takeoffTimestamp! - impulseTimestamp!) / 1_000).toFixed(2);
+            const g = 9.81; // m/s²
+            const flightHeight = (((g * Math.pow(Number(flightDuration), 2)) / 8) * 100).toFixed(0);
+
+            ann.label = {
+              display: true,
+              font: {
+                weight: 'normal', // o 'normal' o '400'
+              },
+              content: [
+                `H: ${flightHeight} cm`,
+                `I: ${impulseDuration} s`,
+                `F: ${flightDuration} s`,
+                `A: ${amortizationDuration} s`,
+              ],
+              position: {
+                x: 'center',
+                y: '10%',
+              },
+              textAlign: 'start',
+            }
           }
         });
 
-        onDragEnd?.(updated, activeKey);
-        ///
+        onDragEnd?.(draggableLinesUpdated, activeKey);
       }
       chart._isDraggingAnnotation = false;
       element = null;
@@ -246,9 +297,7 @@ function customDragger(
   return {
     id: 'customDragger',
 
-    beforeEvent(chart: ChartJS & {
-        _isDraggingAnnotation: boolean;
-    }, args: { event: ChartEvent } & { changed?: boolean }) {
+    beforeEvent(chart: ExtendedChart, args: { event: ChartEvent } & { changed?: boolean }) {
       const event = args.event;
 
       const clientX =
@@ -344,7 +393,7 @@ function customDragger(
           isUpdateScheduled = true;
           requestAnimationFrame(() => {
             if (chart) {
-              chart.update('none');
+              chart?.update('none');
             }
             isUpdateScheduled = false;
           });
@@ -374,6 +423,7 @@ const Index = ({
 }: IndexProps) => {
   const [isZoomed, setIsZoomed] = useState(false);
   const tooltipXRef = useRef<number>(0);
+  const tooltipXForDraggableLinesRef = useRef<number>(0);
 
   // --- Cofiguración del gráfico ----
   const chartRef = useRef<ChartJS | null>(null);
@@ -522,6 +572,7 @@ const Index = ({
           (updatedLines, activeKey) => {
             onDraggableLinesUpdated?.(updatedLines, activeKey)
           },
+          tooltipXForDraggableLinesRef,
         ),
         customCrosshairPlugin({
           recordedPositions: recordedPositions!,
@@ -688,7 +739,7 @@ const Index = ({
             enabled: false,
             boxPadding: 6,
             external: (context) => {            
-              const chart = context.chart;
+              const chart = context.chart as ExtendedChart;
               if (areAllDatasetsHidden(chart)) return;
             
               const tooltip = context.tooltip;
@@ -699,7 +750,10 @@ const Index = ({
               const xScale = chart.scales["x"];
               const xMs = xScale.getValueForPixel(caretX)!; // ✅ valor real en milisegundos
             
-              tooltipXRef.current = xMs; // Guarda para el plugin
+              // Guardado para el plugin customDragger
+              tooltipXForDraggableLinesRef.current = xMs;
+              // Guardado para el useEffect y el legend
+              tooltipXRef.current = xMs;
             
               const values = getNearestJointValues(
                 xMs, 
@@ -709,6 +763,7 @@ const Index = ({
             
               const lastPointerEvent = lastPointerEventRef.current;
               lastPointerEventRef.current = null;
+
               onVerticalLineChange(
                 {
                   x: xMs / 1000, // 🎯 segundos para el componente padre
