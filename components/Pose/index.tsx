@@ -10,7 +10,6 @@ import { usePoseDetector } from "@/providers/PoseDetector";
 import { OrthogonalReference, useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
-import PoseJumpSettingsModal from "@/modals/PoseJumpSettings";
 import { jointOptions, formatJointName } from '@/utils/joint';
 import { ArrowUturnDownIcon, PauseIcon } from "@heroicons/react/24/outline";
 import { CameraIcon, UserIcon, Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, VideoCameraIcon, CubeTransparentIcon, DocumentArrowDownIcon, TrashIcon, PlusIcon, Bars2Icon } from "@heroicons/react/24/solid";
@@ -47,7 +46,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('idle');
 
-  const [jumpsDetected, setJumpsDetected] = useState<Jump[] | null>(null);
+  const [, setJumpsDetected] = useState<Jump[] | null>(null);
 
   const [showGrid, setShowGrid] = useState(false);
 
@@ -437,17 +436,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
       <PoseSettingsModal 
         isModalOpen={isPoseSettingsModalOpen}
-        videoMode={mode === "video"}
-        videoProcessed={processingStatus === "processed"}
-        />
-      <PoseJumpSettingsModal 
-        isModalOpen={isPoseJumpSettingsModalOpen}
-        jumpsDetected={jumpsDetected}
-        onHandleFrames={(mode) => {
-          if (videoAnalysisRef.current) {
-            videoAnalysisRef.current.handleFramesBasedOnJumps(mode)
-          }
-        }}
         videoMode={mode === "video"}
         videoProcessed={processingStatus === "processed"}
         />

@@ -8,7 +8,7 @@ import * as tf from '@tensorflow/tfjs-core';
 import { CanvasKeypointName, DragLimits, JointDataMap, Jump, Kinematics, PoseAnnotations } from '@/interfaces/pose';
 import { usePoseDetector } from '@/providers/PoseDetector';
 import { OrthogonalReference, useSettings } from '@/providers/Settings';
-import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame, detectJumpWindowsByAngle } from '@/utils/pose';
+import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame } from '@/utils/pose';
 import { formatJointName, jointConfigMap } from '@/utils/joint';
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/utils/draw';
 import { keypointPairs } from '@/utils/pose';
@@ -16,7 +16,9 @@ import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import VideoTrimmer from '@/components/Pose/VideoTrimmer';
 import { TrimmerProps } from '../VideoTrimmer/CustomRangeSlider';
 import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
-import { ArrowUturnDownIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { ArrowDownIcon, ArrowUpIcon, ArrowUturnDownIcon, DocumentIcon, EyeIcon, EyeSlashIcon, TrashIcon } from '@heroicons/react/24/outline';
+import PoseJumpDataModal from "@/modals/PoseJumpData";
+import { motion } from "framer-motion";
 
 export type VideoAnalysisHandle = {
   handleVideoProcessing: () => void;
@@ -25,7 +27,7 @@ export type VideoAnalysisHandle = {
   downloadJSON: () => void;
   removeVideo: () => void;
   handleNewVideo: () => void;
-  handleFramesBasedOnJumps: (mode: "detect" | "dismiss") => void;
+  handleFrames: (mode: "detect" | "dismiss") => void;
 };
 
 export type ProcessingStatus = 'idle' | 'processing' | 'cancelRequested' | 'cancelled' | 'processed' | 'durationExceeded';
@@ -57,7 +59,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   orthogonalReference,
   anglesToDisplay,
   setAnglesToDisplay,
-  isPoseSettingsModalOpen,
   setIsPoseSettingsModalOpen,
   jointWorkerRef,
   jointDataRef,
@@ -76,6 +77,10 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const inputCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const [isCleanView, setIsCleanView] = useState(false);
+
+  const [isPoseJumpDataModalOpen, setIsPoseJumpDataModalOpen] = useState(false);
+  const [takeoffVideoTime, setTakeoffVideoTime] = useState<number | null>(null);
+  const [landingVideoTime, setLandingVideoTime] = useState<number | null>(null);
 
   const keypointRadiusBase = 8;
 
@@ -120,21 +125,10 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     angularHistorySize,
     pointsPerSecond, 
     minAngleDiff,
-    jump,
   } = settings.pose;
-  const { 
-    mode,
-    side,
-    joint,
-    maxTakeoffFlexion,
-    maxLandingFlexion,
-    minFlexionBeforeJump,
-    minFlexionAfterLanding,
-    searchWindow,
-   } = jump;
   const selectedJointsRef = useRef(selectedJoints);
 
-  const maxDuration = 30; // segundos
+  const maxDuration = 30; // segundos máximos del video
 
   const [processingProgress, setProcessingProgress] = useState<number>(0);
 
@@ -146,17 +140,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const [dragLimits, setDragLimits] = useState<DragLimits | null>(null);
   
   const handleClickOnCanvas = () => { 
-    if (
-      isPoseSettingsModalOpen || 
-      isPoseJumpSettingsModalOpen ||
-      isMainMenuOpen
-    ) {
-      setIsPoseSettingsModalOpen(false);
-
-      setIsPoseJumpSettingsModalOpen(false);
-  
-      handleMainMenu(false);
-    }
+    if (isPoseJumpDataModalOpen) setIsPoseJumpDataModalOpen(false);
+    if (isMainMenuOpen) handleMainMenu(false);
   }
 
   const handleVideoUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -406,15 +391,12 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     }
   };
 
-  const handleFramesBasedOnJumps = (mode: "idle" | "detect" | "dismiss" = "detect") => {
+  const handleFrames = (mode: "idle" | "detect" | "dismiss" = "detect") => {
     if (isPoseJumpSettingsModalOpen) {
       setIsPoseJumpSettingsModalOpen(false);
     }
 
     if (mode === "dismiss") {
-      setChartAnnotations(null);
-      setDragLimits(null);
-
       onJumpsDetected?.([]);
 
       return;
@@ -427,146 +409,16 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     );
     // console.log('framesWithJointData ', framesWithJointData)
 
-    const jumpsByAngle = mode === "detect" 
-      ? handleJumpsDetection() 
-      : [];
-
     function tryReduceFrames(frames: VideoFrame[], threshold: number, minRequired: number = 80): VideoFrame[] {
       const reduced = filterRepresentativeFrames(frames, threshold);
       return reduced.length >= minRequired ? reduced : frames;
     }
 
     // Lógica de visualización adaptativa
-    const framesToDisplay = jumpsByAngle.length
-      ? framesWithJointData // Mantener precisión si hay saltos válidos
-      : tryReduceFrames(framesWithJointData, minAngleDiff, 80);
+    const framesToDisplay = tryReduceFrames(framesWithJointData, minAngleDiff, 80);
 
     const transformed = transformToRecordedPositions(framesToDisplay);
     setRecordedPositions(transformed);
-  }
-
-  const handleJumpsDetection = () => {
-    const jumpsByAngle = detectJumpWindowsByAngle({
-      frames: allFramesDataRef.current,
-      mode,
-      side,
-      joint,
-      maxTakeoffFlexion,
-      maxLandingFlexion,
-      minFlexionBeforeJump,
-      minFlexionAfterLanding,
-      searchWindow,
-      slidingAvgWindow: 3,
-      trendWindow: 3,
-    });
-
-    // console.log('handleJumpsDetection ', jumpsByAngle)
-    if (jumpsByAngle.length > 0) {
-      const annotations: PoseAnnotations = {};
-      const dragLimits: DragLimits = {};
-
-      jumpsByAngle.forEach((jump, i) => {
-        const { 
-          impulsePoint, 
-          takeoffPoint, 
-          landingPoint, 
-          cushionPoint 
-        } = jump;
-
-        const impulseTimestamp = impulsePoint.videoTime * 1_000;
-        const takeoffTimestamp = takeoffPoint.videoTime * 1_000;
-        const landingTimestamp = landingPoint.videoTime * 1_000;
-        const cushionTimestamp = cushionPoint.videoTime * 1_000;
-        const amortizationDuration = ((cushionTimestamp! - landingTimestamp!) / 1000).toFixed(2);
-        
-        const flightDuration = ((landingTimestamp! - takeoffTimestamp!) / 1_000).toFixed(2);
-        const impulseDuration = ((takeoffTimestamp! - impulseTimestamp!) / 1_000).toFixed(2);
-        const g = 9.81; // m/s²
-        const flightHeight = (((g * Math.pow(Number(flightDuration), 2)) / 8) * 100).toFixed(0);
-
-        if (impulseTimestamp != null && cushionTimestamp != null) {
-          // 🔹 Línea draggable: takeoff
-          annotations[`takeoffLine_${i}`] = {
-            type: "line",
-            xMin: takeoffTimestamp,
-            xMax: takeoffTimestamp,
-            borderColor: 'rgba(43, 210, 219, 0.59)',
-            borderWidth: 2,
-            label: {
-              content: `Takeoff J.${i + 1}`,
-              display: false,
-              position: 'start',
-              backgroundColor: "rgba(0,0,255,0.2)",
-            },
-          };
-
-          // 🔹 Línea draggable: landing
-          annotations[`landingLine_${i}`] = {
-            type: "line",
-            xMin: landingTimestamp,
-            xMax: landingTimestamp,
-            borderColor: 'rgba(43, 210, 219, 0.59)',
-            borderWidth: 2,
-            label: {
-              content: `Landing J.${i + 1}`,
-              display: false,
-              position: 'start',
-              backgroundColor: "rgba(0,128,0,0.2)",
-            },
-          };
-
-          // 🔹 Guardamos los límites de las líneas
-          dragLimits[`takeoffLine_${i}`] = {
-            min: impulseTimestamp,
-            max: cushionTimestamp,
-          };
-
-          dragLimits[`landingLine_${i}`] = {
-            min: impulseTimestamp,
-            max: cushionTimestamp,
-          };
-
-          // Box: impulso + vuelo + amortiguación
-          annotations[`fullJumpBox_${i}`] = {
-            type: "box",
-            xMin: impulseTimestamp,
-            xMax: cushionTimestamp,
-            yMax: 200,
-            yMin: -60,
-            backgroundColor: "rgba(0, 255, 100, 0.1)",
-            borderColor: "rgba(0, 255, 100, 0.5)",
-            borderWidth: 1,
-            label: {
-              display: true,
-              font: {
-                weight: 'normal', // o 'normal' o '400'
-              },
-              content: [
-                `H: ${flightHeight} cm`,
-                `I: ${impulseDuration} s`,
-                `F: ${flightDuration} s`,
-                `A: ${amortizationDuration} s`,
-              ],
-              position: {
-                x: 'center',
-                y: '10%',
-              },
-              textAlign: 'start',
-            },
-          };
-        }
-      });
-
-      setChartAnnotations(annotations);
-      setDragLimits(dragLimits);
-    } else {
-      setChartAnnotations(null);
-      setDragLimits(null);
-    }
-
-    onJumpsDetected?.(jumpsByAngle);
-
-    return jumpsByAngle;
   }
   
   const handleVideoProcessing = async () => {
@@ -595,7 +447,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
     await waitWithCancel(2_000);
 
-    handleFramesBasedOnJumps("idle");
+    handleFrames("idle");
 
     setProcessingStatus("processed");
     onStatusChange?.("processed");
@@ -1024,6 +876,11 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   }, [initialUrl]);
 
   useEffect(() => {
+    setIsCleanView(isPoseJumpSettingsModalOpen);
+    onCleanView?.(isPoseJumpSettingsModalOpen);
+  }, [isPoseJumpSettingsModalOpen])
+
+  useEffect(() => {
     return () => {
       cancelWait(); // Limpieza al desmontar
     };
@@ -1036,7 +893,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     downloadJSON,
     removeVideo,
     handleNewVideo,
-    handleFramesBasedOnJumps,
+    handleFrames,
   }));
 
   return (
@@ -1130,7 +987,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             onClick={async () => {
               if (
                 processingStatus !== "processed" ||
-                isPoseJumpSettingsModalOpen
+                isPoseJumpDataModalOpen
               ) return;
               
               if (isPlayingRef.current) {
@@ -1149,8 +1006,11 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
             }} />
           
           {processingStatus === "processed" && hiddenLegendsRef.current.size < selectedJoints.length ? (
-            <section 
-              className={`absolute z-10 bottom-2 left-0 font-bold w-50 p-2`}
+            <motion.section 
+              initial={{ x: -6, opacity: 0 }}
+              animate={{ x: isPoseJumpSettingsModalOpen ? '-100%' : -6, opacity: isPoseJumpSettingsModalOpen ? 0 : 1 }}
+              transition={{ type: "spring", stiffness: 100, damping: 15 }}
+              className={`absolute z-10 bottom-2 left-0 font-bold w-50 p-2 pl-4`}
               style={{
                 background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
               }}> 
@@ -1163,19 +1023,85 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                   ))
                 : "Nothing detected"
               }
-            </section> 
+            </motion.section> 
           ) : null }
+
+          {processingStatus === "processed" ? (
+            <motion.section 
+              initial={{ x: -6, opacity: 0 }}
+              animate={{ x: !isPoseJumpSettingsModalOpen ? '-100%' : -6, opacity: !isPoseJumpSettingsModalOpen ? 0 : 1 }}
+              transition={{ type: "spring", stiffness: 100, damping: 15 }}
+              className={`absolute left-0 bottom-0 pl-2 pb-2 flex justify-center items-center p-4 py-1 text-xl text-center bg-black/40 rounded-r-full transition-opacity duration-300 ${isCleanView 
+                ? 'opacity-0'
+                : 'opacity-100'
+              }`}
+              style={{
+                background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
+              }}>
+              <ArrowUpIcon 
+                className={`w-10 h-10 text-white p-[0.2rem] ${isPoseJumpDataModalOpen 
+                  ? 'opacity-40'
+                  : ''
+                }`}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+
+                  if (isPoseJumpDataModalOpen) return;
+
+                  if (nearestFrameRef.current) {
+                    setTakeoffVideoTime(nearestFrameRef.current?.videoTime);
+                  }
+                }}/>
+              <ArrowDownIcon 
+                className={`w-10 h-10 text-white p-[0.2rem] ${isPoseJumpDataModalOpen 
+                  ? 'opacity-40'
+                  : ''
+                }`}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+
+                  if (isPoseJumpDataModalOpen) return;
+
+                  if (nearestFrameRef.current) {
+                    setLandingVideoTime(nearestFrameRef.current?.videoTime);
+                  }
+                }}/>
+              <DocumentIcon 
+                className='w-10 h-10 text-white p-[0.2rem]'
+                onClick={(ev) => {
+                  ev.stopPropagation();
+
+                  setIsPoseJumpDataModalOpen((prev) => !prev);
+                }}/>
+              <TrashIcon 
+                className='w-10 h-10 text-white p-[0.2rem]'
+                onClick={(ev) => {
+                  ev.stopPropagation();
+
+                  setIsPoseJumpDataModalOpen(false);
+
+                  if (videoRef.current) {
+                    setTakeoffVideoTime(null);
+                    setLandingVideoTime(null);
+                  }
+                }}/>              
+            </motion.section>   
+          ) : null}
 
           {processingStatus === "processed" ? (
             <>
               <div className='absolute right-0 bottom-0 pr-2 pb-2 flex flex-row gap-1'>           
                 <ArrowUturnDownIcon 
                   className='hidden w-10 h-10 p-[0.1rem] text-white'
-                  onClick={() => handleFramesBasedOnJumps("detect")} /> 
-                <section className={`flex justify-center items-center px-4 py-1 text-xl text-center bg-black/40 rounded-full transition-opacity duration-300 ${isCleanView 
-                  ? 'opacity-0'
-                  : 'opacity-100'
-                  }`}>
+                  onClick={() => handleFrames("detect")} /> 
+                <section 
+                  className={`flex justify-center items-center p-4 py-1 text-xl text-center bg-black/40 rounded-r-full transition-opacity duration-300 ${isCleanView 
+                    ? 'opacity-0'
+                    : 'opacity-100'
+                  }`}
+                  style={{
+                    background: `linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
+                  }}>
                   {nearestFrameRef.current?.videoTime.toFixed(2)} s
                 </section>             
                 {isCleanView ? (
@@ -1184,6 +1110,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                     onClick={() => {
                       setIsCleanView(false);
                       onCleanView?.(false);
+                      if (isPoseJumpSettingsModalOpen) setIsPoseJumpSettingsModalOpen(false);
                     }}
                   /> ) : (
                   <EyeSlashIcon
@@ -1196,7 +1123,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                 {((zoomStatus === "in" && aspectRatio < 1) ||
                 (zoomStatus === "out" && aspectRatio >= 1)) ? (
                   <MagnifyingGlassPlusIcon 
-                    onClick={() => {                
+                    onClick={(ev) => {                
+                      ev.stopPropagation();
+                      
                       if (aspectRatio < 1) { // portrait
                         zoomFullWidth();
                       }
@@ -1204,12 +1133,14 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                         zoomFullHeight();
                       }
                     }}  
-                    className='w-10 h-10 text-white'/> 
+                    className='w-10 h-10 text-white p-[0.1rem]'/> 
                 ) : null }
                 {((zoomStatus === "out" && aspectRatio < 1) ||
                 (zoomStatus === "in" && aspectRatio >= 1)) ? (
                   <MagnifyingGlassMinusIcon 
-                    onClick={() => {
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      
                       if (aspectRatio < 1) { // portrait
                         zoomFullHeight();
                       }
@@ -1217,7 +1148,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                         zoomFullWidth();
                       }
                     }}  
-                    className='w-10 h-10 text-white'/>
+                    className='w-10 h-10 text-white p-[0.1rem]'/>
                 ) : null }         
               </div> 
             </>
@@ -1278,6 +1209,15 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           </div>
         ) : null }
       </div>
+
+      <PoseJumpDataModal 
+        isModalOpen={isPoseJumpDataModalOpen}
+        jumpDetected={{
+          takeoffPoint: {videoTime: takeoffVideoTime},
+          landingPoint: {videoTime: landingVideoTime}
+        }}
+        videoProcessed={processingStatus === "processed"}
+        />
 
       {processingStatus === 'processing' || processingStatus === "cancelRequested" ? (
         <div 
