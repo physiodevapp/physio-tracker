@@ -65,11 +65,22 @@ export type DragLimits = Record<string, { min: number; max: number }>;
 
 export type PoseAnnotations = Record<string, AnnotationOptions>
 
-export interface JumpPoint {
+export type JumpEventType = "groundContact" | "impulse" | "takeoff" | "landing" | "cushion"
+
+// Tipo para cada evento individual
+export type JumpEvent = {
   videoTime: number | null;
-}
-export type Jump = {
-  takeoffPoint: JumpPoint | null;
-  landingPoint: JumpPoint | null;
-}
+  hipAngle: number | null;
+  kneeAngle: number | null;
+};
+
+// Tipo para el objeto de eventos
+export type JumpEvents = {
+  groundContact: JumpEvent;
+  impulse: JumpEvent;
+  takeoff: JumpEvent;
+  landing: JumpEvent;
+  cushion: JumpEvent;
+};
+
 

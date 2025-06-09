@@ -5,7 +5,7 @@ import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallba
 import { createPortal } from 'react-dom';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
-import { CanvasKeypointName, JointDataMap, Jump, Kinematics } from '@/interfaces/pose';
+import { CanvasKeypointName, JointDataMap, JumpEvents, JumpEventType, Kinematics } from '@/interfaces/pose';
 import { usePoseDetector } from '@/providers/PoseDetector';
 import { OrthogonalReference, useSettings } from '@/providers/Settings';
 import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame } from '@/utils/pose';
@@ -17,8 +17,9 @@ import VideoTrimmer from '@/components/Pose/VideoTrimmer';
 import { TrimmerProps } from '../VideoTrimmer/CustomRangeSlider';
 import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
 import { ArrowUturnDownIcon, DocumentIcon, EyeIcon, EyeSlashIcon, ViewfinderCircleIcon } from '@heroicons/react/24/outline';
-import PoseJumpDataModal from "@/modals/PoseJumpData";
 import { motion } from "framer-motion";
+import PoseJumpDataModal from "@/modals/PoseJumpData";
+import PoseJumpEventModal from "@/modals/PoseJumpEvent";
 
 export type VideoAnalysisHandle = {
   handleVideoProcessing: () => void;
@@ -47,7 +48,7 @@ interface IndexProps {
   onLoaded?: (value: boolean) => void;
   onStatusChange?: (status: ProcessingStatus) => void;
   initialUrl: string | null;
-  onJumpsDetected?: (jumps: Jump[]) => void;
+  onJumpsDetected?: (jumps: JumpEvents | null) => void;
   isPoseJumpSettingsModalOpen: boolean;
   setIsPoseJumpSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onCleanView?: (value: boolean) => void;
@@ -79,8 +80,14 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const [isCleanView, setIsCleanView] = useState(false);
 
   const [isPoseJumpDataModalOpen, setIsPoseJumpDataModalOpen] = useState(false);
-  const [takeoffVideoTime, setTakeoffVideoTime] = useState<number | null>(null);
-  const [landingVideoTime, setLandingVideoTime] = useState<number | null>(null);
+  const [isPoseJumpEventModalOpen, setIsPoseJumpEventModalOpen] = useState(false);
+  const [jumpEvents, setJumpEvents] = useState<JumpEvents | null>({
+    groundContact:   { videoTime: null, hipAngle: null, kneeAngle: null },
+    impulse:         { videoTime: null, hipAngle: null, kneeAngle: null },
+    takeoff:         { videoTime: null, hipAngle: null, kneeAngle: null },
+    landing:         { videoTime: null, hipAngle: null, kneeAngle: null },
+    cushion:         { videoTime: null, hipAngle: null, kneeAngle: null },
+  });
 
   const keypointRadiusBase = 8;
 
@@ -394,7 +401,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     }
 
     if (mode === "dismiss") {
-      onJumpsDetected?.([]);
+      onJumpsDetected?.(null);
 
       return;
     }
@@ -875,13 +882,17 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   }, [isPoseJumpSettingsModalOpen]);
 
   useEffect(() => {
-    if (takeoffVideoTime && landingVideoTime) {
+    if (!jumpEvents) return;
+
+    const { takeoff, landing } = jumpEvents;
+
+    if (takeoff.videoTime && landing.videoTime) {
       setIsPoseJumpDataModalOpen(true);
     } 
     else {
       setIsPoseJumpDataModalOpen(false);
     }
-  }, [takeoffVideoTime, landingVideoTime])
+  }, [jumpEvents]);
 
   useEffect(() => {
     return () => {
@@ -942,10 +953,11 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
         <div className="relative flex-1 w-full bg-black flex justify-center items-center" >
           {videoLoaded && processingStatus === "idle" && (
-            <div className={`absolute left-0 bottom-2 w-[82%] h-20 z-10 pl-8 py-3`}
-            style={{
-              background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
-            }}>
+            <div 
+              className={`absolute left-0 bottom-2 w-[82%] h-20 z-10 pl-8 py-3`}
+              style={{
+                background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
+              }}>
               <VideoTrimmer
                 videoRef={videoRef}
                 onTrimChange={({range, markerPosition}) => { 
@@ -1008,6 +1020,32 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               objectFit: 'contain', // Opcional: para que el contenido no se deforme
             }} />
           
+          {processingStatus === "processed" ? (
+            <PoseJumpEventModal
+              isSettingsModalOpen={isPoseJumpSettingsModalOpen}
+              isDataModalOpen={isPoseJumpDataModalOpen}
+              isEventModalOpen={isPoseJumpEventModalOpen}
+              onJumpEventSelected={(jumpEvent: JumpEventType) => {
+                setJumpEvents((prev) => {
+                  if (!prev) return prev;
+
+                  const hipAngle = nearestFrameRef.current?.jointData?.right_hip?.angle ?? null;
+                  const kneeAngle = nearestFrameRef.current?.jointData?.right_knee?.angle ?? null;
+                  const videoTime = nearestFrameRef.current?.videoTime ?? null;
+
+                  return {
+                    ...prev,
+                    [jumpEvent]: {
+                      hipAngle,
+                      kneeAngle,
+                      videoTime,
+                    },
+                  };
+                })
+              }}
+              />
+          ) : null }
+          
           {processingStatus === "processed" && hiddenLegendsRef.current.size < selectedJoints.length ? (
             <motion.section 
               initial={{ x: -6, opacity: 0 }}
@@ -1034,42 +1072,18 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               initial={{ x: -6, opacity: 0 }}
               animate={{ x: (!isPoseJumpSettingsModalOpen || isPoseJumpDataModalOpen) ? '-100%' : -6, opacity: (!isPoseJumpSettingsModalOpen || isPoseJumpDataModalOpen) ? 0 : 1 }}
               transition={{ type: "spring", stiffness: 100, damping: 15 }}
-              className={`absolute left-0 bottom-0 pl-4 pb-2 flex justify-center items-center gap-[0.1rem] p-4 py-1 text-xl text-center bg-black/40 rounded-r-full transition-opacity duration-300 opacity-0`}
+              className={`absolute left-0 bottom-0 p-4 py-1 pl-5 pb-2 flex justify-center items-center gap-[0.1rem] text-xl text-center bg-black/40 transition-opacity duration-300 opacity-0`}
               style={{
                 background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
               }}>
               <ViewfinderCircleIcon 
-                className={`w-10 h-10 text-white p-[0.2rem]`}/>
-              {/* <ArrowUpIcon 
-                className={`w-10 h-10 text-white p-[0.4rem] ${takeoffVideoTime !== null
-                  ? 'bg-[#5dadec]'
-                  : ''
-                }`}
-                style={{borderRadius: "50% 4px 4px 50%"}}
+                className={`w-10 h-10 text-white p-[0.3rem]`}
                 onClick={(ev) => {
                   ev.stopPropagation();
 
-                  if (isPoseJumpDataModalOpen) return;
-
-                  if (nearestFrameRef.current) {
-                    setTakeoffVideoTime(nearestFrameRef.current?.videoTime);
-                  }
-                }}/>
-              <ArrowDownIcon 
-                className={`w-10 h-10 text-white p-[0.4rem] ${landingVideoTime !== null
-                  ? 'bg-[#5dadec]'
-                  : ''
-                }`}
-                style={{borderRadius: "4px 50% 50% 4px"}}
-                onClick={(ev) => {
-                  ev.stopPropagation();
-
-                  if (isPoseJumpDataModalOpen) return;
-
-                  if (nearestFrameRef.current) {
-                    setLandingVideoTime(nearestFrameRef.current?.videoTime);
-                  }
-                }}/> */}
+                  setIsPoseJumpEventModalOpen((prev) => !prev);
+                }}
+                />
               <DocumentIcon 
                 className='w-10 h-10 text-white p-[0.3rem]'
                 onClick={(ev) => {
@@ -1103,6 +1117,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                       setIsCleanView(false);
                       onCleanView?.(false);
                       if (isPoseJumpSettingsModalOpen) setIsPoseJumpSettingsModalOpen(false);
+                      if (isPoseJumpEventModalOpen) setIsPoseJumpEventModalOpen(false);
                     }}
                   /> ) : (
                   <EyeSlashIcon
@@ -1200,15 +1215,13 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         ) : null }
       </div>
 
-      <PoseJumpDataModal 
-        isSettingsModalOpen={isPoseJumpSettingsModalOpen}
-        isDataModalOpen={isPoseJumpDataModalOpen}
-        jumpDetected={{
-          takeoffPoint: {videoTime: takeoffVideoTime},
-          landingPoint: {videoTime: landingVideoTime}
-        }}
-        videoProcessed={processingStatus === "processed"}
-        />
+      {processingStatus === 'processed' ? (
+        <PoseJumpDataModal
+          isSettingsModalOpen={isPoseJumpSettingsModalOpen}
+          isDataModalOpen={isPoseJumpDataModalOpen}
+          jumpDetected={jumpEvents}
+          />
+        ) : null }
 
       {processingStatus === 'processing' || processingStatus === "cancelRequested" ? (
         <div 
@@ -1280,26 +1293,4 @@ Index.displayName = 'VideoAnalysis';
 
 export default Index;
 
-// IMPORTANTE:
-// No centralizar esta lógica:
-//
-// isPlayingRef.current = true;
-// setIsPlaying(true);
-// onPause?.(false);
-//
-// ... en un useEffect del tipo:
-// useEffect(() => {
-//   isPlayingRef.current = isPlaying;
-//   onPause?.(!isPlaying);
-// }, [isPlaying])
-//
-// Esa solución reactiva es asíncrona y se ejecuta *después* del render,
-// por lo que `isPlayingRef.current` no se actualiza a tiempo al llamar a `playFrames()`,
-// provocando que el bucle de reproducción se interrumpa inmediatamente.
-//
-// En su lugar, usamos esta secuencia directa y síncrona para garantizar
-// que el ref y el estado estén sincronizados en el mismo ciclo:
-// - actualizamos `isPlayingRef.current`
-// - actualizamos el estado con `setIsPlaying`
-// - notificamos con `onPause(...)` si es necesario
 

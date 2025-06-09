@@ -1,13 +1,11 @@
-import { Jump } from '@/interfaces/pose';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from "framer-motion";
+import { JumpEvents } from '@/interfaces/pose';
 
 interface IndexProps {
   isSettingsModalOpen: boolean;
   isDataModalOpen: boolean;
-  jumpDetected?: Jump | null;
-  videoMode?: boolean;
-  videoProcessed?: boolean;
+  jumpDetected?: JumpEvents | null;
 }
 
 const Index = ({
@@ -17,6 +15,8 @@ const Index = ({
 }: IndexProps) => {
   const [isModalReady, setIsModalReady] = useState(false);
 
+  const isAnimationRunningRef = useRef(false);
+
   const [thighLength, setThighLength] = useState(10);
   const [legLength, setLegLength] = useState(10);
 
@@ -25,7 +25,7 @@ const Index = ({
   const [maxVelocity, setMaxVelocity] = useState(0);
 
   const getFlightTime = () => {
-    const flightTime = (jumpDetected?.landingPoint?.videoTime ?? 0) - (jumpDetected?.takeoffPoint?.videoTime ?? 0)
+    const flightTime = (jumpDetected?.landing?.videoTime ?? 0) - (jumpDetected?.takeoff?.videoTime ?? 0)
 
     return flightTime;
   }
@@ -42,7 +42,13 @@ const Index = ({
     return maxVelocity;
   }
 
+  const handleAnimationStart = () => {
+    isAnimationRunningRef.current = true;
+  }
+
   const handleAnimationComplete = () => {
+    isAnimationRunningRef.current = false;
+
     if (!isSettingsModalOpen) {
       setIsModalReady(false);
     }
@@ -52,10 +58,13 @@ const Index = ({
     if (isSettingsModalOpen) {
       setIsModalReady(true);
     }
+    else if (!isAnimationRunningRef.current) {
+      setIsModalReady(false);
+    }
   }, [isSettingsModalOpen]);
 
   useEffect(() => {
-    if (jumpDetected?.takeoffPoint?.videoTime != null && jumpDetected?.landingPoint?.videoTime != null) {
+    if (jumpDetected?.takeoff?.videoTime != null && jumpDetected?.landing?.videoTime != null) {
       const flight = getFlightTime();
       const height = getJumpHeight();
       const velocity = getMaxVelocity();
@@ -72,6 +81,7 @@ const Index = ({
       initial={{ y: 0, opacity: 0 }}
       animate={{ y: isDataModalOpen ? 0 : "100%", opacity: isDataModalOpen ? 1 : 0 }}
       transition={{ type: "spring", stiffness: 100, damping: 18 }}
+      onAnimationStart={handleAnimationStart}
       onAnimationComplete={handleAnimationComplete}
       className="fixed z-40 bottom-0 left-0 w-full h-1/2 px-4 pt-[1rem] pb-[2rem] border-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-black/40 to-black shadow-[0_0_3px_rgba(0,0,0,0.2)] dark:shadow-[0_0_3px_rgba(0,0,0,0.46)]">
       {/* block 1 */}
