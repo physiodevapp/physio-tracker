@@ -1,17 +1,25 @@
 import { Jump } from '@/interfaces/pose';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { motion } from "framer-motion";
 
 interface IndexProps {
-  isModalOpen: boolean;
+  isSettingsModalOpen: boolean;
+  isDataModalOpen: boolean;
   jumpDetected?: Jump | null;
   videoMode?: boolean;
   videoProcessed?: boolean;
 }
 
 const Index = ({
-  isModalOpen,
+  isSettingsModalOpen,
+  isDataModalOpen,
   jumpDetected,
 }: IndexProps) => {
+  const [isModalReady, setIsModalReady] = useState(false);
+
+  const [thighLength, setThighLength] = useState(10);
+  const [legLength, setLegLength] = useState(10);
+
   const [flightTime, setFlightTime] = useState(0);
   const [jumpHeight, setJumpHeight] = useState(0);
   const [maxVelocity, setMaxVelocity] = useState(0);
@@ -34,6 +42,18 @@ const Index = ({
     return maxVelocity;
   }
 
+  const handleAnimationComplete = () => {
+    if (!isSettingsModalOpen) {
+      setIsModalReady(false);
+    }
+  }
+
+  useEffect(() => {
+    if (isSettingsModalOpen) {
+      setIsModalReady(true);
+    }
+  }, [isSettingsModalOpen]);
+
   useEffect(() => {
     if (jumpDetected?.takeoffPoint?.videoTime != null && jumpDetected?.landingPoint?.videoTime != null) {
       const flight = getFlightTime();
@@ -46,17 +66,16 @@ const Index = ({
     }
   }, [jumpDetected]); 
 
-  return isModalOpen ? (
-    <div
+  return isModalReady ? (
+    <motion.div
       data-element="non-swipeable"
+      initial={{ y: 0, opacity: 0 }}
+      animate={{ y: isDataModalOpen ? 0 : "100%", opacity: isDataModalOpen ? 1 : 0 }}
+      transition={{ type: "spring", stiffness: 100, damping: 18 }}
+      onAnimationComplete={handleAnimationComplete}
       className="fixed z-40 bottom-0 left-0 w-full h-1/2 px-4 pt-[1rem] pb-[2rem] border-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-black/40 to-black shadow-[0_0_3px_rgba(0,0,0,0.2)] dark:shadow-[0_0_3px_rgba(0,0,0,0.46)]">
-      {/* <div
-        className="w-full h-9 flex justify-end text-white italic font-bold cursor-pointer"
-        >
-        Jump metrics
-      </div> */}
       {/* block 1 */}
-      <section className="w-full flex flex-col justify-center gap-8 border-[#5dadec] border-2 dark:bg-gray-800/60 p-6 rounded-lg">
+      <section className="w-full flex flex-col justify-center gap-8 border-[#5dadec] border-2 dark:bg-black/60 p-4 rounded-lg">
         <div className='flex w-full gap-4'>
           {/* flight time */}
           <div className='flex-1 flex flex-col justify-between gap-2'>
@@ -69,7 +88,7 @@ const Index = ({
         </div>
       </section>
       {/* block 2 */}
-      <section className="w-full flex flex-col justify-center gap-8 border-[#5dadec] border-2 dark:bg-gray-800/60 p-6 rounded-lg">
+      <section className="w-full flex flex-col justify-center gap-8 border-[#5dadec] border-2 dark:bg-black/60 p-4 rounded-lg">
         <div className='flex flex-row w-full gap-4'>
           {/* max velocity */}
           <div className='flex-1 block'>
@@ -81,20 +100,44 @@ const Index = ({
           </div>
         </div>
       </section>
-      <section className="w-full flex flex-col justify-center gap-8 border-[#5dadec] border-2 dark:bg-gray-800/60 p-6 rounded-lg">
-        {/* block 1 */}
-        <div className='flex w-full gap-4'>
-          {/* takeoff */}
+      {/* block 3 */}
+      <section className="w-full flex flex-row justify-center gap-8 border-[#5dadec] border-2 dark:bg-black/60 p-4 rounded-lg">
+        <div className='flex flex-row flex-1 gap-6'>
+          {/* thigh length */}
           <div className='flex-1 flex flex-col justify-between gap-2'>
-            Take off at: {jumpDetected?.takeoffPoint?.videoTime?.toFixed(2)} s
+            <label
+              htmlFor='thigh-length'
+              className={`text-white`} >
+              Thigh: {thighLength} cm
+            </label>
+            <input
+              id='thigh-length'
+              type='range'
+              value={thighLength}
+              min="10"
+              max="100"
+              step="1"              
+              onChange={(e) => setThighLength(Number(e.target.value))} />
           </div>
-          {/* landing */}
+          {/* leg length */}
           <div className='flex-1 flex flex-col justify-between gap-2'>
-            Landing at: {jumpDetected?.landingPoint?.videoTime?.toFixed(2)} s
+            <label
+              htmlFor='leg-length'
+              className={`text-white`} >
+              Leg: {legLength} cm
+            </label>
+            <input
+              id='leg-length'
+              type='range'
+              value={legLength}
+              min="10"
+              max="100"
+              step="1"              
+              onChange={(e) => setLegLength(Number(e.target.value))} />
           </div>
         </div>
       </section>
-    </div>
+    </motion.div>
   ) : null;
 };
 

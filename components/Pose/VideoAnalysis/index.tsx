@@ -5,7 +5,7 @@ import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallba
 import { createPortal } from 'react-dom';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
-import { CanvasKeypointName, DragLimits, JointDataMap, Jump, Kinematics, PoseAnnotations } from '@/interfaces/pose';
+import { CanvasKeypointName, JointDataMap, Jump, Kinematics } from '@/interfaces/pose';
 import { usePoseDetector } from '@/providers/PoseDetector';
 import { OrthogonalReference, useSettings } from '@/providers/Settings';
 import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame } from '@/utils/pose';
@@ -16,7 +16,7 @@ import PoseChart, { RecordedPositions } from '@/components/Pose/Graph';
 import VideoTrimmer from '@/components/Pose/VideoTrimmer';
 import { TrimmerProps } from '../VideoTrimmer/CustomRangeSlider';
 import { ArrowPathIcon, CloudArrowDownIcon, CubeTransparentIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, PhotoIcon } from '@heroicons/react/24/solid';
-import { ArrowDownIcon, ArrowUpIcon, ArrowUturnDownIcon, DocumentIcon, EyeIcon, EyeSlashIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowUturnDownIcon, DocumentIcon, EyeIcon, EyeSlashIcon, ViewfinderCircleIcon } from '@heroicons/react/24/outline';
 import PoseJumpDataModal from "@/modals/PoseJumpData";
 import { motion } from "framer-motion";
 
@@ -135,9 +135,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const allFramesDataRef = useRef<VideoFrame[]>([]);
   const nearestFrameRef = useRef<VideoFrame>(null);
   const [recordedPositions, setRecordedPositions] = useState<RecordedPositions>();
-
-  const [chartAnnotations, setChartAnnotations] = useState<PoseAnnotations | null>(null);
-  const [dragLimits, setDragLimits] = useState<DragLimits | null>(null);
   
   const handleClickOnCanvas = () => { 
     if (isPoseJumpDataModalOpen) setIsPoseJumpDataModalOpen(false);
@@ -475,9 +472,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     allFramesDataRef.current = [];
     setRecordedPositions(undefined);
     setTrimmerRange({range: {start: 0, end: 0}, markerPosition: 0});
-
-    setChartAnnotations(null);
-    setDragLimits(null);
 
     isPlayingRef.current = false;
     setIsPlaying(false);
@@ -878,7 +872,16 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   useEffect(() => {
     setIsCleanView(isPoseJumpSettingsModalOpen);
     onCleanView?.(isPoseJumpSettingsModalOpen);
-  }, [isPoseJumpSettingsModalOpen])
+  }, [isPoseJumpSettingsModalOpen]);
+
+  useEffect(() => {
+    if (takeoffVideoTime && landingVideoTime) {
+      setIsPoseJumpDataModalOpen(true);
+    } 
+    else {
+      setIsPoseJumpDataModalOpen(false);
+    }
+  }, [takeoffVideoTime, landingVideoTime])
 
   useEffect(() => {
     return () => {
@@ -1029,20 +1032,20 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           {processingStatus === "processed" ? (
             <motion.section 
               initial={{ x: -6, opacity: 0 }}
-              animate={{ x: !isPoseJumpSettingsModalOpen ? '-100%' : -6, opacity: !isPoseJumpSettingsModalOpen ? 0 : 1 }}
+              animate={{ x: (!isPoseJumpSettingsModalOpen || isPoseJumpDataModalOpen) ? '-100%' : -6, opacity: (!isPoseJumpSettingsModalOpen || isPoseJumpDataModalOpen) ? 0 : 1 }}
               transition={{ type: "spring", stiffness: 100, damping: 15 }}
-              className={`absolute left-0 bottom-0 pl-2 pb-2 flex justify-center items-center p-4 py-1 text-xl text-center bg-black/40 rounded-r-full transition-opacity duration-300 ${isCleanView 
-                ? 'opacity-0'
-                : 'opacity-100'
-              }`}
+              className={`absolute left-0 bottom-0 pl-4 pb-2 flex justify-center items-center gap-[0.1rem] p-4 py-1 text-xl text-center bg-black/40 rounded-r-full transition-opacity duration-300 opacity-0`}
               style={{
                 background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
               }}>
-              <ArrowUpIcon 
-                className={`w-10 h-10 text-white p-[0.2rem] ${isPoseJumpDataModalOpen 
-                  ? 'opacity-40'
+              <ViewfinderCircleIcon 
+                className={`w-10 h-10 text-white p-[0.2rem]`}/>
+              {/* <ArrowUpIcon 
+                className={`w-10 h-10 text-white p-[0.4rem] ${takeoffVideoTime !== null
+                  ? 'bg-[#5dadec]'
                   : ''
                 }`}
+                style={{borderRadius: "50% 4px 4px 50%"}}
                 onClick={(ev) => {
                   ev.stopPropagation();
 
@@ -1053,10 +1056,11 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                   }
                 }}/>
               <ArrowDownIcon 
-                className={`w-10 h-10 text-white p-[0.2rem] ${isPoseJumpDataModalOpen 
-                  ? 'opacity-40'
+                className={`w-10 h-10 text-white p-[0.4rem] ${landingVideoTime !== null
+                  ? 'bg-[#5dadec]'
                   : ''
                 }`}
+                style={{borderRadius: "4px 50% 50% 4px"}}
                 onClick={(ev) => {
                   ev.stopPropagation();
 
@@ -1065,25 +1069,13 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                   if (nearestFrameRef.current) {
                     setLandingVideoTime(nearestFrameRef.current?.videoTime);
                   }
-                }}/>
+                }}/> */}
               <DocumentIcon 
-                className='w-10 h-10 text-white p-[0.2rem]'
+                className='w-10 h-10 text-white p-[0.3rem]'
                 onClick={(ev) => {
                   ev.stopPropagation();
 
-                  setIsPoseJumpDataModalOpen((prev) => !prev);
-                }}/>
-              <TrashIcon 
-                className='w-10 h-10 text-white p-[0.2rem]'
-                onClick={(ev) => {
-                  ev.stopPropagation();
-
-                  setIsPoseJumpDataModalOpen(false);
-
-                  if (videoRef.current) {
-                    setTakeoffVideoTime(null);
-                    setLandingVideoTime(null);
-                  }
+                  setIsPoseJumpDataModalOpen(true);
                 }}/>              
             </motion.section>   
           ) : null}
@@ -1114,7 +1106,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                     }}
                   /> ) : (
                   <EyeSlashIcon
-                    className='w-10 h-10 p-[0.1rem] text-white'
+                    className='w-10 h-10 p-[0.2rem] text-white'
                     onClick={() => {
                       setIsCleanView(true);
                       onCleanView?.(true);
@@ -1133,7 +1125,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                         zoomFullHeight();
                       }
                     }}  
-                    className='w-10 h-10 text-white p-[0.1rem]'/> 
+                    className='w-10 h-10 text-white p-[0.2rem]'/> 
                 ) : null }
                 {((zoomStatus === "out" && aspectRatio < 1) ||
                 (zoomStatus === "in" && aspectRatio >= 1)) ? (
@@ -1203,15 +1195,14 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
                 forceUpdateUI();
               }} 
-              annotations={chartAnnotations!} 
-              dragLimits={dragLimits!} 
               />
           </div>
         ) : null }
       </div>
 
       <PoseJumpDataModal 
-        isModalOpen={isPoseJumpDataModalOpen}
+        isSettingsModalOpen={isPoseJumpSettingsModalOpen}
+        isDataModalOpen={isPoseJumpDataModalOpen}
         jumpDetected={{
           takeoffPoint: {videoTime: takeoffVideoTime},
           landingPoint: {videoTime: landingVideoTime}
