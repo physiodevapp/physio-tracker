@@ -19,7 +19,8 @@ import { formatJointName } from '@/utils/joint';
 export type LiveAnalysisHandle = {
   startRecording: () => void;
   stopRecording: () => void;
-  isRecording: boolean;
+  isRecording: boolean;  
+  setIsFrozen: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 interface IndexProps {
@@ -409,6 +410,7 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
     startRecording,
     stopRecording,
     isRecording,
+    setIsFrozen,
   }));
 
   return (

@@ -22,13 +22,15 @@ import PoseJumpDataModal from "@/modals/PoseJumpData";
 import PoseJumpEventModal from "@/modals/PoseJumpEvent";
 
 export type VideoAnalysisHandle = {
-  handleVideoProcessing: () => void;
+  handleVideoProcessing: () => Promise<void>;
   isVideoLoaded: () => boolean;
   isVideoProcessed: () => boolean;  
   downloadJSON: () => void;
   removeVideo: () => void;
   handleNewVideo: () => void;
   handleFrames: (mode: "detect" | "dismiss") => void;
+  playFrames: () => Promise<void>;
+  pauseFrames: () => void;
 };
 
 export type ProcessingStatus = 'idle' | 'processing' | 'cancelRequested' | 'cancelled' | 'processed' | 'durationExceeded';
@@ -81,15 +83,15 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
   const [isPoseJumpDataModalOpen, setIsPoseJumpDataModalOpen] = useState(false);
   const [isPoseJumpEventModalOpen, setIsPoseJumpEventModalOpen] = useState(false);
-  const [jumpEvents, setJumpEvents] = useState<JumpEvents | null>({
+  const jumpEventsRef = useRef<JumpEvents | null>({
     groundContact:   { videoTime: null, hipAngle: null, kneeAngle: null },
     impulse:         { videoTime: null, hipAngle: null, kneeAngle: null },
     takeoff:         { videoTime: null, hipAngle: null, kneeAngle: null },
     landing:         { videoTime: null, hipAngle: null, kneeAngle: null },
     cushion:         { videoTime: null, hipAngle: null, kneeAngle: null },
-  });
+  })
 
-  const keypointRadiusBase = 8;
+  const keypointRadiusBase = 8; // revisar
 
   const [zoomStatus, setZoomStatus] = useState<'in' | 'out'>('in');
 
@@ -368,6 +370,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       return;
     }
   
+    console.log('allFramesDataRef ', allFramesDataRef.current)
     for (const [index, frame] of allFramesDataRef.current.entries()) {
       if (processingCancelledRef.current) {
         // console.warn('🛑 Joint analysis aborted by user.');
@@ -882,19 +885,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   }, [isPoseJumpSettingsModalOpen]);
 
   useEffect(() => {
-    if (!jumpEvents) return;
-
-    const { takeoff, landing } = jumpEvents;
-
-    if (takeoff.videoTime && landing.videoTime) {
-      setIsPoseJumpDataModalOpen(true);
-    } 
-    else {
-      setIsPoseJumpDataModalOpen(false);
-    }
-  }, [jumpEvents]);
-
-  useEffect(() => {
     return () => {
       cancelWait(); // Limpieza al desmontar
     };
@@ -908,6 +898,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     removeVideo,
     handleNewVideo,
     handleFrames,
+    playFrames,
+    pauseFrames,
   }));
 
   return (
@@ -1026,22 +1018,21 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               isDataModalOpen={isPoseJumpDataModalOpen}
               isEventModalOpen={isPoseJumpEventModalOpen}
               onJumpEventSelected={(jumpEvent: JumpEventType) => {
-                setJumpEvents((prev) => {
-                  if (!prev) return prev;
+                const prev = jumpEventsRef.current;
+                if (!prev) return;
 
-                  const hipAngle = nearestFrameRef.current?.jointData?.right_hip?.angle ?? null;
-                  const kneeAngle = nearestFrameRef.current?.jointData?.right_knee?.angle ?? null;
-                  const videoTime = nearestFrameRef.current?.videoTime ?? null;
-
-                  return {
-                    ...prev,
-                    [jumpEvent]: {
-                      hipAngle,
-                      kneeAngle,
-                      videoTime,
-                    },
-                  };
-                })
+                const hipAngle = nearestFrameRef.current?.jointData?.right_hip?.angle ?? null;
+                const kneeAngle = nearestFrameRef.current?.jointData?.right_knee?.angle ?? null;
+                const videoTime = nearestFrameRef.current?.videoTime ?? null;
+                
+                jumpEventsRef.current = {
+                  ...prev,
+                  [jumpEvent]: {
+                    hipAngle,
+                    kneeAngle,
+                    videoTime,
+                  },
+                };
               }}
               />
           ) : null }
@@ -1219,7 +1210,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         <PoseJumpDataModal
           isSettingsModalOpen={isPoseJumpSettingsModalOpen}
           isDataModalOpen={isPoseJumpDataModalOpen}
-          jumpDetected={jumpEvents}
+          jumpDetected={jumpEventsRef.current}
           />
         ) : null }
 

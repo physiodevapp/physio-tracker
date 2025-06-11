@@ -49,21 +49,39 @@ function calculateJointAngleDegrees(A, B, C, invert = false, orthogonalReference
   const isShoulder = B.name?.includes('shoulder');
   const isHip = B.name?.includes('hip');
 
-  if ((orthogonalReference === 'vertical' || orthogonalReference === 'horizontal') && (isShoulder || isHip)) {
+  if (
+    (orthogonalReference === 'vertical' || orthogonalReference === 'horizontal') && 
+    (isShoulder || isHip)
+  ) {
     const targetName = isShoulder ? 'elbow' : 'knee';
     const referencePoint = A.name?.includes(targetName) ? A : C.name?.includes(targetName) ? C : null;
     if (!referencePoint) return 0;
 
-    const jointVector = { x: referencePoint.x - B.x, y: referencePoint.y - B.y };
+    const jointVector = { 
+      x: referencePoint.x - B.x, 
+      y: referencePoint.y - B.y 
+    };
 
     if (orthogonalReference === 'vertical') {
-      const referenceVector = { x: 0, y: 1 };
+      // // Línea vertical hacia abajo
+      // const referenceVector = { x: 0, y: 1 };
+      // // Ángulo sin signo
+      // const dot = referenceVector.x * jointVector.x + referenceVector.y * jointVector.y;
+      // const magJoint = Math.hypot(jointVector.x, jointVector.y);
+      // if (magJoint === 0) return 0;
+      // const angleDeg = Math.acos(dot / magJoint) * (180 / Math.PI);
+      
+      // return angleDeg;
+      ///
+      const referenceVector = { x: 0, y: 1 }; // vertical
       const dot = referenceVector.x * jointVector.x + referenceVector.y * jointVector.y;
-      const magJoint = Math.hypot(jointVector.x, jointVector.y);
-      if (magJoint === 0) return 0;
-      const angleDeg = Math.acos(dot / magJoint) * (180 / Math.PI);
-      return invert ? 180 - angleDeg : angleDeg;
-    }
+      const cross = referenceVector.x * jointVector.y - referenceVector.y * jointVector.x;
+      const angleRad = Math.atan2(cross, dot);
+      const angleDeg = angleRad * (180 / Math.PI);
+
+      return angleDeg;
+    } 
+    console.log('control')
 
     if (orthogonalReference === 'horizontal') {
       const isRight = referencePoint.x > B.x;
@@ -73,7 +91,8 @@ function calculateJointAngleDegrees(A, B, C, invert = false, orthogonalReference
       if (angleDeg > 180) angleDeg -= 360;
       if (angleDeg < -180) angleDeg += 360;
       if (referenceVector.x < 0) angleDeg = -angleDeg;
-      return invert ? -angleDeg : angleDeg;
+      
+      return angleDeg;
     }
   }
 
@@ -84,6 +103,7 @@ function calculateJointAngleDegrees(A, B, C, invert = false, orthogonalReference
   const magBC = Math.hypot(BC.x, BC.y);
   if (magBA === 0 || magBC === 0) return 0;
   let angleDeg = Math.acos(dot / (magBA * magBC)) * (180 / Math.PI);
+
   return invert ? 180 - angleDeg : angleDeg;
 }
 

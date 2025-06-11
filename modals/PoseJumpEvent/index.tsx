@@ -89,7 +89,7 @@ const Index = ({
             onClick={(ev) => {
               ev.stopPropagation();
 
-              handleJumpEventValue("impulse");
+              handleJumpEventValue("landing");
             }}>Landing</button>  
         </div>
         <div className='w-full'>

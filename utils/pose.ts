@@ -2,6 +2,8 @@ import { CanvasKeypointName, JointConfigMap, JointDataMap } from "@/interfaces/p
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import { RefObject } from "react";
 
+export type PoseOrientation = "Front" | "Back" | "Left" | "Right";
+
 export interface VideoFrame {
   videoTime: number; // Tiempo relativo en segundos dentro del vídeo
   frameImage: HTMLCanvasElement;
@@ -23,7 +25,7 @@ export const excludedKeypoints = [
   'left_pinky', 'right_pinky', 
 ];
 
-export  const keypointPairs: [CanvasKeypointName, CanvasKeypointName][] = [
+export const keypointPairs: [CanvasKeypointName, CanvasKeypointName][] = [
   [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.RIGHT_SHOULDER],
   [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.LEFT_ELBOW],
   [CanvasKeypointName.LEFT_ELBOW, CanvasKeypointName.LEFT_WRIST],

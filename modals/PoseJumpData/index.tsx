@@ -19,6 +19,7 @@ const Index = ({
 
   const [thighLength, setThighLength] = useState(10);
   const [legLength, setLegLength] = useState(10);
+  const [weight, setWeight] = useState(50);
 
   const [flightTime, setFlightTime] = useState(0);
   const [jumpHeight, setJumpHeight] = useState(0);
@@ -85,7 +86,7 @@ const Index = ({
       onAnimationComplete={handleAnimationComplete}
       className="fixed z-40 bottom-0 left-0 w-full h-1/2 px-4 pt-[1rem] pb-[2rem] border-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-black/40 to-black shadow-[0_0_3px_rgba(0,0,0,0.2)] dark:shadow-[0_0_3px_rgba(0,0,0,0.46)]">
       {/* block 1 */}
-      <section className="w-full flex flex-col justify-center gap-8 border-[#5dadec] border-2 dark:bg-black/60 p-4 rounded-lg">
+      <section className="w-full flex flex-col justify-center gap-4 border-[#5dadec] border-2 dark:bg-black/60 p-4 rounded-lg">
         <div className='flex w-full gap-4'>
           {/* flight time */}
           <div className='flex-1 flex flex-col justify-between gap-2'>
@@ -96,9 +97,6 @@ const Index = ({
             Height: {(jumpHeight * 100).toFixed(2)} cm
           </div>
         </div>
-      </section>
-      {/* block 2 */}
-      <section className="w-full flex flex-col justify-center gap-8 border-[#5dadec] border-2 dark:bg-black/60 p-4 rounded-lg">
         <div className='flex flex-row w-full gap-4'>
           {/* max velocity */}
           <div className='flex-1 block'>
@@ -110,8 +108,8 @@ const Index = ({
           </div>
         </div>
       </section>
-      {/* block 3 */}
-      <section className="w-full flex flex-row justify-center gap-8 border-[#5dadec] border-2 dark:bg-black/60 p-4 rounded-lg">
+      {/* block 2 */}
+      <section className="w-full flex flex-col justify-center gap-4 border-[#5dadec] border-2 dark:bg-black/60 p-4 rounded-lg">
         <div className='flex flex-row flex-1 gap-6'>
           {/* thigh length */}
           <div className='flex-1 flex flex-col justify-between gap-2'>
@@ -144,6 +142,24 @@ const Index = ({
               max="100"
               step="1"              
               onChange={(e) => setLegLength(Number(e.target.value))} />
+          </div>
+        </div>
+        <div className='flex flex-row flex-1 gap-6'>
+          {/* body weight */}
+          <div className='flex-1 flex flex-col justify-between gap-2'>
+            <label
+              htmlFor='body-weight'
+              className={`text-white`} >
+              Weight: {legLength} kg
+            </label>
+            <input
+              id='body-weight'
+              type='range'
+              value={weight}
+              min="0"
+              max="200"
+              step="0.5"              
+              onChange={(e) => setWeight(Number(e.target.value))} />
           </div>
         </div>
       </section>
