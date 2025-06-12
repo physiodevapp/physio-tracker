@@ -2,7 +2,7 @@ import { CanvasKeypointName, JointConfigMap, JointDataMap } from "@/interfaces/p
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import { RefObject } from "react";
 
-export type PoseOrientation = "Front" | "Back" | "Left" | "Right";
+export type PoseOrientation = "front" | "back" | "left" | "right";
 
 export interface VideoFrame {
   videoTime: number; // Tiempo relativo en segundos dentro del vídeo
@@ -55,6 +55,7 @@ export const updateMultipleJoints = ({
   jointAngleHistorySize,
   setAnglesToDisplay,
   mode = 'live',
+  poseOrientation,
 }: {
   keypoints: poseDetection.Keypoint[];
   selectedJoints: CanvasKeypointName[];
@@ -67,6 +68,7 @@ export const updateMultipleJoints = ({
   ignoreHistorySize?: boolean;
   setAnglesToDisplay?: React.Dispatch<React.SetStateAction<string[]>>;
   mode?: 'live' | 'video';
+  poseOrientation: PoseOrientation;
 }): Promise<JointDataMap> => {
   return new Promise((resolve) => {
     if (!jointWorker) return resolve({} as JointDataMap);
@@ -155,6 +157,7 @@ export const updateMultipleJoints = ({
       jointDataMap,
       angleHistorySize: mode === "video" ? 0 : jointAngleHistorySize,
       orthogonalReference,
+      poseOrientation,
     });
   });
 };

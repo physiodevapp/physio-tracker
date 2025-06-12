@@ -54,6 +54,9 @@ interface IndexProps {
   isPoseJumpSettingsModalOpen: boolean;
   setIsPoseJumpSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onCleanView?: (value: boolean) => void;
+  shouldResumeVideo: boolean;
+  showPoseOrientationModal: boolean;
+  setShowPoseOrientationModal: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
@@ -74,6 +77,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   isPoseJumpSettingsModalOpen,
   setIsPoseJumpSettingsModalOpen,
   onCleanView,
+  shouldResumeVideo,
+  showPoseOrientationModal,
+  setShowPoseOrientationModal,
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -89,7 +95,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     takeoff:         { videoTime: null, hipAngle: null, kneeAngle: null },
     landing:         { videoTime: null, hipAngle: null, kneeAngle: null },
     cushion:         { videoTime: null, hipAngle: null, kneeAngle: null },
-  })
+  });
 
   const keypointRadiusBase = 8; // revisar
 
@@ -134,6 +140,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     angularHistorySize,
     pointsPerSecond, 
     minAngleDiff,
+    poseOrientation,
   } = settings.pose;
   const selectedJointsRef = useRef(selectedJoints);
 
@@ -370,7 +377,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       return;
     }
   
-    console.log('allFramesDataRef ', allFramesDataRef.current)
+    // console.log('allFramesDataRef ', allFramesDataRef.current)
     for (const [index, frame] of allFramesDataRef.current.entries()) {
       if (processingCancelledRef.current) {
         // console.warn('🛑 Joint analysis aborted by user.');
@@ -388,6 +395,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           formatJointName: (jointName) => jointName,
           jointAngleHistorySize: angularHistorySize,
           mode: "video",
+          poseOrientation,
         });
   
         frame.jointData = structuredClone(updatedData);
@@ -951,7 +959,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                 background: `linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 80%)`
               }}>
               <VideoTrimmer
-                videoRef={videoRef}
+                videoRef={videoRef}                
                 onTrimChange={({range, markerPosition}) => { 
                   if (range.start !== trimmerRange.range.start || 
                     range.end !== trimmerRange.range.end || 
@@ -987,20 +995,26 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                 ? 'hidden'
                 : 'w-full h-dvh object-cover'
             } 
-            muted />
+            muted 
+            onClick={() => {
+              setShowPoseOrientationModal(false);
+            }} />
           <canvas ref={inputCanvasRef} className="hidden" />
           <canvas
             ref={canvasRef}
             onClick={async () => {
+              if (showPoseOrientationModal) setShowPoseOrientationModal(false);  
+                         
               if (
                 processingStatus !== "processed" ||
-                isPoseJumpDataModalOpen
+                isPoseJumpDataModalOpen ||
+                !shouldResumeVideo && showPoseOrientationModal
               ) return;
               
               if (isPlayingRef.current) {
                 pauseFrames();
               }
-              else {
+              else {                
                 await playFrames();
               }
             }}

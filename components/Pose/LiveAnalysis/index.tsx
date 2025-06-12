@@ -59,13 +59,12 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
   onRecordingChange,
   onRecordingFinish,
 }, ref) => {
-  const { 
-    settings,
-  } = useSettings();
+  const { settings } = useSettings();
   const {
     selectedJoints,
     angularHistorySize,
     poseModel,
+    poseOrientation,
   } = settings.pose;
 
   const [isCameraReady, setIsCameraReady] = useState(false);
@@ -355,6 +354,7 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
                 orthogonalReference: orthogonalReferenceRef.current,
                 formatJointName,
                 setAnglesToDisplay,
+                poseOrientation,
               });
             }
           }

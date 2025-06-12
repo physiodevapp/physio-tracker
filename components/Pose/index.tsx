@@ -55,7 +55,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const [isFrozen, setIsFrozen] = useState(false);
 
-  const poseOrientations: PoseOrientation[] = ["Front", "Back", "Left", "Right"];
+  const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right"];
   const [showPoseOrientationModal, setShowPoseOrientationModal] = useState(false);
   const shouldResumeVideoRef = useRef(false);
 
@@ -291,7 +291,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 setIsCleanView(value);
 
                 setShowPoseOrientationModal(false);
-              }}/>
+              }}
+              showPoseOrientationModal={showPoseOrientationModal}
+              setShowPoseOrientationModal={setShowPoseOrientationModal}
+              shouldResumeVideo={shouldResumeVideoRef.current}/>
           )}
         </div>
 
@@ -417,14 +420,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                     else if (mode === "video") {
                       if (!isFrozen) {
                         shouldResumeVideoRef.current = true;
-                        videoAnalysisRef.current?.pauseFrames();
+
+                        if (processingStatus === "processed")
+                          videoAnalysisRef.current?.pauseFrames();
                       }
                       else {
                         shouldResumeVideoRef.current = false;
                       }
                     }
                   }}
-                >{poseOrientation[0]}</button>
+                >{poseOrientation?.[0]}</button>
               </div>
               {processingStatus !== "processed" ? (
                 <Cog6ToothIcon 
@@ -465,7 +470,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                             shouldResumeVideoRef.current = false;
                             videoAnalysisRef.current?.playFrames();
                           }
-                        }}>{poseOrientation}</button>
+                        }}><span className="uppercase">{poseOrientation[0]}</span>{poseOrientation.slice(1, poseOrientation.length)}</button>
                     </div>
                   ))}
               </motion.section>

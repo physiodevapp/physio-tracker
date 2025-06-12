@@ -8,6 +8,7 @@ self.onmessage = (e) => {
     jointDataMap = {},
     angleHistorySize,
     orthogonalReference,
+    poseOrientation,
   } = e.data;
 
   const updatedJointData = {};
@@ -19,7 +20,14 @@ self.onmessage = (e) => {
     if (!jointKeypoints) return;
 
     const [kpA, kpB, kpC] = jointKeypoints;
-    const angleNow = calculateJointAngleDegrees(kpA, kpB, kpC, jointConfig.invert, orthogonalReference);
+    const angleNow = calculateJointAngleDegrees(
+      kpA, 
+      kpB, 
+      kpC, 
+      jointConfig.invert, 
+      orthogonalReference,
+      poseOrientation,
+    );
 
     const newHistory = angleHistorySize > 0 
       ? [...history, angleNow]
@@ -45,7 +53,7 @@ self.onmessage = (e) => {
 
 // === Funciones auxiliares ===
 
-function calculateJointAngleDegrees(A, B, C, invert = false, orthogonalReference) {
+function calculateJointAngleDegrees(A, B, C, invert = false, orthogonalReference, poseOrientation) {
   const isShoulder = B.name?.includes('shoulder');
   const isHip = B.name?.includes('hip');
 
@@ -79,7 +87,11 @@ function calculateJointAngleDegrees(A, B, C, invert = false, orthogonalReference
       const angleRad = Math.atan2(cross, dot);
       const angleDeg = angleRad * (180 / Math.PI);
 
-      return angleDeg;
+      let angleDegAdjusted;
+      if (poseOrientation === "left") angleDegAdjusted = angleDeg;
+      if (poseOrientation === "right") angleDegAdjusted = -angleDeg;
+
+      return angleDegAdjusted ?? angleDeg;
     } 
     console.log('control')
 
