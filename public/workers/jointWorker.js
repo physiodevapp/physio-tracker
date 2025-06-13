@@ -8,6 +8,7 @@ self.onmessage = (e) => {
     jointDataMap = {},
     angleHistorySize,
     orthogonalReference,
+    poseOrientation,
   } = e.data;
 
   const updatedJointData = {};
@@ -19,7 +20,14 @@ self.onmessage = (e) => {
     if (!jointKeypoints) return;
 
     const [kpA, kpB, kpC] = jointKeypoints;
-    const angleNow = calculateJointAngleDegrees(kpA, kpB, kpC, jointConfig.invert, orthogonalReference);
+    const angleNow = calculateJointAngleDegrees(
+      kpA, 
+      kpB, 
+      kpC, 
+      jointConfig.invert, 
+      orthogonalReference,
+      poseOrientation,
+    );
 
     const newHistory = angleHistorySize > 0 
       ? [...history, angleNow]
@@ -45,46 +53,95 @@ self.onmessage = (e) => {
 
 // === Funciones auxiliares ===
 
-function calculateJointAngleDegrees(A, B, C, invert = false, orthogonalReference) {
+function calculateJointAngleDegrees(A, B, C, invert = false, orthogonalReference, poseOrientation) {
   const isShoulder = B.name?.includes('shoulder');
+  const isElbow = B.name?.includes('elbow');
   const isHip = B.name?.includes('hip');
+  const isKnee = B.name?.includes('knee');
+  
+  const jointSide = B.name?.includes("left") ? "left"
+  : B.name?.includes("right") ? "right"
+  : undefined;
 
-  if ((orthogonalReference === 'vertical' || orthogonalReference === 'horizontal') && (isShoulder || isHip)) {
-    const targetName = isShoulder ? 'elbow' : 'knee';
-    const referencePoint = A.name?.includes(targetName) ? A : C.name?.includes(targetName) ? C : null;
+  let proximalSegment; // segmento proximal
+  let distalSegment; // segmento distal
+  if (orthogonalReference === 'vertical') {
+    proximalSegment = { x: 0, y: 1 };
+
+    let targetName;
+    if (isShoulder) targetName = 'elbow';
+    if (isHip) targetName = 'knee';
+    if (isElbow) targetName = 'wrist';
+    if (isKnee) targetName = 'ankle';
+    const referencePoint = A.name?.includes(targetName) ? A 
+    : C.name?.includes(targetName) ? C 
+    : null;
     if (!referencePoint) return 0;
+    distalSegment = { 
+      x: referencePoint.x - B.x, 
+      y: referencePoint.y - B.y 
+    };
+  }
+  else {
+    proximalSegment = { x: A.x - B.x, y: A.y - B.y };
 
-    const jointVector = { x: referencePoint.x - B.x, y: referencePoint.y - B.y };
-
-    if (orthogonalReference === 'vertical') {
-      const referenceVector = { x: 0, y: 1 };
-      const dot = referenceVector.x * jointVector.x + referenceVector.y * jointVector.y;
-      const magJoint = Math.hypot(jointVector.x, jointVector.y);
-      if (magJoint === 0) return 0;
-      const angleDeg = Math.acos(dot / magJoint) * (180 / Math.PI);
-      return invert ? 180 - angleDeg : angleDeg;
-    }
-
-    if (orthogonalReference === 'horizontal') {
-      const isRight = referencePoint.x > B.x;
-      const referenceVector = { x: isRight ? 1 : -1, y: 0 };
-      const angleRad = Math.atan2(referenceVector.y, referenceVector.x) - Math.atan2(jointVector.y, jointVector.x);
-      let angleDeg = angleRad * (180 / Math.PI);
-      if (angleDeg > 180) angleDeg -= 360;
-      if (angleDeg < -180) angleDeg += 360;
-      if (referenceVector.x < 0) angleDeg = -angleDeg;
-      return invert ? -angleDeg : angleDeg;
-    }
+    distalSegment = { x: C.x - B.x, y: C.y - B.y };
   }
 
-  const BA = { x: A.x - B.x, y: A.y - B.y };
-  const BC = { x: C.x - B.x, y: C.y - B.y };
-  const dot = BA.x * BC.x + BA.y * BC.y;
-  const magBA = Math.hypot(BA.x, BA.y);
-  const magBC = Math.hypot(BC.x, BC.y);
-  if (magBA === 0 || magBC === 0) return 0;
-  let angleDeg = Math.acos(dot / (magBA * magBC)) * (180 / Math.PI);
-  return invert ? 180 - angleDeg : angleDeg;
+  const dot = proximalSegment.x * distalSegment.x + proximalSegment.y * distalSegment.y;
+  const cross = proximalSegment.x * distalSegment.y - proximalSegment.y * distalSegment.x; // Producto cruzado en 2D
+  if ((proximalSegment.x === 0 && proximalSegment.y === 0) || (distalSegment.x === 0 && distalSegment.y === 0)) return 0;
+  const angleRad = Math.atan2(cross, dot);
+  const angleDeg = angleRad * (180 / Math.PI);
+
+  let angleDegAdjusted;
+  // ángulo ajustado a la orientación (Left/Right/Back/Front)
+  if (poseOrientation === "left") angleDegAdjusted = angleDeg;
+  if (poseOrientation === "right") angleDegAdjusted = -angleDeg;
+  if (
+    (poseOrientation === "front" && jointSide === "left") ||
+    (poseOrientation === "back" && jointSide === "right")      
+  ) angleDegAdjusted = -angleDeg;
+  if (
+    (poseOrientation === "front" && jointSide === "right") ||
+    (poseOrientation === "back" && jointSide === "left")
+  ) angleDegAdjusted = angleDeg;
+  // ángulo desenrollado para evitar saltos de ±180º
+  let hasCrossedVertical;
+  if (poseOrientation === "left") hasCrossedVertical = distalSegment.x > 0 && distalSegment.y < 0;
+  if (poseOrientation === "right") hasCrossedVertical = distalSegment.x < 0 && distalSegment.y < 0;
+  if (
+    (poseOrientation === "front" && jointSide === "left") ||
+    (poseOrientation === "back" && jointSide === "right")
+  ) hasCrossedVertical = distalSegment.x < 0 && distalSegment.y < 0;
+  if (
+    (poseOrientation === "front" && jointSide === "right") ||
+    (poseOrientation === "back" && jointSide === "left")
+  ) hasCrossedVertical = distalSegment.x > 0 && distalSegment.y < 0;
+  if (angleDegAdjusted < 0 && hasCrossedVertical) angleDegAdjusted += 360;
+
+  if (!orthogonalReference) {
+    angleDegAdjusted = (invert && angleDegAdjusted < 0) ? 180 + angleDegAdjusted 
+    : (invert && angleDegAdjusted > 0) ? angleDegAdjusted - 180 
+    : angleDegAdjusted;
+
+    // el signo es el opuesto que para el criterio de signos de cadera
+    if (isKnee) angleDegAdjusted = -angleDegAdjusted;
+  }
+
+  return angleDegAdjusted ?? angleDeg;
+  ///
+  // ángulo entre 0 y 180, sin importar el signo del giro
+  // const BA = { x: A.x - B.x, y: A.y - B.y };
+  // const BC = { x: C.x - B.x, y: C.y - B.y };
+  // const dot = BA.x * BC.x + BA.y * BC.y;
+  // const magBA = Math.hypot(BA.x, BA.y);
+  // const magBC = Math.hypot(BC.x, BC.y);
+  // if (magBA === 0 || magBC === 0) return 0;
+  // let angleDeg = Math.acos(dot / (magBA * magBC)) * (180 / Math.PI);
+  //
+  // return invert ? 180 - angleDeg : angleDeg;
+  ///
 }
 
 function getJointKeypoints(jointName, keypoints) {

@@ -1,3 +1,4 @@
+import { OrthogonalReference } from '@/providers/Settings';
 import type * as poseDetection from '@tensorflow-models/pose-detection';
 import { AnnotationOptions } from 'chartjs-plugin-annotation';
 
@@ -56,7 +57,7 @@ export interface UpdateJointParams {
   angleHistorySize?: number;
   mirror?: boolean;
   graphAngle?: number | null;
-  orthogonalReference?: 'vertical' | 'horizontal';
+  orthogonalReference?: OrthogonalReference;
 }
 
 export type JointConfigMap = Partial<{ [key in CanvasKeypointName]: { invert: boolean } }>;
@@ -65,16 +66,22 @@ export type DragLimits = Record<string, { min: number; max: number }>;
 
 export type PoseAnnotations = Record<string, AnnotationOptions>
 
-export interface JumpPoint {
-  index: number;
-  angle: number;
-  videoTime: number;
-  yValue: number;
-}
-export type Jump = {
-  impulsePoint: JumpPoint;
-  takeoffPoint: JumpPoint;
-  landingPoint: JumpPoint;
-  cushionPoint: JumpPoint;
-}
+export type JumpEventType = "groundContact" | "impulse" | "takeoff" | "landing" | "cushion"
+
+// Tipo para cada evento individual
+export type JumpEvent = {
+  videoTime: number | null;
+  hipAngle: number | null;
+  kneeAngle: number | null;
+};
+
+// Tipo para el objeto de eventos
+export type JumpEvents = {
+  groundContact: JumpEvent;
+  impulse: JumpEvent;
+  takeoff: JumpEvent;
+  landing: JumpEvent;
+  cushion: JumpEvent;
+};
+
 

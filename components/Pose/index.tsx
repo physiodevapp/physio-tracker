@@ -4,18 +4,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { motion } from "framer-motion";
-import { CanvasKeypointName, JointDataMap, Jump, Kinematics } from "@/interfaces/pose";
+import { CanvasKeypointName, JointDataMap, JumpEvents, Kinematics } from "@/interfaces/pose";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
 import { OrthogonalReference, useSettings } from "@/providers/Settings";
 import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
-import PoseJumpSettingsModal from "@/modals/PoseJumpSettings";
 import { jointOptions, formatJointName } from '@/utils/joint';
 import { ArrowUturnDownIcon, PauseIcon } from "@heroicons/react/24/outline";
 import { CameraIcon, UserIcon, Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, VideoCameraIcon, CubeTransparentIcon, DocumentArrowDownIcon, TrashIcon, PlusIcon, Bars2Icon } from "@heroicons/react/24/solid";
 import LiveAnalysis, { LiveAnalysisHandle } from "@/components/Pose/LiveAnalysis";
 import VideoAnalysis, { ProcessingStatus, VideoAnalysisHandle } from "@/components/Pose/VideoAnalysis";
+import { PoseOrientation } from "@/utils/pose";
 
 interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
@@ -27,12 +27,14 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     settings, 
     setSelectedJoints,
     setOrthogonalReference, 
+    setPoseOrientation,
   } = useSettings();
   const {
     selectedJoints,
     angularHistorySize,
     poseModel,
     orthogonalReference,
+    poseOrientation,
   } = settings.pose;
 
   const videoAnalysisRef = useRef<VideoAnalysisHandle>(null);
@@ -47,13 +49,15 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('idle');
 
-  const [jumpsDetected, setJumpsDetected] = useState<Jump[] | null>(null);
+  const [, setJumpsDetected] = useState<JumpEvents | null>(null);
 
   const [showGrid, setShowGrid] = useState(false);
 
   const [isFrozen, setIsFrozen] = useState(false);
 
-  const [showOrthogonalOption,] = useState(true);
+  const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
+  const [showPoseOrientationModal, setShowPoseOrientationModal] = useState(false);
+  const shouldResumeVideoRef = useRef(false);
 
   const [anglesToDisplay, setAnglesToDisplay] = useState<string[]>([]);
 
@@ -140,6 +144,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const handleSwitchToVideoMode = () => {
     setIsFrozen(false);
+    setShowPoseOrientationModal(false);
     handleWorkerLifecycle(false);
     setShowGrid(false);
     setMode("video");
@@ -230,17 +235,25 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               setAnglesToDisplay={setAnglesToDisplay}
               isPoseSettingsModalOpen={isPoseSettingsModalOpen}
               setIsPoseSettingsModalOpen={setIsPoseSettingsModalOpen}
-              onChangeIsFrozen={(isFrozen) => setIsFrozen(isFrozen)}
+              onChangeIsFrozen={(isFrozen) => {
+                setIsFrozen(isFrozen);
+
+                if (!isFrozen) {
+                  setShowPoseOrientationModal(false);
+                }
+              }}
               onWorkerInit={() => handleWorkerLifecycle(true)}
               showGrid={showGrid}
               setShowGrid={setShowGrid}
               onRecordingChange={(value) => {
                 setIsLiveRecording(value);
 
+                setShowPoseOrientationModal(false);
+
                 setIsCleanView(value);
               }}
               onRecordingFinish={(url) => {
-                console.log("🧪 URL que se pasa:", url);
+                // console.log("🧪 URL que se pasa:", url);
                 setRecordedVideoUrl(url);
               }} />
           )}
@@ -256,19 +269,36 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               setAnglesToDisplay={setAnglesToDisplay}
               isPoseSettingsModalOpen={isPoseSettingsModalOpen}
               setIsPoseSettingsModalOpen={setIsPoseSettingsModalOpen}
-              onLoaded={(value) => setVideoLoaded(value)}
+              onLoaded={(value) => {
+                setVideoLoaded(value);
+
+                setPoseOrientation(null);
+              }}
               onStatusChange={(value) => setProcessingStatus(value)}
               onWorkerInit={() => {
                 handleWorkerLifecycle(true);
 
                 setProcessingStatus("idle");
               }} 
-              onPause={(value) => setIsFrozen(value)} 
+              onPause={(value) => {
+                setIsFrozen(value);
+
+                if (!value) {
+                  setShowPoseOrientationModal(false);
+                }
+              }} 
               initialUrl={recordedVideoUrl} 
               isPoseJumpSettingsModalOpen={isPoseJumpSettingsModalOpen}
               setIsPoseJumpSettingsModalOpen={setIsPoseJumpSettingsModalOpen}
               onJumpsDetected={(jumps) => setJumpsDetected(jumps)} 
-              onCleanView={setIsCleanView}/>
+              onCleanView={(value) => {
+                setIsCleanView(value);
+
+                setShowPoseOrientationModal(false);
+              }}
+              showPoseOrientationModal={showPoseOrientationModal}
+              setShowPoseOrientationModal={setShowPoseOrientationModal}
+              shouldResumeVideo={shouldResumeVideoRef.current}/>
           )}
         </div>
 
@@ -339,7 +369,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                       onClick={() => {
                         setIsPoseSettingsModalOpen(false);
 
-                        videoAnalysisRef.current?.handleVideoProcessing();
+                        if (poseOrientation) {
+                          videoAnalysisRef.current?.handleVideoProcessing();
+  
+                          if (showPoseOrientationModal) {
+                            setShowPoseOrientationModal(false);
+                          }
+                        }
+                        else {
+                          setShowPoseOrientationModal(true);
+                        }
 
                       }} /> 
                   )}
@@ -358,25 +397,52 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
             <motion.section 
               data-element="non-swipeable"
               initial={{ x: 0, opacity: 1 }}
-              animate={{ x: isCleanView ? 48 : 0, opacity: 1 }}
+              animate={{ x: (isCleanView || showPoseOrientationModal) ? 48 : 0, opacity: 1 }}
               transition={{ type: "spring", stiffness: 100, damping: 15 }}
               className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full"
               >
-              <div 
-                className={`relative cursor-pointer ${isFrozen || mode === "video"
-                  ? 'opacity-40'
-                  : 'opacity-100'
-                }`}
-                onClick={() => !isFrozen && !videoLoaded && toggleCamera()}
-                >
-                <CameraIcon 
-                  className={`h-6 w-6 cursor-pointer`}
-                  />
-                <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 text-[#5dadec] dark:text-white bg-white/80 dark:bg-black/80 rounded-full p-[0.1rem]"/>
-              </div>
+              {mode === "live" ? (
+                <div 
+                  className={`relative cursor-pointer ${isFrozen
+                    ? 'opacity-40'
+                    : 'opacity-100'
+                  }`}
+                  onClick={() => !isFrozen && !videoLoaded && toggleCamera()}
+                  >
+                  <CameraIcon className={`h-6 w-6 cursor-pointer`}/>
+                  <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 text-[#5dadec] dark:text-white bg-white/80 dark:bg-black/80 rounded-full p-[0.1rem]"/>
+                </div>
+              ) : null }
               <UserIcon 
                 className={`h-6 w-6 cursor-pointer text-white`}
                 onClick={() => setIsPoseModalOpen((prev) => !prev)} />
+              <div className='w-6 flex justify-center items-center z-10'>
+                <button 
+                  className={`h-6 w-6 rounded-md text-center text-[1.2rem] font-bold leading-none uppercase ${poseOrientation === "auto"
+                    ? 'bg-green-500' : poseOrientation 
+                    ? 'bg-[#5dadec]'
+                    : 'bg-red-500 animate-pulse'
+                  }`}
+                  onClick={() => {
+                    setShowPoseOrientationModal((prev) => !prev);
+
+                    if (mode === "live") {
+                      liveAnalysisRef.current?.setIsFrozen(!showPoseOrientationModal);
+                    }
+                    else if (mode === "video") {
+                      if (!isFrozen) {
+                        shouldResumeVideoRef.current = true;
+
+                        if (processingStatus === "processed")
+                          videoAnalysisRef.current?.pauseFrames();
+                      }
+                      else {
+                        shouldResumeVideoRef.current = false;
+                      }
+                    }
+                  }}
+                >{poseOrientation?.[0] ?? "?"}</button>
+              </div>
               {processingStatus !== "processed" ? (
                 <Cog6ToothIcon 
                   className={`h-6 w-6 cursor-pointer text-white`}
@@ -387,25 +453,61 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   className={`h-6 w-6 cursor-pointer text-white`}
                   onClick={() => setIsPoseJumpSettingsModalOpen(prev => !prev) } />
               ) : null }
+
+              <motion.section
+                data-element="non-swipeable"
+                initial={{ x: 0, opacity: 1 }}
+                animate={{ x: (isCleanView || !showPoseOrientationModal) ? "100%" : "-130%", opacity: (isCleanView || !showPoseOrientationModal) ? 0 : 1 }}
+                transition={{ type: "spring", stiffness: 100, damping: 15 }}
+                className="absolute top-[0.2rem] flex flex-col gap-2">
+                  {poseOrientations
+                    .filter(orientation => mode !== "video" || orientation !== "auto")
+                    .map(orientation => (
+                      <div key={orientation} className='w-[3.8rem] flex-1'>
+                        <button 
+                          className={`rounded-md w-full py-1 ${(orientation === poseOrientation && poseOrientation === "auto")
+                            ? 'bg-green-500' : orientation === poseOrientation 
+                            ? 'bg-[#5dadec]'
+                            : 'bg-black/40'
+                          }`}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+
+                            setPoseOrientation(orientation);
+                            
+                            setShowPoseOrientationModal(false);
+
+                            if (mode === "live") {
+                              liveAnalysisRef.current?.setIsFrozen(false);
+                            }
+                            else if (
+                              mode === "video" && 
+                              isFrozen && 
+                              shouldResumeVideoRef.current
+                            ) {
+                              shouldResumeVideoRef.current = false;
+                              videoAnalysisRef.current?.playFrames();
+                            }
+                          }}><span className="uppercase">{orientation[0]}</span>{orientation.slice(1, orientation.length)}</button>
+                      </div>
+                  ))}
+              </motion.section>
             </motion.section>
+            
             {processingStatus === "idle" && (
               <motion.div 
                 data-element="non-swipeable"
                 initial={{ x: 0, opacity: 1 }}
-                animate={{ x: isCleanView ? "56%" : 0, opacity: 1 }}
+                animate={{ x: isCleanView && !showPoseOrientationModal ? "56%" : 0, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 100, damping: 15 }}
                 className="absolute bottom-2 right-1 z-30 flex flex-row-reverse items-center gap-2">
                 <ArrowTopRightOnSquareIcon 
-                  className={`w-8 h-8 text-white transition-transform ${((!showOrthogonalOption) || orthogonalReference === undefined)
+                  className={`w-8 h-8 text-white transition-transform ${(orthogonalReference === undefined)
                     ? '-rotate-0 opacity-50'
-                    : orthogonalReference === 'horizontal'
-                    ? 'rotate-45'
                     : '-rotate-45'
                   }`}
-                  onClick={() => { 
-                    if (!showOrthogonalOption) return;
-                              
-                    const next: OrthogonalReference = orthogonalReference === "vertical" ? "horizontal" : orthogonalReference === "horizontal" ? undefined : "vertical";
+                  onClick={() => {                               
+                    const next: OrthogonalReference = orthogonalReference === "vertical" ? undefined : "vertical";
 
                     setOrthogonalReference(next);
                   }} />
@@ -437,17 +539,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
       <PoseSettingsModal 
         isModalOpen={isPoseSettingsModalOpen}
-        videoMode={mode === "video"}
-        videoProcessed={processingStatus === "processed"}
-        />
-      <PoseJumpSettingsModal 
-        isModalOpen={isPoseJumpSettingsModalOpen}
-        jumpsDetected={jumpsDetected}
-        onHandleFrames={(mode) => {
-          if (videoAnalysisRef.current) {
-            videoAnalysisRef.current.handleFramesBasedOnJumps(mode)
-          }
-        }}
         videoMode={mode === "video"}
         videoProcessed={processingStatus === "processed"}
         />

@@ -1,6 +1,9 @@
-import { CanvasKeypointName, JointConfigMap, JointDataMap, Jump, JumpPoint } from "@/interfaces/pose";
+import { CanvasKeypointName, JointConfigMap, JointDataMap } from "@/interfaces/pose";
+import { OrthogonalReference } from "@/providers/Settings";
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import { RefObject } from "react";
+
+export type PoseOrientation = "front" | "back" | "left" | "right" | "auto";
 
 export interface VideoFrame {
   videoTime: number; // Tiempo relativo en segundos dentro del vídeo
@@ -15,15 +18,20 @@ export const excludedKeypoints = [
   'left_eye', 'right_eye',
   'left_eye_inner', 'right_eye_inner', 
   'left_eye_outer', 'right_eye_outer',
-  'left_ear', 'right_ear',
-  'nose', 
+  // 'left_ear', 'right_ear',
+  // 'nose', 
   'mouth_left', 'mouth_right',
   'left_thumb', 'right_thumb',
   'left_index', 'right_index', 
   'left_pinky', 'right_pinky', 
 ];
 
-export  const keypointPairs: [CanvasKeypointName, CanvasKeypointName][] = [
+export const excludedDrawableKeypoints = [
+  'left_ear', 'right_ear',
+  'nose', 
+]
+
+export const keypointPairs: [CanvasKeypointName, CanvasKeypointName][] = [
   [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.RIGHT_SHOULDER],
   [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.LEFT_ELBOW],
   [CanvasKeypointName.LEFT_ELBOW, CanvasKeypointName.LEFT_WRIST],
@@ -53,18 +61,20 @@ export const updateMultipleJoints = ({
   jointAngleHistorySize,
   setAnglesToDisplay,
   mode = 'live',
+  poseOrientation,
 }: {
   keypoints: poseDetection.Keypoint[];
   selectedJoints: CanvasKeypointName[];
   jointDataRef: RefObject<JointDataMap>;
   jointConfigMap: JointConfigMap;
   jointWorker: Worker;
-  orthogonalReference?: 'horizontal' | 'vertical';
+  orthogonalReference?: OrthogonalReference;
   formatJointName: (jointName: string) => string;
   jointAngleHistorySize: number;
   ignoreHistorySize?: boolean;
   setAnglesToDisplay?: React.Dispatch<React.SetStateAction<string[]>>;
   mode?: 'live' | 'video';
+  poseOrientation: PoseOrientation | null;
 }): Promise<JointDataMap> => {
   return new Promise((resolve) => {
     if (!jointWorker) return resolve({} as JointDataMap);
@@ -153,6 +163,7 @@ export const updateMultipleJoints = ({
       jointDataMap,
       angleHistorySize: mode === "video" ? 0 : jointAngleHistorySize,
       orthogonalReference,
+      poseOrientation,
     });
   });
 };
@@ -198,287 +209,24 @@ export function filterRepresentativeFrames(
   return selectedFrames;
 }
 
-/// Beta jump analysis
-export function detectJumpWindowsByAngle({
-  frames,
-  mode ="strict",
-  side = "right",
-  joint = "knee",
-  maxTakeoffFlexion = 20, // mejor crear max?TakeoffFlexion y max?LandingFlexion y hacerlos dinamicos
-  maxLandingFlexion = 20,
-  minFlexionBeforeJump = 45,
-  minFlexionAfterLanding = 45,
-  slidingAvgWindow = 3,
-  searchWindow = 15,
-  trendWindow = 3,
-}: {
-  frames: VideoFrame[];
-  mode?: "strict" | "smoothed"
-  side?: "left" | "right";
-  joint?: "knee" | "hip";
-  maxTakeoffFlexion?: number;
-  maxLandingFlexion?: number;
-  minFlexionBeforeJump?: number;
-  minFlexionAfterLanding?: number;
-  slidingAvgWindow?: number;
-  searchWindow?: number;
-  trendWindow?: number;
-}): Jump[] {
-  if (!frames.length) return [];
+export function inferPosePosition(keypoints: poseDetection.Keypoint[]): PoseOrientation | null {
+  const nose = keypoints.find(kp => kp.name === 'nose');
+  const leftEar = keypoints.find(kp => kp.name === 'left_ear');
+  const rightEar = keypoints.find(kp => kp.name === 'right_ear');
 
-  const jointName =
-    joint === "hip"
-      ? side === "right"
-        ? CanvasKeypointName.RIGHT_HIP
-        : CanvasKeypointName.LEFT_HIP
-      : side === "right"
-      ? CanvasKeypointName.RIGHT_KNEE
-      : CanvasKeypointName.LEFT_KNEE;
+  if (!nose || !leftEar || !rightEar) return null;
 
-  const angleValues = frames.map((f) => ({
-    angle: f.jointData?.[jointName]?.angle ?? null,
-    yValue: f.keypoints.find(kp => kp.name === jointName)?.y ?? null,
-    videoTime: f.videoTime,
-  }));
-  const validAngles = angleValues
-    .map((a, i) => ({
-      index: i,
-      angle: a.angle,
-      yValue: a.yValue,
-      videoTime: a.videoTime,
-    }))
-    .filter((a) => a.angle !== null) as JumpPoint[];
-  const smoothedAngles: JumpPoint[] = validAngles.map((p, i, arr) => {
-    const start = Math.max(0, i - Math.floor(slidingAvgWindow / 2));
-    const end = Math.min(arr.length, i + Math.ceil(slidingAvgWindow / 2));
-    const window = arr.slice(start, end).map((a) => ({
-      angle: a.angle,
-      yValue: a.yValue,
-    }));
-    const avgAngle = window.reduce((sum, val) => sum + val.angle, 0) / window.length;
-    const avgY = window.reduce((sum, val) => sum + val.yValue, 0) / window.length;
-
-    return {
-      index: p.index,
-      angle: avgAngle,
-      yValue: avgY,
-      videoTime: p.videoTime, // ✅ Mantenemos el mismo timestamp
-    };
-  });
-  // console.log('angleValues ', angleValues)
-  // console.log('validAngles ',validAngles)
-  // console.log('smoothedAngles ', smoothedAngles)
-
-  const results: Jump[] = [];
-
-  // solo para elegir en el bucle y el prev, curr o next
-  const angles = (mode === "smoothed") ? smoothedAngles : validAngles;
-
-  for (let i = 1; i < angles.length - 1; i++) {
-    const prev = angles[i - 1].angle;
-    const curr = angles[i].angle;
-    const next = angles[i + 1].angle;
-
-    // Detectar mínimo local (centro del vuelo)
-    if (curr < maxTakeoffFlexion && curr < prev && curr < next) {
-      const preWindowSmoothed = smoothedAngles.slice(Math.max(0, i - searchWindow), i);
-      const postWindowSmoothed = smoothedAngles.slice(i + 1, i + 1 + searchWindow);
-      
-      const impulsePoint = findImpulsePoint(
-        preWindowSmoothed, 
-        trendWindow,
-      );
-      // console.log('impulsePoint ', impulsePoint)
-      if (!impulsePoint) continue;
-
-      const cushionPoint = findCushionPoint(
-        postWindowSmoothed, 
-        trendWindow,
-      );
-      // console.log('cushionPoint ', cushionPoint)
-      if (!cushionPoint) continue;
-      
-      if (
-        impulsePoint.angle >= minFlexionBeforeJump &&
-        cushionPoint.angle >= minFlexionAfterLanding
-      ) {
-        // console.log('minimo local ', validAngles[i])
-        const fromImpulseToMin = validAngles.slice(
-          validAngles.findIndex(p => p.index === impulsePoint.index),
-          i + 1 // i + 1 = índice del mínimo local (centro del salto)
-        );
-        const takeoffPoint = findTakeoffPoint(
-          fromImpulseToMin,
-          trendWindow,
-          maxTakeoffFlexion,
-        ); 
-        // console.log('takeoffPoint ', takeoffPoint)    
-  
-        const fromMinToCushion = validAngles.slice(
-          i,
-          validAngles.findIndex(p => p.index === cushionPoint.index) + 1
-        );
-        const landingPoint = findLandingPoint(
-          fromMinToCushion,
-          trendWindow,
-          maxLandingFlexion,
-        );
-        // console.log('landingPoint ', landingPoint)
-
-        results.push({
-          impulsePoint,
-          takeoffPoint: takeoffPoint ?? impulsePoint,
-          landingPoint: landingPoint ?? cushionPoint,
-          cushionPoint,
-        });
-        i += searchWindow;
-      }
-    }
+  if (nose.x > leftEar.x && nose.x > rightEar.x) {
+    return 'right';
+  } else if (nose.x < leftEar.x && nose.x < rightEar.x) {
+    return 'left';
+  } else if (leftEar.x > nose.x && leftEar.x > rightEar.x) {
+    return 'front';
+  } else if (rightEar.x > nose.x && rightEar.x > leftEar.x) {
+    return 'back';
+  } else {
+    return null; // No se cumple ningún caso específico
   }
-
-  return results;
-}
-
-function findImpulsePoint(preWindow: JumpPoint[], trendWindow: number): JumpPoint | null {
-  let impulseCandidate: JumpPoint | null = null;
-
-  for (let j = 0; j <= preWindow.length - trendWindow; j++) {
-    let trendValid = true;
-    for (let k = 1; k < trendWindow; k++) {
-      if (preWindow[j + k].angle <= preWindow[j + k - 1].angle) {
-        trendValid = false;
-        break;
-      }
-    }
-
-    if (trendValid) {
-      const segment = preWindow.slice(j, j + trendWindow);
-      const localPeak = segment.reduce(
-        (max, p) => (p.angle > max.angle ? p : max),
-        segment[0]
-      );
-      if (!impulseCandidate || localPeak.angle > impulseCandidate.angle) {
-        impulseCandidate = localPeak;
-      }
-    }
-  }
-
-  return impulseCandidate;
-}
-
-function findTakeoffPoint(
-  segment: JumpPoint[],
-  trendWindow: number,
-  maxTakeoffFlexion?: number,
-): JumpPoint | null {
-  // console.log('findTakeoffPoint ', segment)
-  let maxFlexionCandidate: JumpPoint | null = null;
-  let comboCandidate: JumpPoint | null = null;
-
-  for (let j = 0; j <= segment.length - trendWindow; j++) {
-    let isDescending = true;
-
-    // Verificamos que haya una tendencia descendente de al menos trendWindow
-    for (let k = 1; k < trendWindow; k++) {
-
-      if (segment[j + k].angle >= segment[j + k - 1].angle) {
-        isDescending = false;
-        break;
-      }
-    }
-
-    const candidate = segment[j + trendWindow - 1];
-
-    if (maxTakeoffFlexion !== undefined && candidate.angle <= maxTakeoffFlexion) {
-      if (maxFlexionCandidate === null) {
-        maxFlexionCandidate = candidate;
-      }
-      if (isDescending) {
-        comboCandidate = candidate;
-        // En el primer match robusto, comparamos con maxFlexionCandidate
-        if (
-          maxFlexionCandidate &&
-          maxFlexionCandidate.videoTime < comboCandidate.videoTime
-        ) {
-          return maxFlexionCandidate;
-        } else {
-          return comboCandidate;
-        }
-      }
-    }
-  }
-
-  // Si nunca se encontró un isDescending true, pero sí un maxFlexionCandidate
-  return maxFlexionCandidate || null;
-}
-
-function findLandingPoint(
-  segment: JumpPoint[],
-  trendWindow: number,
-  maxTakeoffFlexion?: number,
-): JumpPoint | null {
-  let maxFlexionCandidate: JumpPoint | null = null;
-  let comboCandidate: JumpPoint | null = null;
-
-  for (let j = segment.length - trendWindow; j >= 0; j--) {
-    let isDescending = true;
-    for (let k = 0; k < trendWindow - 1; k++) {
-      if (segment[j + k + 1].angle - segment[j + k].angle <= 0) {
-        isDescending = false;
-        break;
-      }
-    }
-
-    const candidate = segment[j + trendWindow - 1];
-
-    if (maxTakeoffFlexion !== undefined && candidate.angle <= maxTakeoffFlexion) {
-      if (maxFlexionCandidate === null) {
-        maxFlexionCandidate = candidate;
-      }
-
-      if (isDescending) {
-        comboCandidate = candidate;
-        // En el primer match robusto, comparamos con maxFlexionCandidate
-        if (
-          maxFlexionCandidate &&
-          maxFlexionCandidate.videoTime > comboCandidate.videoTime
-        ) {
-          return maxFlexionCandidate;
-        } else {
-          return comboCandidate;
-        }
-      }
-    }
-  }
-  // Si nunca se encontró un isDescending true, pero sí un maxFlexionCandidate
-  return maxFlexionCandidate || null;
-}
-
-function findCushionPoint(postWindow: JumpPoint[], trendWindow: number): JumpPoint | null {
-  let cushionCandidate: JumpPoint | null = null;
-
-  for (let j = 0; j <= postWindow.length - trendWindow; j++) {
-    let trendValid = true;
-    for (let k = 1; k < trendWindow; k++) {
-      if (postWindow[j + k].angle <= postWindow[j + k - 1].angle) {
-        trendValid = false;
-        break;
-      }
-    }
-
-    if (trendValid) {
-      const segment = postWindow.slice(j, j + trendWindow);
-      const localPeak = segment.reduce(
-        (max, p) => (p.angle > max.angle ? p : max),
-        segment[0]
-      );
-      if (!cushionCandidate || localPeak.angle > cushionCandidate.angle) {
-        cushionCandidate = localPeak;
-      }
-    }
-  }
-
-  return cushionCandidate;
 }
 
 
