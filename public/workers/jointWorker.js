@@ -56,6 +56,10 @@ self.onmessage = (e) => {
 function calculateJointAngleDegrees(A, B, C, invert = false, orthogonalReference, poseOrientation) {
   const isShoulder = B.name?.includes('shoulder');
   const isHip = B.name?.includes('hip');
+  const jointSide = B.name?.includes("left") ? "left"
+  : B.name?.includes("right") ? "right"
+  : undefined;
+
 
   if (
     (orthogonalReference === 'vertical' || orthogonalReference === 'horizontal') && 
@@ -71,16 +75,6 @@ function calculateJointAngleDegrees(A, B, C, invert = false, orthogonalReference
     };
 
     if (orthogonalReference === 'vertical') {
-      // // Línea vertical hacia abajo
-      // const referenceVector = { x: 0, y: 1 };
-      // // Ángulo sin signo
-      // const dot = referenceVector.x * jointVector.x + referenceVector.y * jointVector.y;
-      // const magJoint = Math.hypot(jointVector.x, jointVector.y);
-      // if (magJoint === 0) return 0;
-      // const angleDeg = Math.acos(dot / magJoint) * (180 / Math.PI);
-      
-      // return angleDeg;
-      ///
       const referenceVector = { x: 0, y: 1 }; // vertical
       const dot = referenceVector.x * jointVector.x + referenceVector.y * jointVector.y;
       const cross = referenceVector.x * jointVector.y - referenceVector.y * jointVector.x;
@@ -88,8 +82,30 @@ function calculateJointAngleDegrees(A, B, C, invert = false, orthogonalReference
       const angleDeg = angleRad * (180 / Math.PI);
 
       let angleDegAdjusted;
+      // ángulo ajustado a la orientación (Left/Right/Back/Front)
       if (poseOrientation === "left") angleDegAdjusted = angleDeg;
       if (poseOrientation === "right") angleDegAdjusted = -angleDeg;
+      if (
+        (poseOrientation === "front" && jointSide === "left") ||
+        (poseOrientation === "back" && jointSide === "right")      
+      ) angleDegAdjusted = -angleDeg;
+      if (
+        (poseOrientation === "front" && jointSide === "right") ||
+        (poseOrientation === "back" && jointSide === "left")
+      ) angleDegAdjusted = angleDeg;
+      // ángulo desenrollado para evitar saltos de ±180º
+      let hasCrossedVertical;
+      if (poseOrientation === "left") hasCrossedVertical = jointVector.x > 0 && jointVector.y < 0;
+      if (poseOrientation === "right") hasCrossedVertical = jointVector.x < 0 && jointVector.y < 0;
+      if (
+        (poseOrientation === "front" && jointSide === "left") ||
+        (poseOrientation === "back" && jointSide === "right")
+      ) hasCrossedVertical = jointVector.x < 0 && jointVector.y < 0;
+      if (
+        (poseOrientation === "front" && jointSide === "right") ||
+        (poseOrientation === "back" && jointSide === "left")
+      ) hasCrossedVertical = jointVector.x > 0 && jointVector.y < 0;
+      if (angleDegAdjusted < 0 && hasCrossedVertical) angleDegAdjusted += 360;
 
       return angleDegAdjusted ?? angleDeg;
     } 

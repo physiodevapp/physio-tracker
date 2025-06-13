@@ -150,7 +150,7 @@ const Index = ({
             <label
               htmlFor='body-weight'
               className={`text-white`} >
-              Weight: {legLength} kg
+              Weight: {weight.toFixed(1)} kg
             </label>
             <input
               id='body-weight'

@@ -19,6 +19,8 @@ const Index = ({
 
   const isAnimationRunningRef = useRef(false);
 
+  const jumpEvents: JumpEventType[] = ["groundContact", "impulse", "takeoff", "landing", "cushion"]
+
   const handleAnimationStart = () => {
     isAnimationRunningRef.current = true;
   }
@@ -54,53 +56,20 @@ const Index = ({
       onAnimationStart={handleAnimationStart}
       onAnimationComplete={handleAnimationComplete}
       >
-        {/* bg-[#5dadec] */}
-        <div className='w-full'>
-          <button 
-            className='rounded-full p-[0.2rem] px-2 border w-full'
-            onClick={(ev) => {
-              ev.stopPropagation();
+        {jumpEvents.map(jumpEvent => (
+          <div key={jumpEvent} className='w-full'>
+            <button 
+              className='rounded-md p-[0.2rem] px-2 bg-[#5dadec] w-full'
+              onClick={(ev) => {
+                ev.stopPropagation();
 
-              handleJumpEventValue("groundContact");
-            }}>1<sup>st</sup> contact</button>
-        </div>
-        <div className='w-full'>
-          <button 
-            className='rounded-full p-[0.2rem] px-2 border w-full'
-            onClick={(ev) => {
-              ev.stopPropagation();
-
-              handleJumpEventValue("impulse");
-            }}>Impulse</button>
-        </div>
-        <div className='w-full'>
-          <button 
-            className='rounded-full p-[0.2rem] px-2 border w-full'
-            onClick={(ev) => {
-              ev.stopPropagation();
-
-              handleJumpEventValue("takeoff");
-
-            }}>Take off</button>
-        </div>
-        <div className='w-full'>
-          <button 
-            className='rounded-full p-[0.2rem] px-2 border w-full'
-            onClick={(ev) => {
-              ev.stopPropagation();
-
-              handleJumpEventValue("landing");
-            }}>Landing</button>  
-        </div>
-        <div className='w-full'>
-          <button 
-            className='rounded-full p-[0.2rem] px-2 border w-full'
-            onClick={(ev) => {
-              ev.stopPropagation();
-
-              handleJumpEventValue("cushion");
-            }}>Cushion</button>            
-        </div>
+                handleJumpEventValue(jumpEvent);
+              }}>{
+                jumpEvent === "groundContact" ? <>1<sup>st</sup> contact</>
+                  : <><span className='uppercase'>{jumpEvent.at(0)}</span>{jumpEvent.slice(1, jumpEvent.length)}</>
+              }</button>
+          </div>
+        ))}
     </motion.section>
   ) : null;
 };

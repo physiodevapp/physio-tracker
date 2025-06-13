@@ -1236,7 +1236,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           <CubeTransparentIcon className='w-8 h-8 animate-spin'/>
           <div className="w-full">
             <div className="text-sm text-gray-400 mb-4">
-              Processing video... {processingProgress.toFixed(0)}%
+              {processingProgress === 100 ? 'Rendering charts...' 
+                : `Processing video... ${processingProgress.toFixed(0)}%`
+              }
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
