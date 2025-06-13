@@ -448,14 +448,17 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 animate={{ x: (isCleanView || !showPoseOrientationModal) ? "100%" : "-130%", opacity: (isCleanView || !showPoseOrientationModal) ? 0 : 1 }}
                 transition={{ type: "spring", stiffness: 100, damping: 15 }}
                 className="absolute top-[0.2rem] flex flex-col gap-2">
-                  {poseOrientations.map((poseOrientation) => (
-                    <div key={poseOrientation} className='w-[3.8rem] flex-1'>
+                  {poseOrientations.map((orientation) => (
+                    <div key={orientation} className='w-[3.8rem] flex-1'>
                       <button 
-                        className='rounded-md w-full py-1 bg-[#5dadec]'
+                        className={`rounded-md w-full py-1 ${orientation === poseOrientation
+                          ? 'bg-[#5dadec]'
+                          : 'bg-black/40'
+                        }`}
                         onClick={(ev) => {
                           ev.stopPropagation();
 
-                          setPoseOrientation(poseOrientation);
+                          setPoseOrientation(orientation);
                           
                           setShowPoseOrientationModal(false);
 
@@ -470,7 +473,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                             shouldResumeVideoRef.current = false;
                             videoAnalysisRef.current?.playFrames();
                           }
-                        }}><span className="uppercase">{poseOrientation[0]}</span>{poseOrientation.slice(1, poseOrientation.length)}</button>
+                        }}><span className="uppercase">{orientation[0]}</span>{orientation.slice(1, orientation.length)}</button>
                     </div>
                   ))}
               </motion.section>

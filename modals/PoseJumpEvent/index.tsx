@@ -1,12 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { RefObject, useEffect, useReducer, useRef, useState } from 'react';
 import { motion } from "framer-motion";
-import { JumpEventType } from '@/interfaces/pose';
+import { JumpEvents, JumpEventType } from '@/interfaces/pose';
 
 interface IndexProps {
   isSettingsModalOpen: boolean;
   isDataModalOpen: boolean;
   isEventModalOpen: boolean;
   onJumpEventSelected: (value: JumpEventType) => void;
+  jumpEvents: JumpEvents | null;
 }
 
 const Index = ({
@@ -14,12 +15,13 @@ const Index = ({
   isDataModalOpen,
   isEventModalOpen,
   onJumpEventSelected,
+  jumpEvents,
 }: IndexProps) => {
   const [isModalReady, setIsModalReady] = useState(false);
 
   const isAnimationRunningRef = useRef(false);
 
-  const jumpEvents: JumpEventType[] = ["groundContact", "impulse", "takeoff", "landing", "cushion"]
+  const jumpEventOptions: JumpEventType[] = ["groundContact", "impulse", "takeoff", "landing", "cushion"];
 
   const handleAnimationStart = () => {
     isAnimationRunningRef.current = true;
@@ -46,22 +48,28 @@ const Index = ({
     }
   }, [isSettingsModalOpen]);
 
+
   return isModalReady ? (
     <motion.section 
       data-element="non-swipeable"
-      className='absolute bottom-[3.6rem] left-0 flex flex-col items-start gap-1 rounded-sm'
+      className='absolute bottom-[3.6rem] left-0 flex flex-col items-start gap-2 rounded-sm'
       initial={{x: '-100%', opacity: 0}}
       animate={{x: (isEventModalOpen && isSettingsModalOpen && !isDataModalOpen) ? 8 : '-100%', opacity: (isEventModalOpen && isSettingsModalOpen && !isDataModalOpen) ? 1 : 0}}
       transition={{ type: "spring", stiffness: 100, damping: 15 }}
       onAnimationStart={handleAnimationStart}
       onAnimationComplete={handleAnimationComplete}
       >
-        {jumpEvents.map(jumpEvent => (
+        {jumpEventOptions.map(jumpEvent => (
           <div key={jumpEvent} className='w-full'>
             <button 
-              className='rounded-md p-[0.2rem] px-2 bg-[#5dadec] w-full'
+              className={`rounded-md p-2 w-full ${jumpEvents?.[jumpEvent].videoTime === null
+                ? 'bg-black/40'
+                : 'bg-[#5dadec]'
+              }`}
               onClick={(ev) => {
                 ev.stopPropagation();
+
+                console.log(jumpEvents?.[jumpEvent])
 
                 handleJumpEventValue(jumpEvent);
               }}>{

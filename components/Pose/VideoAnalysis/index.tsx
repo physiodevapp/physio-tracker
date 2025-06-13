@@ -89,13 +89,14 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
   const [isPoseJumpDataModalOpen, setIsPoseJumpDataModalOpen] = useState(false);
   const [isPoseJumpEventModalOpen, setIsPoseJumpEventModalOpen] = useState(false);
-  const jumpEventsRef = useRef<JumpEvents | null>({
+  const [jumpEvents, setJumpEvents] = useState<JumpEvents | null>({
     groundContact:   { videoTime: null, hipAngle: null, kneeAngle: null },
     impulse:         { videoTime: null, hipAngle: null, kneeAngle: null },
     takeoff:         { videoTime: null, hipAngle: null, kneeAngle: null },
     landing:         { videoTime: null, hipAngle: null, kneeAngle: null },
     cushion:         { videoTime: null, hipAngle: null, kneeAngle: null },
   });
+  const jumpEventsRef = useRef<JumpEvents | null>(jumpEvents);
 
   const keypointRadiusBase = 8; // revisar
 
@@ -1031,6 +1032,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               isSettingsModalOpen={isPoseJumpSettingsModalOpen}
               isDataModalOpen={isPoseJumpDataModalOpen}
               isEventModalOpen={isPoseJumpEventModalOpen}
+              jumpEvents={jumpEvents}
               onJumpEventSelected={(jumpEvent: JumpEventType) => {
                 const prev = jumpEventsRef.current;
                 if (!prev) return;
@@ -1047,6 +1049,18 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                     videoTime,
                   },
                 };
+                setJumpEvents(prev => {
+                  if (!prev) return null;
+
+                  return {
+                    ...prev,
+                    [jumpEvent]: {
+                      hipAngle,
+                      kneeAngle,
+                      videoTime,
+                    }
+                  }
+                })
               }}
               />
           ) : null }
