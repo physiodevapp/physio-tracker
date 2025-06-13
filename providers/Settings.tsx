@@ -6,7 +6,7 @@ import * as poseDetection from '@tensorflow-models/pose-detection';
 import { PoseOrientation } from '@/utils/pose';
 
 // Definimos interfaces para cada grupo de settings
-export type OrthogonalReference = 'vertical' | 'horizontal' | undefined;
+export type OrthogonalReference = 'vertical' | undefined;
 
 interface PoseSettings {
   selectedJoints: CanvasKeypointName[];
@@ -18,7 +18,7 @@ interface PoseSettings {
   jump: {
     side: "right" | "left",
   }
-  poseOrientation: PoseOrientation,
+  poseOrientation: PoseOrientation | null,
 }
 
 interface ColorSettings {
@@ -83,7 +83,7 @@ interface SettingsContextProps {
   setPointsPerSecond: (value: number) => void;
   setMinAngleDiff: (value: number) => void;
   setJumpSide: (value: "right" | "left") => void;
-  setPoseOrientation: (value: PoseOrientation) => void;
+  setPoseOrientation: (value: PoseOrientation | null) => void;
   // Setters para color
   setRedHueLower1: (value: number) => void;
   setRedHueUpper1: (value: number) => void;
@@ -221,7 +221,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const setJumpSide = (value: "right" | "left") => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, jump: { ...prev.pose.jump, side: value } } }));
   };
-  const setPoseOrientation = (value: PoseOrientation) => {
+  const setPoseOrientation = (value: PoseOrientation | null) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseOrientation: value } }));
   };
   const resetPoseSettings = () => { // revisar el reset sin jump

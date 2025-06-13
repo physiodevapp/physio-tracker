@@ -8,7 +8,7 @@ import * as tf from '@tensorflow/tfjs-core';
 import { CanvasKeypointName, JointDataMap, JumpEvents, JumpEventType, Kinematics } from '@/interfaces/pose';
 import { usePoseDetector } from '@/providers/PoseDetector';
 import { OrthogonalReference, useSettings } from '@/providers/Settings';
-import { excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame } from '@/utils/pose';
+import { excludedDrawableKeypoints, excludedKeypoints, filterRepresentativeFrames, updateMultipleJoints, VideoFrame } from '@/utils/pose';
 import { formatJointName, jointConfigMap } from '@/utils/joint';
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from '@/utils/draw';
 import { keypointPairs } from '@/utils/pose';
@@ -135,7 +135,9 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     minPoseScore, 
     isDetectorReady,
   } = usePoseDetector();
-  const { settings } = useSettings();
+  const { 
+    settings,
+  } = useSettings();
   const { 
     selectedJoints, 
     angularHistorySize,
@@ -289,7 +291,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       );
   
       allFramesDataRef.current.push({
-        // videoTime: video.currentTime,
         videoTime: video.currentTime - trimmerRangeRef.current.range.start,
         frameImage: frameCanvas,
         keypoints,
@@ -461,6 +462,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       return;
     }
 
+    console.log(allFramesDataRef.current)
     await waitWithCancel(2_000);
 
     handleFrames("idle");
@@ -575,16 +577,18 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       ctx.drawImage(nearestFrame.frameImage, 0, 0, canvasRef.current!.width,canvasRef.current!.height);
   
       if (nearestFrame.keypoints) {
+        const drawableKeypoints = nearestFrame.keypoints.filter(kp => !excludedDrawableKeypoints.includes(kp.name!));   
+
         drawKeypoints({
           ctx,
-          keypoints: nearestFrame.keypoints,
+          keypoints: drawableKeypoints,
           mirror: false,
           pointRadius: keypointRadiusBase * (scaleFactorRef.current ?? 1),
         });
   
         drawKeypointConnections({
           ctx,
-          keypoints: nearestFrame.keypoints,
+          keypoints: drawableKeypoints,
           keypointPairs,
           mirror: false,
           lineWidth: 2 * (scaleFactorRef.current ?? 1),
@@ -619,8 +623,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       i < allFramesDataRef.current.length;
       i++
     ) {
-      // console.log('play loop -> isVerticalLineUpdatedByUser.current ', isVerticalLineUpdatedByUser.current)
-      // console.log('play loop -> isPlayingRef.current ', isPlayingRef.current)
       if (
         isVerticalLineUpdatedByUser.current &&
         !isPlayingRef.current
@@ -642,18 +644,20 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         if (ctx) {
           ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
           ctx.drawImage(frame.frameImage, 0, 0, canvasRef.current!.width, canvasRef.current!.height);
-  
+          
           if (frame.keypoints) {
+            const drawableKeypoints = frame.keypoints.filter(kp => !excludedDrawableKeypoints.includes(kp.name!));   
+            
             drawKeypoints({
               ctx,
-              keypoints: frame.keypoints,
+              keypoints: drawableKeypoints,
               mirror: false,
               pointRadius: keypointRadiusBase * (scaleFactorRef.current ?? 1),
             });
   
             drawKeypointConnections({
               ctx,
-              keypoints: frame.keypoints,
+              keypoints: drawableKeypoints,
               keypointPairs,
               mirror: false,
               lineWidth: 2 * (scaleFactorRef.current ?? 1),
@@ -1245,8 +1249,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       {processingStatus === 'processing' || processingStatus === "cancelRequested" ? (
         <div 
           data-element="non-swipeable"
-          className="fixed top-1/2 -translate-y-1/2 w-full max-w-5xl mx-auto text-center px-12 flex flex-col items-center gap-8" >
-          <div className="h-40 bg-[url('/processing-video.png')] bg-center bg-contain bg-no-repeat aspect-[1/1] animate-pulse"></div>
+          className="fixed top-1/2 -translate-y-1/2 w-full max-w-5xl mx-auto text-center px-12 flex flex-col items-center gap-8">
+          <div className="h-40 bg-[url('/processing-video.png')] bg-center bg-contain bg-no-repeat aspect-[1/1] animate-pulse"/>
           <CubeTransparentIcon className='w-8 h-8 animate-spin'/>
           <div className="w-full">
             <div className="text-sm text-gray-400 mb-4">

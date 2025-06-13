@@ -55,7 +55,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const [isFrozen, setIsFrozen] = useState(false);
 
-  const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right"];
+  const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
   const [showPoseOrientationModal, setShowPoseOrientationModal] = useState(false);
   const shouldResumeVideoRef = useRef(false);
 
@@ -253,7 +253,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 setIsCleanView(value);
               }}
               onRecordingFinish={(url) => {
-                console.log("🧪 URL que se pasa:", url);
+                // console.log("🧪 URL que se pasa:", url);
                 setRecordedVideoUrl(url);
               }} />
           )}
@@ -269,7 +269,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               setAnglesToDisplay={setAnglesToDisplay}
               isPoseSettingsModalOpen={isPoseSettingsModalOpen}
               setIsPoseSettingsModalOpen={setIsPoseSettingsModalOpen}
-              onLoaded={(value) => setVideoLoaded(value)}
+              onLoaded={(value) => {
+                setVideoLoaded(value);
+
+                setPoseOrientation(null);
+              }}
               onStatusChange={(value) => setProcessingStatus(value)}
               onWorkerInit={() => {
                 handleWorkerLifecycle(true);
@@ -365,11 +369,17 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                       onClick={() => {
                         setIsPoseSettingsModalOpen(false);
 
-                        videoAnalysisRef.current?.handleVideoProcessing();
-
-                        if (showPoseOrientationModal) {
-                          setShowPoseOrientationModal(false);
+                        if (poseOrientation) {
+                          videoAnalysisRef.current?.handleVideoProcessing();
+  
+                          if (showPoseOrientationModal) {
+                            setShowPoseOrientationModal(false);
+                          }
                         }
+                        else {
+                          setShowPoseOrientationModal(true);
+                        }
+
                       }} /> 
                   )}
                   {processingStatus === "processed" && (
@@ -399,9 +409,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   }`}
                   onClick={() => !isFrozen && !videoLoaded && toggleCamera()}
                   >
-                  <CameraIcon 
-                    className={`h-6 w-6 cursor-pointer`}
-                    />
+                  <CameraIcon className={`h-6 w-6 cursor-pointer`}/>
                   <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 text-[#5dadec] dark:text-white bg-white/80 dark:bg-black/80 rounded-full p-[0.1rem]"/>
                 </div>
               ) : null }
@@ -410,7 +418,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 onClick={() => setIsPoseModalOpen((prev) => !prev)} />
               <div className='w-6 flex justify-center items-center z-10'>
                 <button 
-                  className='h-6 w-6 rounded-md bg-[#5dadec] text-center text-[1.2rem] font-bold leading-none uppercase'
+                  className={`h-6 w-6 rounded-md text-center text-[1.2rem] font-bold leading-none uppercase ${poseOrientation === "auto"
+                    ? 'bg-green-500' : poseOrientation 
+                    ? 'bg-[#5dadec]'
+                    : 'bg-red-500 animate-pulse'
+                  }`}
                   onClick={() => {
                     setShowPoseOrientationModal((prev) => !prev);
 
@@ -429,7 +441,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                       }
                     }
                   }}
-                >{poseOrientation?.[0]}</button>
+                >{poseOrientation?.[0] ?? "?"}</button>
               </div>
               {processingStatus !== "processed" ? (
                 <Cog6ToothIcon 
@@ -448,33 +460,36 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 animate={{ x: (isCleanView || !showPoseOrientationModal) ? "100%" : "-130%", opacity: (isCleanView || !showPoseOrientationModal) ? 0 : 1 }}
                 transition={{ type: "spring", stiffness: 100, damping: 15 }}
                 className="absolute top-[0.2rem] flex flex-col gap-2">
-                  {poseOrientations.map((orientation) => (
-                    <div key={orientation} className='w-[3.8rem] flex-1'>
-                      <button 
-                        className={`rounded-md w-full py-1 ${orientation === poseOrientation
-                          ? 'bg-[#5dadec]'
-                          : 'bg-black/40'
-                        }`}
-                        onClick={(ev) => {
-                          ev.stopPropagation();
+                  {poseOrientations
+                    .filter(orientation => mode !== "video" || orientation !== "auto")
+                    .map(orientation => (
+                      <div key={orientation} className='w-[3.8rem] flex-1'>
+                        <button 
+                          className={`rounded-md w-full py-1 ${(orientation === poseOrientation && poseOrientation === "auto")
+                            ? 'bg-green-500' : orientation === poseOrientation 
+                            ? 'bg-[#5dadec]'
+                            : 'bg-black/40'
+                          }`}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
 
-                          setPoseOrientation(orientation);
-                          
-                          setShowPoseOrientationModal(false);
+                            setPoseOrientation(orientation);
+                            
+                            setShowPoseOrientationModal(false);
 
-                          if (mode === "live") {
-                            liveAnalysisRef.current?.setIsFrozen(false);
-                          }
-                          else if (
-                            mode === "video" && 
-                            isFrozen && 
-                            shouldResumeVideoRef.current
-                          ) {
-                            shouldResumeVideoRef.current = false;
-                            videoAnalysisRef.current?.playFrames();
-                          }
-                        }}><span className="uppercase">{orientation[0]}</span>{orientation.slice(1, orientation.length)}</button>
-                    </div>
+                            if (mode === "live") {
+                              liveAnalysisRef.current?.setIsFrozen(false);
+                            }
+                            else if (
+                              mode === "video" && 
+                              isFrozen && 
+                              shouldResumeVideoRef.current
+                            ) {
+                              shouldResumeVideoRef.current = false;
+                              videoAnalysisRef.current?.playFrames();
+                            }
+                          }}><span className="uppercase">{orientation[0]}</span>{orientation.slice(1, orientation.length)}</button>
+                      </div>
                   ))}
               </motion.section>
             </motion.section>
@@ -489,14 +504,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 <ArrowTopRightOnSquareIcon 
                   className={`w-8 h-8 text-white transition-transform ${(orthogonalReference === undefined)
                     ? '-rotate-0 opacity-50'
-                    : orthogonalReference === 'horizontal'
-                    ? 'rotate-45'
                     : '-rotate-45'
                   }`}
-                  onClick={() => { 
-                    // if (!showOrthogonalOption) return;
-                              
-                    const next: OrthogonalReference = orthogonalReference === "vertical" ? "horizontal" : orthogonalReference === "horizontal" ? undefined : "vertical";
+                  onClick={() => {                               
+                    const next: OrthogonalReference = orthogonalReference === "vertical" ? undefined : "vertical";
 
                     setOrthogonalReference(next);
                   }} />

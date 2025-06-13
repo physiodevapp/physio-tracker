@@ -8,9 +8,9 @@ import * as tf from '@tensorflow/tfjs-core';
 import { JointDataMap, Kinematics } from "@/interfaces/pose";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
-import { useSettings } from "@/providers/Settings";
+import { OrthogonalReference, useSettings } from "@/providers/Settings";
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from "@/utils/draw";
-import { excludedKeypoints, updateMultipleJoints } from "@/utils/pose";
+import { excludedDrawableKeypoints, excludedKeypoints, inferPosePosition, PoseOrientation, updateMultipleJoints } from "@/utils/pose";
 import { keypointPairs } from '@/utils/pose';
 import { jointConfigMap } from '@/utils/joint';
 import { CloudArrowDownIcon, ArrowPathIcon } from "@heroicons/react/24/solid";
@@ -26,7 +26,7 @@ export type LiveAnalysisHandle = {
 interface IndexProps {
   handleMainMenu: (visibility?: boolean) => void;
   isMainMenuOpen: boolean;
-  orthogonalReference: 'vertical' | 'horizontal' | undefined;
+  orthogonalReference: OrthogonalReference;
   videoConstraints: VideoConstraints;
   anglesToDisplay: string[];
   setAnglesToDisplay: React.Dispatch<React.SetStateAction<string[]>>;
@@ -324,12 +324,13 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
                 kp.score && 
                 kp.score > minPoseScore &&
                 !excludedKeypoints.includes(kp.name!)
-              );
-
+              );  
+              const drawableKeypoints = keypoints.filter(kp => !excludedDrawableKeypoints.includes(kp.name!));            
+            
               // Dibujar keypoints en el canvas
               drawKeypoints({
                 ctx, 
-                keypoints, 
+                keypoints: drawableKeypoints, 
                 mirror: videoConstraintsRef.current.facingMode === "user", 
                 pointRadius: 4 * scaleFactor,
               });
@@ -337,7 +338,7 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
               // Dibujar conexiones entre puntos clave
               drawKeypointConnections({
                 ctx, 
-                keypoints, 
+                keypoints: drawableKeypoints, 
                 keypointPairs, 
                 mirror: videoConstraintsRef.current.facingMode === "user", 
                 lineWidth: 2 * scaleFactor, 
@@ -354,11 +355,12 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
                 orthogonalReference: orthogonalReferenceRef.current,
                 formatJointName,
                 setAnglesToDisplay,
-                poseOrientation,
+                poseOrientation: poseOrientation === "auto" 
+                  ? inferPosePosition(keypoints)
+                  : poseOrientation,
               });
             }
-          }
-        }
+          }        }
 
       } catch (error) {
         console.error("Error analyzing frame:", error);
@@ -403,7 +405,6 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
       
       showMyWebcam();
     }
-
   }, []);
 
   useImperativeHandle(ref, () => ({

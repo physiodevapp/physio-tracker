@@ -1,8 +1,9 @@
 import { CanvasKeypointName, JointConfigMap, JointDataMap } from "@/interfaces/pose";
+import { OrthogonalReference } from "@/providers/Settings";
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import { RefObject } from "react";
 
-export type PoseOrientation = "front" | "back" | "left" | "right";
+export type PoseOrientation = "front" | "back" | "left" | "right" | "auto";
 
 export interface VideoFrame {
   videoTime: number; // Tiempo relativo en segundos dentro del vídeo
@@ -17,13 +18,18 @@ export const excludedKeypoints = [
   'left_eye', 'right_eye',
   'left_eye_inner', 'right_eye_inner', 
   'left_eye_outer', 'right_eye_outer',
-  'left_ear', 'right_ear',
-  'nose', 
+  // 'left_ear', 'right_ear',
+  // 'nose', 
   'mouth_left', 'mouth_right',
   'left_thumb', 'right_thumb',
   'left_index', 'right_index', 
   'left_pinky', 'right_pinky', 
 ];
+
+export const excludedDrawableKeypoints = [
+  'left_ear', 'right_ear',
+  'nose', 
+]
 
 export const keypointPairs: [CanvasKeypointName, CanvasKeypointName][] = [
   [CanvasKeypointName.LEFT_SHOULDER, CanvasKeypointName.RIGHT_SHOULDER],
@@ -62,13 +68,13 @@ export const updateMultipleJoints = ({
   jointDataRef: RefObject<JointDataMap>;
   jointConfigMap: JointConfigMap;
   jointWorker: Worker;
-  orthogonalReference?: 'horizontal' | 'vertical';
+  orthogonalReference?: OrthogonalReference;
   formatJointName: (jointName: string) => string;
   jointAngleHistorySize: number;
   ignoreHistorySize?: boolean;
   setAnglesToDisplay?: React.Dispatch<React.SetStateAction<string[]>>;
   mode?: 'live' | 'video';
-  poseOrientation: PoseOrientation;
+  poseOrientation: PoseOrientation | null;
 }): Promise<JointDataMap> => {
   return new Promise((resolve) => {
     if (!jointWorker) return resolve({} as JointDataMap);
@@ -201,6 +207,26 @@ export function filterRepresentativeFrames(
   }
 
   return selectedFrames;
+}
+
+export function inferPosePosition(keypoints: poseDetection.Keypoint[]): PoseOrientation | null {
+  const nose = keypoints.find(kp => kp.name === 'nose');
+  const leftEar = keypoints.find(kp => kp.name === 'left_ear');
+  const rightEar = keypoints.find(kp => kp.name === 'right_ear');
+
+  if (!nose || !leftEar || !rightEar) return null;
+
+  if (nose.x > leftEar.x && nose.x > rightEar.x) {
+    return 'right';
+  } else if (nose.x < leftEar.x && nose.x < rightEar.x) {
+    return 'left';
+  } else if (leftEar.x > nose.x && leftEar.x > rightEar.x) {
+    return 'front';
+  } else if (rightEar.x > nose.x && rightEar.x > leftEar.x) {
+    return 'back';
+  } else {
+    return null; // No se cumple ningún caso específico
+  }
 }
 
 

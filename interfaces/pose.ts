@@ -1,3 +1,4 @@
+import { OrthogonalReference } from '@/providers/Settings';
 import type * as poseDetection from '@tensorflow-models/pose-detection';
 import { AnnotationOptions } from 'chartjs-plugin-annotation';
 
@@ -56,7 +57,7 @@ export interface UpdateJointParams {
   angleHistorySize?: number;
   mirror?: boolean;
   graphAngle?: number | null;
-  orthogonalReference?: 'vertical' | 'horizontal';
+  orthogonalReference?: OrthogonalReference;
 }
 
 export type JointConfigMap = Partial<{ [key in CanvasKeypointName]: { invert: boolean } }>;
