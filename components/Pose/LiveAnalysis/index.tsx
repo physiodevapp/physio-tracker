@@ -10,7 +10,7 @@ import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
 import { OrthogonalReference, useSettings } from "@/providers/Settings";
 import { drawKeypointConnections, drawKeypoints, getCanvasScaleFactor } from "@/utils/draw";
-import { excludedDrawableKeypoints, excludedKeypoints, inferPosePosition, PoseOrientation, updateMultipleJoints } from "@/utils/pose";
+import { adjustOrientationForMirror, excludedDrawableKeypoints, excludedKeypoints, inferPoseOrientation, PoseOrientation, updateMultipleJoints } from "@/utils/pose";
 import { keypointPairs } from '@/utils/pose';
 import { jointConfigMap } from '@/utils/joint';
 import { CloudArrowDownIcon, ArrowPathIcon } from "@heroicons/react/24/solid";
@@ -21,6 +21,7 @@ export type LiveAnalysisHandle = {
   stopRecording: () => void;
   isRecording: boolean;  
   setIsFrozen: React.Dispatch<React.SetStateAction<boolean>>;
+  poseOrientationInferredRef: React.RefObject<PoseOrientation | null>;
 };
 
 interface IndexProps {
@@ -40,6 +41,8 @@ interface IndexProps {
   setShowGrid?: React.Dispatch<React.SetStateAction<boolean>>;
   onRecordingChange?: (value: boolean) => void;
   onRecordingFinish?: (url: string) => void;
+  showPoseOrientationModal: boolean;
+  setShowPoseOrientationModal: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({ 
@@ -58,6 +61,8 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
   showGrid,
   onRecordingChange,
   onRecordingFinish,
+  showPoseOrientationModal,
+  setShowPoseOrientationModal,
 }, ref) => {
   const { settings } = useSettings();
   const {
@@ -68,6 +73,8 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
   } = settings.pose;
 
   const [isCameraReady, setIsCameraReady] = useState(false);
+
+  const poseOrientationInferredRef = useRef<PoseOrientation>(null);
 
   const [isRecording, setIsRecording] = useState(false);
   const recordedChunksRef = useRef<Blob[]>([]);
@@ -102,10 +109,16 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
   const prevPoseModel = useRef<poseDetection.SupportedModels>(detectorModel);
 
   const handleClickOnCanvas = () => { 
-    if (isPoseSettingsModalOpen || isMainMenuOpen) {
+    if (
+      isPoseSettingsModalOpen || 
+      isMainMenuOpen ||
+      showPoseOrientationModal
+    ) {
       setIsPoseSettingsModalOpen(false);
   
       handleMainMenu(false);
+
+      setShowPoseOrientationModal(false);
     }
     else if (!isRecording){
       setIsFrozen(prev => !prev);
@@ -326,12 +339,13 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
                 !excludedKeypoints.includes(kp.name!)
               );  
               const drawableKeypoints = keypoints.filter(kp => !excludedDrawableKeypoints.includes(kp.name!));            
-            
+              const isMirrored = videoConstraintsRef.current.facingMode === "user";
+
               // Dibujar keypoints en el canvas
               drawKeypoints({
                 ctx, 
                 keypoints: drawableKeypoints, 
-                mirror: videoConstraintsRef.current.facingMode === "user", 
+                mirror: isMirrored, 
                 pointRadius: 4 * scaleFactor,
               });
 
@@ -340,10 +354,23 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
                 ctx, 
                 keypoints: drawableKeypoints, 
                 keypointPairs, 
-                mirror: videoConstraintsRef.current.facingMode === "user", 
+                mirror: isMirrored, 
                 lineWidth: 2 * scaleFactor, 
               });
-
+              
+              // Ajustar orientación de la postura
+              let orientationRaw: PoseOrientation | null = null;
+              let orientationAdjusted: PoseOrientation | null = null;
+              if (poseOrientation === "auto") {
+                const inferred = inferPoseOrientation(keypoints);
+                orientationRaw = inferred;
+                orientationAdjusted = orientationRaw;
+                poseOrientationInferredRef.current = adjustOrientationForMirror(inferred, isMirrored);
+              } else {
+                orientationRaw = poseOrientation;
+                orientationAdjusted = adjustOrientationForMirror(poseOrientation, isMirrored);
+              }
+              
               // Calcular ángulo entre tres keypoints
               updateMultipleJoints({
                 keypoints,
@@ -355,13 +382,11 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
                 orthogonalReference: orthogonalReferenceRef.current,
                 formatJointName,
                 setAnglesToDisplay,
-                poseOrientation: poseOrientation === "auto" 
-                  ? inferPosePosition(keypoints)
-                  : poseOrientation,
+                poseOrientation: orientationAdjusted,
               });
             }
-          }        }
-
+          }        
+        }
       } catch (error) {
         console.error("Error analyzing frame:", error);
       }
@@ -412,6 +437,7 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
     stopRecording,
     isRecording,
     setIsFrozen,
+    poseOrientationInferredRef,
   }));
 
   return (

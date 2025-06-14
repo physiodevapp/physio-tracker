@@ -54,7 +54,6 @@ interface IndexProps {
   isPoseJumpSettingsModalOpen: boolean;
   setIsPoseJumpSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onCleanView?: (value: boolean) => void;
-  shouldResumeVideo: boolean;
   showPoseOrientationModal: boolean;
   setShowPoseOrientationModal: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -77,7 +76,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   isPoseJumpSettingsModalOpen,
   setIsPoseJumpSettingsModalOpen,
   onCleanView,
-  shouldResumeVideo,
   showPoseOrientationModal,
   setShowPoseOrientationModal,
 }, ref) => {
@@ -1012,8 +1010,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                          
               if (
                 processingStatus !== "processed" ||
-                isPoseJumpDataModalOpen ||
-                !shouldResumeVideo && showPoseOrientationModal
+                isPoseJumpDataModalOpen
               ) return;
               
               if (isPlayingRef.current) {

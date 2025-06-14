@@ -156,6 +156,7 @@ export const updateMultipleJoints = ({
 
     jointWorker.addEventListener('message', handleWorkerResponse, { once: true });
 
+    // console.log(poseOrientation)
     jointWorker.postMessage({
       keypoints,
       jointNames: jointNamesToUse,
@@ -209,7 +210,7 @@ export function filterRepresentativeFrames(
   return selectedFrames;
 }
 
-export function inferPosePosition(keypoints: poseDetection.Keypoint[]): PoseOrientation | null {
+export function inferPoseOrientation(keypoints: poseDetection.Keypoint[]): PoseOrientation | null {
   const nose = keypoints.find(kp => kp.name === 'nose');
   const leftEar = keypoints.find(kp => kp.name === 'left_ear');
   const rightEar = keypoints.find(kp => kp.name === 'right_ear');
@@ -227,6 +228,16 @@ export function inferPosePosition(keypoints: poseDetection.Keypoint[]): PoseOrie
   } else {
     return null; // No se cumple ningún caso específico
   }
+}
+
+export function adjustOrientationForMirror(
+  orientation: PoseOrientation | null,
+  isMirrored: boolean
+): PoseOrientation | null {
+  if (!orientation || !isMirrored) return orientation;
+  if (orientation === 'left') return 'right';
+  if (orientation === 'right') return 'left';
+  return orientation;
 }
 
 

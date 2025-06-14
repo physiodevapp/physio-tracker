@@ -53,7 +53,12 @@ self.onmessage = (e) => {
 
 // === Funciones auxiliares ===
 
-function calculateJointAngleDegrees(A, B, C, invert = false, orthogonalReference, poseOrientation) {
+function calculateJointAngleDegrees(
+  A, B, C, 
+  invert = false, 
+  orthogonalReference, 
+  poseOrientation,
+) {
   const isShoulder = B.name?.includes('shoulder');
   const isElbow = B.name?.includes('elbow');
   const isHip = B.name?.includes('hip');

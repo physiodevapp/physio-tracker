@@ -57,7 +57,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
   const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
   const [showPoseOrientationModal, setShowPoseOrientationModal] = useState(false);
-  const shouldResumeVideoRef = useRef(false);
 
   const [anglesToDisplay, setAnglesToDisplay] = useState<string[]>([]);
 
@@ -255,7 +254,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               onRecordingFinish={(url) => {
                 // console.log("🧪 URL que se pasa:", url);
                 setRecordedVideoUrl(url);
-              }} />
+              }} 
+              showPoseOrientationModal={showPoseOrientationModal}
+              setShowPoseOrientationModal={setShowPoseOrientationModal}/>
           )}
           {mode === "video" && (
             <VideoAnalysis
@@ -297,8 +298,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 setShowPoseOrientationModal(false);
               }}
               showPoseOrientationModal={showPoseOrientationModal}
-              setShowPoseOrientationModal={setShowPoseOrientationModal}
-              shouldResumeVideo={shouldResumeVideoRef.current}/>
+              setShowPoseOrientationModal={setShowPoseOrientationModal}/>
           )}
         </div>
 
@@ -352,6 +352,10 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                           handleWorkerLifecycle(false);
                           
                           setMode("live");
+
+                          if (!poseOrientation) {
+                            setPoseOrientation("auto")
+                          }
                         }} />
                       <PlusIcon
                         className="w-6 h-6 text-white"
@@ -418,30 +422,26 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 onClick={() => setIsPoseModalOpen((prev) => !prev)} />
               <div className='w-6 flex justify-center items-center z-10'>
                 <button 
-                  className={`h-6 w-6 rounded-md text-center text-[1.2rem] font-bold leading-none uppercase ${poseOrientation === "auto"
+                  className={`h-6 w-6 rounded-md text-center text-[1.2rem] font-bold leading-none uppercase ${processingStatus === "processed"
+                    ? 'border' : poseOrientation === "auto"
                     ? 'bg-green-500' : poseOrientation 
                     ? 'bg-[#5dadec]'
                     : 'bg-red-500 animate-pulse'
                   }`}
                   onClick={() => {
+                    if (processingStatus === "processed") return;
+
                     setShowPoseOrientationModal((prev) => !prev);
 
                     if (mode === "live") {
                       liveAnalysisRef.current?.setIsFrozen(!showPoseOrientationModal);
                     }
-                    else if (mode === "video") {
-                      if (!isFrozen) {
-                        shouldResumeVideoRef.current = true;
-
-                        if (processingStatus === "processed")
-                          videoAnalysisRef.current?.pauseFrames();
-                      }
-                      else {
-                        shouldResumeVideoRef.current = false;
-                      }
-                    }
                   }}
-                >{poseOrientation?.[0] ?? "?"}</button>
+                >{poseOrientation === "auto" 
+                  ? liveAnalysisRef.current?.poseOrientationInferredRef.current?.[0] ?? "?"
+                  : poseOrientation ? poseOrientation[0]
+                  : "?"
+                }</button>
               </div>
               {processingStatus !== "processed" ? (
                 <Cog6ToothIcon 
@@ -471,6 +471,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                             : 'bg-black/40'
                           }`}
                           onClick={(ev) => {
+                            if (processingStatus === "processed") return;
+
                             ev.stopPropagation();
 
                             setPoseOrientation(orientation);
@@ -479,14 +481,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
                             if (mode === "live") {
                               liveAnalysisRef.current?.setIsFrozen(false);
-                            }
-                            else if (
-                              mode === "video" && 
-                              isFrozen && 
-                              shouldResumeVideoRef.current
-                            ) {
-                              shouldResumeVideoRef.current = false;
-                              videoAnalysisRef.current?.playFrames();
                             }
                           }}><span className="uppercase">{orientation[0]}</span>{orientation.slice(1, orientation.length)}</button>
                       </div>
