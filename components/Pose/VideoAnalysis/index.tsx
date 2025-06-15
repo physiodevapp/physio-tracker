@@ -28,7 +28,6 @@ export type VideoAnalysisHandle = {
   downloadJSON: () => void;
   removeVideo: () => void;
   handleNewVideo: () => void;
-  handleFrames: (mode: "detect" | "dismiss") => void;
   playFrames: () => Promise<void>;
   pauseFrames: () => void;
 };
@@ -405,7 +404,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     }
   };
 
-  const handleFrames = (mode: "idle" | "detect" | "dismiss" = "detect") => {
+  const handleFrames = () => {
     if (isPoseJumpSettingsModalOpen) {
       setIsPoseJumpSettingsModalOpen(false);
     }
@@ -456,7 +455,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     // console.log(allFramesDataRef.current)
     await waitWithCancel(2_000);
 
-    handleFrames("idle");
+    handleFrames();
 
     setProcessingStatus("processed");
     onStatusChange?.("processed");
@@ -903,7 +902,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
     downloadJSON,
     removeVideo,
     handleNewVideo,
-    handleFrames,
     playFrames,
     pauseFrames,
   }));
@@ -1190,7 +1188,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               <div className='absolute right-0 bottom-0 pr-2 pb-2 flex flex-row gap-1'>           
                 <ArrowUturnDownIcon 
                   className='hidden w-10 h-10 p-[0.1rem] text-white'
-                  onClick={() => handleFrames("detect")} /> 
+                  onClick={() => handleFrames()} /> 
                 <section 
                   className={`flex justify-center items-center p-4 py-1 text-xl text-center bg-black/40 rounded-r-full transition-opacity duration-300 ${isCleanView 
                     ? 'opacity-0'
