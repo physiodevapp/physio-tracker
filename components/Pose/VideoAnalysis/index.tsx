@@ -50,7 +50,6 @@ interface IndexProps {
   onLoaded?: (value: boolean) => void;
   onStatusChange?: (status: ProcessingStatus) => void;
   initialUrl: string | null;
-  onJumpsDetected?: (jumps: JumpEvents | null) => void;
   isPoseJumpSettingsModalOpen: boolean;
   setIsPoseJumpSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onCleanView?: (value: boolean) => void;
@@ -72,7 +71,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   onLoaded,
   onStatusChange,
   initialUrl,
-  onJumpsDetected,
   isPoseJumpSettingsModalOpen,
   setIsPoseJumpSettingsModalOpen,
   onCleanView,
@@ -410,12 +408,6 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const handleFrames = (mode: "idle" | "detect" | "dismiss" = "detect") => {
     if (isPoseJumpSettingsModalOpen) {
       setIsPoseJumpSettingsModalOpen(false);
-    }
-
-    if (mode === "dismiss") {
-      onJumpsDetected?.(null);
-
-      return;
     }
 
     const framesWithJointData = allFramesDataRef.current.filter(

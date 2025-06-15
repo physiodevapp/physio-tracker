@@ -49,14 +49,13 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('idle');
 
-  const [, setJumpsDetected] = useState<JumpEvents | null>(null);
-
   const [showGrid, setShowGrid] = useState(false);
 
   const [isFrozen, setIsFrozen] = useState(false);
 
   const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
   const [showPoseOrientationModal, setShowPoseOrientationModal] = useState(false);
+  const shouldResumeRef = useRef(false);
 
   const [anglesToDisplay, setAnglesToDisplay] = useState<string[]>([]);
 
@@ -291,7 +290,6 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               initialUrl={recordedVideoUrl} 
               isPoseJumpSettingsModalOpen={isPoseJumpSettingsModalOpen}
               setIsPoseJumpSettingsModalOpen={setIsPoseJumpSettingsModalOpen}
-              onJumpsDetected={(jumps) => setJumpsDetected(jumps)} 
               onCleanView={(value) => {
                 setIsCleanView(value);
 
@@ -432,8 +430,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                     if (processingStatus === "processed") return;
 
                     setShowPoseOrientationModal((prev) => !prev);
-
+                    
                     if (mode === "live") {
+                      shouldResumeRef.current = !isFrozen;
                       liveAnalysisRef.current?.setIsFrozen(!showPoseOrientationModal);
                     }
                   }}
@@ -456,7 +455,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
 
               <motion.section
                 data-element="non-swipeable"
-                initial={{ x: 0, opacity: 1 }}
+                initial={{ x: "100%", opacity: 0 }}
                 animate={{ x: (isCleanView || !showPoseOrientationModal) ? "100%" : "-130%", opacity: (isCleanView || !showPoseOrientationModal) ? 0 : 1 }}
                 transition={{ type: "spring", stiffness: 100, damping: 15 }}
                 className="absolute top-[0.2rem] flex flex-col gap-2">
@@ -479,7 +478,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                             
                             setShowPoseOrientationModal(false);
 
-                            if (mode === "live") {
+                            if (mode === "live" && shouldResumeRef.current) {
+                              shouldResumeRef.current = false;
                               liveAnalysisRef.current?.setIsFrozen(false);
                             }
                           }}><span className="uppercase">{orientation[0]}</span>{orientation.slice(1, orientation.length)}</button>
