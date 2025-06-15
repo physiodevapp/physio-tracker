@@ -86,14 +86,15 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const [isCleanView, setIsCleanView] = useState(false);
 
   const [isPoseJumpDataModalOpen, setIsPoseJumpDataModalOpen] = useState(false);
-  const [isPoseJumpEventModalOpen, setIsPoseJumpEventModalOpen] = useState(false);
-  const [jumpEvents, setJumpEvents] = useState<JumpEvents | null>({
+  const [isPoseJumpEventModalOpen, setIsPoseJumpEventModalOpen] = useState(true);
+  const defaultJumpEvents = {
     groundContact:   { videoTime: null, hipAngle: null, kneeAngle: null },
     impulse:         { videoTime: null, hipAngle: null, kneeAngle: null },
     takeoff:         { videoTime: null, hipAngle: null, kneeAngle: null },
     landing:         { videoTime: null, hipAngle: null, kneeAngle: null },
     cushion:         { videoTime: null, hipAngle: null, kneeAngle: null },
-  });
+  }
+  const [jumpEvents, setJumpEvents] = useState<JumpEvents>(defaultJumpEvents);
   const jumpEventsRef = useRef<JumpEvents | null>(jumpEvents);
 
   const keypointRadiusBase = 8; // revisar
@@ -460,7 +461,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       return;
     }
 
-    console.log(allFramesDataRef.current)
+    // console.log(allFramesDataRef.current)
     await waitWithCancel(2_000);
 
     handleFrames("idle");
@@ -487,6 +488,8 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const removeVideo = () => {
     // console.log('removeVideo')
     setIsPoseJumpSettingsModalOpen(false);
+    jumpEventsRef.current = defaultJumpEvents;
+    setJumpEvents(defaultJumpEvents);
 
     allFramesDataRef.current = [];
     setRecordedPositions(undefined);
@@ -1035,12 +1038,88 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
               isEventModalOpen={isPoseJumpEventModalOpen}
               jumpEvents={jumpEvents}
               onJumpEventSelected={(jumpEvent: JumpEventType) => {
+                // console.log(jumpEventsRef.current)
                 const prev = jumpEventsRef.current;
-                if (!prev) return;
+                if (!prev) return defaultJumpEvents;
 
-                const hipAngle = nearestFrameRef.current?.jointData?.right_hip?.angle ?? null;
-                const kneeAngle = nearestFrameRef.current?.jointData?.right_knee?.angle ?? null;
-                const videoTime = nearestFrameRef.current?.videoTime ?? null;
+                let hipAngle: number | null = null;
+                let kneeAngle: number | null = null;
+                let videoTime: number | null = null;
+
+                if (jumpEventsRef.current?.[jumpEvent].videoTime) {
+                  jumpEventsRef.current = {
+                    ...prev,
+                    [jumpEvent]: {
+                      hipAngle,
+                      kneeAngle,
+                      videoTime,
+                    },
+                  };
+                  setJumpEvents(prev => {
+                    if (!prev) return defaultJumpEvents;
+
+                    return {
+                      ...prev,
+                      [jumpEvent]: {
+                        hipAngle,
+                        kneeAngle,
+                        videoTime,
+                      }
+                    }
+                  });
+
+                  return;
+                } 
+
+                if (poseOrientation === "right") {
+                  if (orthogonalReference === "vertical") {
+                    hipAngle = nearestFrameRef.current?.jointData?.right_hip?.angle ?? null;
+                    kneeAngle = nearestFrameRef.current?.jointData?.right_knee?.angle ?? null;                
+                  }
+                  else {
+                    const A = nearestFrameRef.current?.keypoints.find(kp => kp.name === "right_hip");
+                    const B = nearestFrameRef.current?.keypoints.find(kp => kp.name === "right_knee");
+
+                    const AB = { x: (B?.x ?? 0) - (A?.x ?? 0), y: (B?.y ?? 0) - (A?.y ?? 0) };
+                    const verticalVector = { x: 0, y: 1 };
+                    const dot = AB.x * verticalVector.x + AB.y * verticalVector.y;
+                    const magAB = Math.hypot(AB.x, AB.y);
+                    const magVerticalVector = Math.hypot(verticalVector.x, verticalVector.y);
+
+                    let angleDeg;
+                    if (magAB === 0 || magVerticalVector === 0) angleDeg = 0;
+                    angleDeg = Math.acos(dot / (magAB * magVerticalVector)) * (180 / Math.PI);
+
+                    hipAngle = angleDeg;
+                    kneeAngle = nearestFrameRef.current?.jointData?.right_knee?.angle ?? null;
+                    if (kneeAngle) kneeAngle = 180 - (hipAngle + (180 - kneeAngle));
+                  }
+                }
+                else if (poseOrientation === "left") {
+                  if (orthogonalReference === "vertical") {
+                    hipAngle = nearestFrameRef.current?.jointData?.left_hip?.angle ?? null;
+                    kneeAngle = nearestFrameRef.current?.jointData?.left_knee?.angle ?? null;
+                  }
+                  else {
+                    const A = nearestFrameRef.current?.keypoints.find(kp => kp.name === "left_hip");
+                    const B = nearestFrameRef.current?.keypoints.find(kp => kp.name === "left_knee");
+
+                    const AB = { x: (B?.x ?? 0) - (A?.x ?? 0), y: (B?.y ?? 0) - (A?.y ?? 0) };
+                    const verticalVector = { x: 0, y: 1 };
+                    const dot = AB.x * verticalVector.x + AB.y * verticalVector.y;
+                    const magAB = Math.hypot(AB.x, AB.y);
+                    const magVerticalVector = Math.hypot(verticalVector.x, verticalVector.y);
+
+                    let angleDeg;
+                    if (magAB === 0 || magVerticalVector === 0) angleDeg = 0;
+                    angleDeg = Math.acos(dot / (magAB * magVerticalVector)) * (180 / Math.PI);
+
+                    hipAngle = angleDeg;
+                    kneeAngle = nearestFrameRef.current?.jointData?.right_knee?.angle ?? null;
+                    if (kneeAngle) kneeAngle = 180 - (hipAngle + (180 - kneeAngle));
+                  }
+                }
+                videoTime = nearestFrameRef.current?.videoTime ?? null;
                 
                 jumpEventsRef.current = {
                   ...prev,
@@ -1051,7 +1130,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                   },
                 };
                 setJumpEvents(prev => {
-                  if (!prev) return null;
+                  if (!prev) return defaultJumpEvents;
 
                   return {
                     ...prev,
@@ -1061,7 +1140,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                       videoTime,
                     }
                   }
-                })
+                });
               }}
               />
           ) : null }
@@ -1137,7 +1216,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
                       setIsCleanView(false);
                       onCleanView?.(false);
                       if (isPoseJumpSettingsModalOpen) setIsPoseJumpSettingsModalOpen(false);
-                      if (isPoseJumpEventModalOpen) setIsPoseJumpEventModalOpen(false);
+                      // if (isPoseJumpEventModalOpen) setIsPoseJumpEventModalOpen(false);
                     }}
                   /> ) : (
                   <EyeSlashIcon

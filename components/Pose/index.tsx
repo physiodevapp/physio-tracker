@@ -374,11 +374,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                         setIsPoseSettingsModalOpen(false);
 
                         if (poseOrientation) {
-                          videoAnalysisRef.current?.handleVideoProcessing();
-  
                           if (showPoseOrientationModal) {
                             setShowPoseOrientationModal(false);
                           }
+
+                          videoAnalysisRef.current?.handleVideoProcessing();  
                         }
                         else {
                           setShowPoseOrientationModal(true);
@@ -423,7 +423,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               <div className='w-6 flex justify-center items-center z-10'>
                 <button 
                   className={`h-6 w-6 rounded-md text-center text-[1.2rem] font-bold leading-none uppercase ${processingStatus === "processed"
-                    ? 'border' : poseOrientation === "auto"
+                    ? 'border text-[1.0rem]' : poseOrientation === "auto"
                     ? 'bg-green-500' : poseOrientation 
                     ? 'bg-[#5dadec]'
                     : 'bg-red-500 animate-pulse'

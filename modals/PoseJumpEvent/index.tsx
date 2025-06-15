@@ -69,7 +69,7 @@ const Index = ({
               onClick={(ev) => {
                 ev.stopPropagation();
 
-                console.log(jumpEvents?.[jumpEvent])
+                // console.log(jumpEvents?.[jumpEvent])
 
                 handleJumpEventValue(jumpEvent);
               }}>{
