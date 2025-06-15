@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import { motion } from "framer-motion";
-import { CanvasKeypointName, JointDataMap, JumpEvents, Kinematics } from "@/interfaces/pose";
+import { CanvasKeypointName, JointDataMap, Kinematics } from "@/interfaces/pose";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
 import { OrthogonalReference, useSettings } from "@/providers/Settings";
