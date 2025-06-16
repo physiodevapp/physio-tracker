@@ -619,7 +619,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   className={`w-14 h-14 text-white font-semibold rounded p-1 ${
                     ((workLoad ?? 0) > 0.1) ? '' : 'opacity-40'
                   }`}  
-                  onClick={() => ((workLoad ?? 0.1) > 0) && handleUpdateWorkLoad()}          
+                  onClick={() => ((workLoad ?? 0) > 0.1) && handleUpdateWorkLoad()}          
                   /> 
             }             
           </div>

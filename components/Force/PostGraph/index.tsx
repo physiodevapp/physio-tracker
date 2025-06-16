@@ -83,7 +83,7 @@ function customDragger(
         if (!ann || ann.type !== 'line') continue;
 
         const xPixel = xScale.getPixelForValue(ann.xMin);
-        const tolerance = ann.borderWidth / 2;
+        const tolerance = 6; // ann.borderWidth / 2;
 
         if (
           (event.type === 'mousedown' || event.native?.type === 'touchstart') &&
@@ -648,8 +648,8 @@ const Index: React.FC<IndexProps> = ({
                   type: 'line',
                   xMin: trimLimits?.start ?? 0,
                   xMax: trimLimits?.start ?? 0,
-                  borderColor: 'rgba(219, 211, 43, 0.75)',
-                  borderWidth: 6,
+                  borderColor: 'rgba(43, 87, 232, 0.6)', // 'rgba(219, 211, 43, 0.75)',
+                  borderWidth: 2,              
                   label: {
                     enabled: false,
                     content: '',
@@ -661,8 +661,8 @@ const Index: React.FC<IndexProps> = ({
                   type: 'line',
                   xMin: trimLimits?.end ?? 0,
                   xMax: trimLimits?.end ?? 0,
-                  borderColor: 'rgba(219, 211, 43, 0.75)',
-                  borderWidth: 6,
+                  borderColor: 'rgba(43, 87, 232, 0.6)', // 'rgba(219, 211, 43, 0.75)',
+                  borderWidth: 2,
                   label: {
                     enabled: false,
                     content: '',

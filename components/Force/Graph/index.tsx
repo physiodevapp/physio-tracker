@@ -546,6 +546,7 @@ const Index: React.FC<IndexProps> = ({
                       const isOutlierRow = outDuration || outAmplitude || outRelativeRatio || (!isRecording && outRatio);
                       const cycleNumber = (validData.length - index);
 
+                      // console.log('data -> ', data)
                       return (
                         <tr
                           key={index}

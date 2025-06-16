@@ -130,9 +130,18 @@ export const getCanvasScaleFactor = ({
 
   if (!width || !height) return 1;
 
-  const scaleX = canvasDisplayWidth / width;
-  const scaleY = canvasDisplayHeight / height;
-
-  return (scaleX + scaleY) / 2;
+  // const scaleX = canvasDisplayWidth / width;
+  // const scaleY = canvasDisplayHeight / height;
+  // console.log(scaleX, ' - ', scaleY)
+  // return (scaleX + scaleY) / 2;
+  ///
+  const inverseScaleX = width / canvasDisplayWidth;
+  const inverseScaleY = height / canvasDisplayHeight;
+  const rawScale = Math.max(inverseScaleX, inverseScaleY);
+  const clampedScale = Math.min(Math.max(rawScale, 1.5), 4); // límites entre 1.5x y 5x
+  // console.log(inverseScaleX, ' - ', inverseScaleY)
+  // console.log(clampedScale)
+  return clampedScale;
+  ///
 };
 

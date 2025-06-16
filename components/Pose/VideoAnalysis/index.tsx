@@ -94,7 +94,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   const [jumpEvents, setJumpEvents] = useState<JumpEvents>(defaultJumpEvents);
   const jumpEventsRef = useRef<JumpEvents | null>(jumpEvents);
 
-  const keypointRadiusBase = 8; // revisar
+  const keypointRadiusBase = 2; // revisar
 
   const [zoomStatus, setZoomStatus] = useState<'in' | 'out'>('in');
 
@@ -143,7 +143,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
   } = settings.pose;
   const selectedJointsRef = useRef(selectedJoints);
 
-  const maxDuration = 30; // segundos máximos del video
+  const maxDuration = 20; // segundos máximos del video
 
   const [processingProgress, setProcessingProgress] = useState<number>(0);
 
@@ -571,6 +571,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
       if (nearestFrame.keypoints) {
         const drawableKeypoints = nearestFrame.keypoints.filter(kp => !excludedDrawableKeypoints.includes(kp.name!));   
 
+        // console.log('scaleFactorRef ', scaleFactorRef.current)
         drawKeypoints({
           ctx,
           keypoints: drawableKeypoints,
@@ -583,7 +584,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           keypoints: drawableKeypoints,
           keypointPairs,
           mirror: false,
-          lineWidth: 2 * (scaleFactorRef.current ?? 1),
+          lineWidth: (keypointRadiusBase / 2) * (scaleFactorRef.current ?? 1),
         });
       }
     }
@@ -640,6 +641,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
           if (frame.keypoints) {
             const drawableKeypoints = frame.keypoints.filter(kp => !excludedDrawableKeypoints.includes(kp.name!));   
             
+            // console.log('scaleFactorRef ', scaleFactorRef.current)
             drawKeypoints({
               ctx,
               keypoints: drawableKeypoints,
@@ -760,6 +762,7 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
 
   useEffect(() => {
     const updateScale = () => {
+      if (processingStatus !== "processed") return;
       if (!canvasRef.current || !videoRef.current) return;
   
       const scale = getCanvasScaleFactor({
@@ -770,14 +773,22 @@ const Index = forwardRef<VideoAnalysisHandle, IndexProps>(({
         },
       }) ?? 1;
   
-      if (!scaleFactor) {
-        setScaleFactor(scale);
-        scaleFactorRef.current = scale;
-      }
+      // console.log('canvas -> ', canvasRef.current.clientWidth, ' - ', canvasRef.current.clientHeight)
+      // console.log('video -> ', videoRef.current.videoWidth, ' - ', videoRef.current.videoHeight)
+      // console.log('scale ', scale)
+      // console.log('///')
+      // if (!scaleFactor) {
+      //   setScaleFactor(scale);
+      //   scaleFactorRef.current = scale;
+      // }
+      ///
+      setScaleFactor(scale);
+      scaleFactorRef.current = scale;
+      ///
     };
   
     updateScale();
-  }, [videoRef.current?.videoWidth, videoRef.current?.videoHeight]);
+  }, [processingStatus]);
   
   useEffect(() => {
     if (videoLoaded && videoRef.current && canvasRef.current) {
