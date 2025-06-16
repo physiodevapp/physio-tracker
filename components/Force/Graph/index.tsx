@@ -134,7 +134,8 @@ const Index: React.FC<IndexProps> = ({
   const { outlierSensitivity } = settings;
 
   useEffect(() => {
-    if (isRecording && cycleDuration != null) {  
+    if (isRecording && cycleDuration != null) { 
+      console.log('workLoad ', workLoad) 
       const newCycle = {
         workLoad,
         duration: cycleDuration,
