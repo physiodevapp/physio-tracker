@@ -214,19 +214,26 @@ export function detectOutlierEdgesByFlatZones(
   return { startOutlierIndex, endOutlierIndex };
 }
 
-export function adjustCyclesByZeroCrossing(
-  inputData: DataPoint[],
+export function adjustCyclesByZeroCrossing({
+  inputData,
   baseline = 0,
-  cycles: Cycle[],
   cyclesToAverage = 3,
-  trimLimits?: { start: number; end: number } | null,
-  minCycleAmplitude  = 0.05, // kg
+  trimLimits,
+  minCycleAmplitude = 0.05, // kg
   minCycleDuration = 100, // ms
-): { baselineCrossSegments: BaselineCrossSegment[]; adjustedCycles: Cycle[] } {
+  workLoad = null,
+}: {
+  inputData: { x: number; y: number }[],
+  baseline: number,
+  cyclesToAverage: number,
+  trimLimits?: { start: number; end: number } | null,
+  minCycleAmplitude?: number, // kg
+  minCycleDuration?: number, // ms
+  workLoad: number | null,
+}): { baselineCrossSegments: BaselineCrossSegment[]; adjustedCycles: Cycle[] } {
   const data = inputData;
   let baselineCrossSegments: BaselineCrossSegment[] = [];
   const zeroCrossings: number[] = [];
-  const workLoad = cycles[0]?.workLoad ?? null;
 
   // Find zero-crossings (sign changes relative to baseline)
   for (let i = 1; i < data.length; i++) {

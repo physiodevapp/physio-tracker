@@ -579,6 +579,10 @@ const Index = ({
     const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
 
+    if (isPlayingVideo) {
+      setIsZoomed(false);
+    }
+
     chartRef.current = new ChartJS(ctx, chartConfig);
 
     chartRef.current.data.datasets.forEach((_, datasetIndex) => {

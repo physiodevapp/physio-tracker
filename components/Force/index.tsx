@@ -69,6 +69,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setSensorData,
     setRawSensorData,
     setCycles,
+    setLiveCycles,
     connectToSensor,
   } = useBluetooth(); // useContext(BluetoothContext);
 
@@ -178,6 +179,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         sensorRawDataLogRef.current = [];
         setRawSensorData([]);
         setCycles([]);
+        setLiveCycles([]);
       };
     }
   }, [dataCharacteristic]);
@@ -194,7 +196,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       await controlCharacteristic.writeValue(new Uint8Array([CMD_TARE_SCALE]));
       await controlCharacteristic.writeValue(new Uint8Array([CMD_TARE_SCALE]));
       await controlCharacteristic.writeValue(new Uint8Array([CMD_TARE_SCALE]));
-      console.log('Tared');
+      console.log('🟢 Sensor tared');
       setTaringStatus(1);
     } catch (error) {
       console.log("Error taring sensor:", error);
@@ -215,6 +217,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       sensorRawDataLogRef.current = [];
       setRawSensorData([]);
       setCycles([]);
+      setLiveCycles([]);
       setIsRecording(true);
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
 
@@ -297,6 +300,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     sensorRawDataLogRef.current = [];
     setRawSensorData([]);
     setCycles([]);
+    setLiveCycles([]);
+    setTaringStatus(null);
     setTimeout(() => {
       setIsDeviceAvailable(true);
     }, 12_000);
@@ -532,8 +537,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                         setRawSensorData([]);
                         
                         setCycles([]);
-                      }}
-                      />
+                        setLiveCycles([]);
+                      }} />
                     ) : null
                   }
                   {Boolean(sensorData.length && !isRecording) && (
@@ -619,7 +624,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                   className={`w-14 h-14 text-white font-semibold rounded p-1 ${
                     ((workLoad ?? 0) > 0.1) ? '' : 'opacity-40'
                   }`}  
-                  onClick={() => ((workLoad ?? 0.1) > 0) && handleUpdateWorkLoad()}          
+                  onClick={() => ((workLoad ?? 0) > 0.1) && handleUpdateWorkLoad()}          
                   /> 
             }             
           </div>

@@ -97,6 +97,8 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
   const inputCanvasRef = useRef<HTMLCanvasElement>(null);
   const webcamRef = useRef<Webcam>(null);
 
+  const keypointRadiusBase = 2; // revisar
+
   const orthogonalReferenceRef = useRef(orthogonalReference);
   const videoConstraintsRef = useRef(videoConstraints);
   
@@ -346,7 +348,7 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
                 ctx, 
                 keypoints: drawableKeypoints, 
                 mirror: isMirrored, 
-                pointRadius: 4 * scaleFactor,
+                pointRadius: (keypointRadiusBase) * (scaleFactor ?? 1),
               });
 
               // Dibujar conexiones entre puntos clave
@@ -355,7 +357,7 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
                 keypoints: drawableKeypoints, 
                 keypointPairs, 
                 mirror: isMirrored, 
-                lineWidth: 2 * scaleFactor, 
+                lineWidth: (keypointRadiusBase / 2) * (scaleFactor ?? 1), 
               });
               
               // Ajustar orientación de la postura
