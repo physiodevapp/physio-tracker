@@ -301,6 +301,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setRawSensorData([]);
     setCycles([]);
     setLiveCycles([]);
+    setTaringStatus(null);
     setTimeout(() => {
       setIsDeviceAvailable(true);
     }, 12_000);
