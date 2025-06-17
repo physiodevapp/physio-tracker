@@ -134,8 +134,7 @@ const Index: React.FC<IndexProps> = ({
   const { outlierSensitivity } = settings;
 
   useEffect(() => {
-    console.log('useEffect workLoad ', workLoad)
-    if (isRecording && cycleDuration != null) { 
+    if (isRecording && cycleDuration !== null) { 
       const newCycle = {
         workLoad,
         duration: cycleDuration,
@@ -147,11 +146,11 @@ const Index: React.FC<IndexProps> = ({
         peakY: null,
         relativeSpeedRatio: cycleRelativeSpeedRatio,
       }
-      console.log('newCycle ', newCycle) 
-      console.log('///')
 
+      // son las que se usan siempre en la tabla
       setCycles(prev => [...prev, newCycle]);
 
+      // solo con objeto de comparar con cycles si fuera necesario
       setLiveCycles(prev => [...prev, newCycle]);
     }
     else if (!isRecording && !rawSensorData.length) {
@@ -455,6 +454,7 @@ const Index: React.FC<IndexProps> = ({
           </section> ) : (
           <FullTestForceChart 
             rawSensorData={rawSensorData} // para las curvas
+            workLoad={workLoad}
             displayAnnotations={true} />
         )}
         

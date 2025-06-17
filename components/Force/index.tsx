@@ -69,6 +69,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     setSensorData,
     setRawSensorData,
     setCycles,
+    setLiveCycles,
     connectToSensor,
   } = useBluetooth(); // useContext(BluetoothContext);
 
@@ -178,6 +179,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         sensorRawDataLogRef.current = [];
         setRawSensorData([]);
         setCycles([]);
+        setLiveCycles([]);
       };
     }
   }, [dataCharacteristic]);
@@ -194,7 +196,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       await controlCharacteristic.writeValue(new Uint8Array([CMD_TARE_SCALE]));
       await controlCharacteristic.writeValue(new Uint8Array([CMD_TARE_SCALE]));
       await controlCharacteristic.writeValue(new Uint8Array([CMD_TARE_SCALE]));
-      console.log('Tared');
+      console.log('🟢 Sensor tared');
       setTaringStatus(1);
     } catch (error) {
       console.log("Error taring sensor:", error);
@@ -215,6 +217,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
       sensorRawDataLogRef.current = [];
       setRawSensorData([]);
       setCycles([]);
+      setLiveCycles([]);
       setIsRecording(true);
       await controlCharacteristic.writeValue(new Uint8Array([CMD_START_WEIGHT_MEAS]));
 
@@ -297,6 +300,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     sensorRawDataLogRef.current = [];
     setRawSensorData([]);
     setCycles([]);
+    setLiveCycles([]);
     setTimeout(() => {
       setIsDeviceAvailable(true);
     }, 12_000);
@@ -532,8 +536,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                         setRawSensorData([]);
                         
                         setCycles([]);
-                      }}
-                      />
+                        setLiveCycles([]);
+                      }} />
                     ) : null
                   }
                   {Boolean(sensorData.length && !isRecording) && (

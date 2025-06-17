@@ -24,6 +24,7 @@ export interface DataPoint {
 interface IndexProps {
   rawSensorData: DataPoint[];
   displayAnnotations: boolean;
+  workLoad: number | null;
 }
 
 const safetyDraggerMarginFactor = 0.02;
@@ -358,6 +359,7 @@ function calculateStandardDeviation(data: { y: number }[]) {
 const Index: React.FC<IndexProps> = ({
   rawSensorData,
   displayAnnotations = true,
+  workLoad = null,
 }) => {
   const { setCycles } = useBluetooth();
 
@@ -772,7 +774,7 @@ const Index: React.FC<IndexProps> = ({
     );
 
     // 2️⃣ Detectar outliers en los extremos
-    let trimmedData;
+    let trimmedData: { x: number; y: number }[];
     const { startOutlierIndex, endOutlierIndex } = detectOutlierEdgesByFlatZones(filteredData);
     trimmedData = (startOutlierIndex || endOutlierIndex)
       ? filteredData.slice(
@@ -791,14 +793,14 @@ const Index: React.FC<IndexProps> = ({
     const maxY = Math.max(...trimmedData.map(p => p.y));
     setTopLineValue(maxY);
 
-    // 5️⃣ Detectar ciclos desde cero con esa línea de cruce
-    const { adjustedCycles } = adjustCyclesByZeroCrossing(
-      trimmedData,
-      crossLine,
-      [],               // ← no se parte de ningún ciclo preexistente
-      cyclesToAverage,   // ← cantidad de ciclos que quieres usar para calcular métricas luego
+    // 5️⃣ Detectar ciclos desde cero con esa línea de cruce ← no se parte de ningún ciclo preexistente
+    const { adjustedCycles } = adjustCyclesByZeroCrossing({
+      inputData: trimmedData,
+      baseline: crossLine,            
+      cyclesToAverage,   // ← cantidad de ciclos para calcular métricas luego
       trimLimits,
-    );
+      workLoad,
+    });
     setAdjustedCycles(adjustedCycles);
 
   }, [downsampledData, mappedData, trimLimits]);
