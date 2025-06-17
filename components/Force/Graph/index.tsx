@@ -134,8 +134,8 @@ const Index: React.FC<IndexProps> = ({
   const { outlierSensitivity } = settings;
 
   useEffect(() => {
+    console.log('useEffect workLoad ', workLoad)
     if (isRecording && cycleDuration != null) { 
-      console.log('workLoad ', workLoad) 
       const newCycle = {
         workLoad,
         duration: cycleDuration,
@@ -147,6 +147,8 @@ const Index: React.FC<IndexProps> = ({
         peakY: null,
         relativeSpeedRatio: cycleRelativeSpeedRatio,
       }
+      console.log('newCycle ', newCycle) 
+      console.log('///')
 
       setCycles(prev => [...prev, newCycle]);
 
@@ -156,7 +158,7 @@ const Index: React.FC<IndexProps> = ({
       setCycles([]);
 
       setLiveCycles([]);
-    }
+    } 
   }, [isRecording, cycleCount, rawSensorData]);
 
   // ---- Comporbar si hay mas datos que mostrar (scroll) ----
