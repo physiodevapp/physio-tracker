@@ -278,7 +278,7 @@ export default function useCyclesDetector({
     // Calcular la velocidad inicial una sola vez
     if (initialAvgVelocityRef.current === null && cycleMetrics.length > cyclesToAverage) {
       const initialVelocities = cycleMetrics
-        .slice(1, cyclesToAverage)
+        .slice(1, cyclesToAverage + 1)
         .map(cycle => (cycle.amplitude / (cycle.duration)) / (isWorkLoadConstant ? workLoad! : 1))
         .filter(velocity => !isNaN(velocity) && isFinite(velocity));
       

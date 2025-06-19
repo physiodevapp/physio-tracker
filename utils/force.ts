@@ -30,7 +30,7 @@ function addRelativeSpeedToCycles(
   cyclesToAverage: number = 3
 ): Cycle[] {
   const baseVelocities = cycles
-    .slice(1, cyclesToAverage)
+    .slice(1, cyclesToAverage + 1)
     .map(cycle =>
       (cycle.amplitude! / (cycle.duration! / 1000)) / (cycle.workLoad ?? 1)
     )
