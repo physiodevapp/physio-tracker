@@ -1,7 +1,4 @@
-interface DataPoint {
-  x: number;
-  y: number;
-}
+import { DataXYPoint } from "./chart";
 
 export interface Cycle { 
   startX: number | null;
@@ -15,6 +12,14 @@ export interface Cycle {
   workLoad: number | null; 
   minX?: number;
   minY?: number;
+}
+
+export interface IRFDData {
+  rfd: number | null,
+  start: number,
+  end: number,
+  subrange: DataXYPoint[],
+  areNewtons: boolean,
 }
 
 interface BaselineCrossSegment {
@@ -48,14 +53,14 @@ function addRelativeSpeedToCycles(
 }
 
 function findBestStableRegion(
-  data: DataPoint[],
+  data: DataXYPoint[],
   fromIndex: number,
   direction: 'backward' | 'forward',
   baseline: number,
   maxWindowSize = 30,
   threshold = 0.01
-): DataPoint | null {
-  let bestPoint: DataPoint | null = null;
+): DataXYPoint | null {
+  let bestPoint: DataXYPoint | null = null;
 
   for (let windowSize = 5; windowSize <= maxWindowSize; windowSize += 5) {
     const point = detectStableSlopeRegion(data, fromIndex, direction, threshold, windowSize);
@@ -69,12 +74,12 @@ function findBestStableRegion(
 }
 
 function detectStableSlopeRegion(
-  data: DataPoint[],
+  data: DataXYPoint[],
   fromIndex: number,
   direction: 'backward' | 'forward',
   threshold = 0.01,
   windowSize = 5
-): DataPoint | null {
+): DataXYPoint | null {
   const checkRange = (index: number) => {
     const segment: number[] = [];
     for (let i = 0; i < windowSize; i++) {
@@ -104,7 +109,7 @@ function detectStableSlopeRegion(
 }
 
 function getSafeExtendedStartX(
-  data: DataPoint[],
+  data: DataXYPoint[],
   currentPeakX: number,
   previousEndX: number | null,
   dyThreshold = 0.01,
@@ -130,7 +135,7 @@ function getSafeExtendedStartX(
 }
 
 function getSafeExtendedEndX(
-  data: DataPoint[],
+  data: DataXYPoint[],
   currentPeakX: number,
   nextStartX: number | null,
   dyThreshold = 0.01,
@@ -481,3 +486,89 @@ export function adjustCyclesByZeroCrossing({
   
   return { baselineCrossSegments, adjustedCycles };
 }
+
+//IRFDData
+export function calculateRFDInRange({
+  data,
+  startX,
+  endX,
+  convertToNewtons = false,
+}: {
+  data: { x: number; y: number }[];
+  startX: number; // en milisegundos
+  endX: number;   // en milisegundos
+  convertToNewtons?: boolean;
+}): IRFDData | null {
+  // Paso 1: filtrar rango de interés
+  const range = data.filter(p => p.x >= startX && p.x <= endX);
+  if (range.length < 4) return null;
+
+  // Paso 2: convertir x a segundos para análisis interno
+  const rangeInSec = range.map(p => ({ x: p.x / 1000, y: p.y }));
+
+  // Paso 3: detectar la pendiente más pronunciada en cualquier ventana
+  let maxSlope = -Infinity;
+  let peakIdx = -1;
+  const windowSize = 3;
+
+  for (let i = 0; i < rangeInSec.length - windowSize; i++) {
+    const dy = rangeInSec[i + windowSize].y - rangeInSec[i].y;
+    const dx = rangeInSec[i + windowSize].x - rangeInSec[i].x;
+    const slope = dx !== 0 ? dy / dx : 0;
+    if (slope > maxSlope) {
+      maxSlope = slope;
+      peakIdx = i;
+    }
+  }
+
+  if (peakIdx === -1 || maxSlope < 0.01) return null;
+
+  // Paso 4: ir hacia atrás mientras haya pendiente creciente (umbral bajo)
+  const lowSlopeThreshold = 0.005;
+  let startIdx = peakIdx;
+  for (let i = peakIdx - 1; i > 0; i--) {
+    const dy = rangeInSec[i + 1].y - rangeInSec[i].y;
+    const dx = rangeInSec[i + 1].x - rangeInSec[i].x;
+    const slope = dx !== 0 ? dy / dx : 0;
+    if (slope < lowSlopeThreshold) break;
+    startIdx = i;
+  }
+
+  // Paso 5: ir hacia delante mientras siga subiendo
+  let endIdx = peakIdx + windowSize;
+  for (let i = endIdx + 1; i < rangeInSec.length; i++) {
+    if (rangeInSec[i].y < rangeInSec[i - 1].y) break;
+    endIdx = i;
+  }
+
+  const ascending = rangeInSec.slice(startIdx, endIdx + 1);
+  if (ascending.length < 3) return null;
+
+  const minF = ascending[0].y;
+  const maxF = ascending[ascending.length - 1].y;
+  if (maxF <= minF) return null;
+
+  // Paso 6: calcular subrango 20%-80%
+  const threshold20 = minF + 0.2 * (maxF - minF);
+  const threshold80 = minF + 0.8 * (maxF - minF);
+  const subrange = ascending.filter(p => p.y >= threshold20 && p.y <= threshold80);
+  if (subrange.length < 2 || subrange[0].x === subrange[subrange.length - 1].x) return null;
+
+  // Paso 7: cálculo del RFD
+  const deltaF = subrange[subrange.length - 1].y - subrange[0].y;
+  const deltaT = subrange[subrange.length - 1].x - subrange[0].x;
+  let rfd = deltaF / deltaT;
+  if (convertToNewtons) rfd *= 9.81;
+
+  const subrangeInMs = subrange.map(p => ({ x: p.x * 1000, y: p.y }));
+
+  return {
+    rfd,
+    start: subrangeInMs[0].x,
+    end: subrangeInMs[subrangeInMs.length - 1].x,
+    subrange: subrangeInMs,
+    areNewtons: convertToNewtons,
+  };
+}
+
+

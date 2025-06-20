@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import {Chart as ChartJS, ChartConfiguration, registerables, ActiveDataPoint, ChartEvent} from 'chart.js';
 import { IAnnotation, getAllAnnotations, getMaxYValue, lttbDownsample } from "@/utils/chart";
 import annotationPlugin, { AnnotationOptions } from 'chartjs-plugin-annotation';
 import zoomPlugin from 'chartjs-plugin-zoom';
-import { adjustCyclesByZeroCrossing, Cycle, detectOutlierEdgesByFlatZones } from "@/utils/force";
+import { adjustCyclesByZeroCrossing, calculateRFDInRange, Cycle, detectOutlierEdgesByFlatZones, IRFDData } from "@/utils/force";
 import { useBluetooth } from "@/providers/Bluetooth";
 import { useSettings } from "@/providers/Settings";
 import { ArrowsPointingInIcon, ArrowsPointingOutIcon } from "@heroicons/react/24/outline";
@@ -16,13 +16,18 @@ ChartJS.register(
 );
 
 // Define el tipo para cada punto de datos
-export interface DataPoint {
+export interface DataForcePoint {
   time: number;  // Tiempo en microsegundos (se convertirá a ms)
   force: number; // Fuerza en kg
 }
 
+export type PostGraphHandle = {
+  getRFD: () => IRFDData | null;
+  adjustedCycles: Cycle[];
+}
+
 interface IndexProps {
-  rawSensorData: DataPoint[];
+  rawSensorData: DataForcePoint[];
   displayAnnotations: boolean;
   workLoad: number | null;
 }
@@ -356,18 +361,20 @@ function calculateStandardDeviation(data: { y: number }[]) {
   return Math.sqrt(variance);
 };
 
-const Index: React.FC<IndexProps> = ({
+const Index = forwardRef<PostGraphHandle, IndexProps>(({
   rawSensorData,
   displayAnnotations = true,
   workLoad = null,
-}) => {
+}, ref) => {
   const { setCycles } = useBluetooth();
 
   const { settings } = useSettings();
   const { cyclesToAverage, outlierSensitivity } = settings.force;
 
   const [isZoomed, setIsZoomed] = useState(false);
-  const [minRangeX, setMinRangeX] = useState(4_000)
+  const [minRangeX, setMinRangeX] = useState(4_000);
+
+  const [RFD, setRFD] = useState<IRFDData | null>(null);
 
   // --- Cofiguración del gráfico ----
   const chartRef = useRef<ChartJS | null>(null);
@@ -518,6 +525,7 @@ const Index: React.FC<IndexProps> = ({
                 tooltipRef.current.innerHTML = `Current: <strong>${labelY}</strong> at ${labelX} s`;
 
                 tooltipRef.current.style.opacity = "1";
+                tooltipRef.current.style.fontSize = "16px";
               },
               intersect: false,
               callbacks: {
@@ -739,6 +747,91 @@ const Index: React.FC<IndexProps> = ({
       }
   }, [downsampledData, adjustedCycles]);
 
+  const getRFD = (): IRFDData | null => {
+    if (adjustedCycles.length !== 1) return null;
+    // console.log('calculateRFDInRange... ', adjustedCycles)
+    const rfdData = calculateRFDInRange({
+      data: mappedData, // downsampledData,
+      startX: adjustedCycles[0].startX!,
+      endX: adjustedCycles[0].endX!,
+      convertToNewtons: false,
+    });
+
+    // console.log('rfdData ', rfdData)
+    if (!rfdData || RFD) {
+      setRFD(null);
+
+      return null;
+    }
+    else {
+      setRFD(rfdData);
+  
+      return rfdData;
+    };
+  };
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    const chart = chartRef.current;
+    const pluginOptions = chart.options.plugins?.annotation;
+
+    if (!pluginOptions) return;
+
+    // Asegura que annotations es un objeto
+    if (!pluginOptions.annotations || Array.isArray(pluginOptions.annotations)) {
+      pluginOptions.annotations = {};
+    }
+
+    const annotations = pluginOptions.annotations as Record<string, AnnotationOptions>;
+
+    if (!RFD) {
+      delete annotations['rfdLine'];
+      chart.update('none');
+      return;
+    }
+
+    const { subrange, rfd: rfdValue, areNewtons } = RFD;
+    const startX = subrange[0].x;
+    const startY = subrange[0].y;
+    const endX = subrange[subrange.length - 1].x;
+    const endY = subrange[subrange.length - 1].y;
+    const units = areNewtons ? "N/s" : "kg/s";
+
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const nx = -dy / length;
+    // const ny = dx / length;
+    const offset = 26; // en px
+    const xAdjust = (nx * offset) + 72;
+    const yAdjust = 0; // ny * offset
+    // console.log(xAdjust, ' - ', yAdjust)
+
+    annotations['rfdLine'] = {
+      type: 'line',
+      display: true,
+      xMin: startX,
+      yMin: startY,
+      xMax: endX,
+      yMax: endY,
+      borderColor: 'red',
+      borderWidth: 4,
+      label: {
+        display: true,
+        content: `RFD: ${rfdValue?.toFixed(2)} ${units}`,
+        backgroundColor: 'blue',
+        color: 'white',
+        font: { size: 16 },
+        position: 'start',
+        xAdjust,
+        yAdjust,
+      },
+    };
+
+    chart.update('none'); // mantiene zoom y pan
+  }, [RFD]);
+
   useEffect(() => {
     setTrimLimits(null);
   }, []);
@@ -855,6 +948,11 @@ const Index: React.FC<IndexProps> = ({
     }
   }, [isZoomed]);
 
+  useImperativeHandle(ref, () => ({
+    getRFD,
+    adjustedCycles,
+  }));
+
   return (
     <section className='relative border-gray-200 border-2 dark:border-none bg-white rounded-lg pl-2 pr-2 pt-6 pb-2 mt-2'>
       <canvas 
@@ -888,7 +986,7 @@ const Index: React.FC<IndexProps> = ({
       )}
 
       {rawSensorData.length > 0 ? (
-        <p className="flex flex-row gap-4 absolute top-1 left-2 text-gray-500 text-[0.8rem]">
+        <p className="flex flex-row gap-4 absolute top-1 left-2 text-gray-500 text-[16px]">
           <span>Max: <strong>{topLineValue.toFixed(2)} kg</strong></span> 
         </p>
         ) : null
@@ -900,6 +998,8 @@ const Index: React.FC<IndexProps> = ({
         />
     </section>
   )
-}
+});
+
+Index.displayName = 'PostGraph';
 
 export default Index;

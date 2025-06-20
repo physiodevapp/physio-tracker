@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DataPoint } from '@/utils/chart';
+import { DataXYPoint } from '@/utils/chart';
 import { ForceSettings } from '@/providers/Settings';
 
 // Define la métrica del ciclo
@@ -10,7 +10,7 @@ interface CycleMetric {
 }
 
 interface CyclesDetectorProps {
-  downsampledData: DataPoint[];
+  downsampledData: DataXYPoint[];
   settings: ForceSettings;
   workLoad: number | null;
   // mappedData: {x: number, y: number}[];

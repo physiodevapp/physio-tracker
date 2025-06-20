@@ -3,7 +3,7 @@ import {Chart as ChartJS, ChartEvent, ChartConfiguration, registerables} from 'c
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { lttbDownsample } from '@/utils/chart';
 import { ForceSettings } from '@/providers/Settings';
-import FullTestForceChart from "../PostGraph";
+import FullTestForceChart, { PostGraphHandle } from "../PostGraph";
 import { useBluetooth } from '@/providers/Bluetooth';
 import useCyclesDetector from '@/hooks/useCyclesDetector';
 
@@ -28,6 +28,7 @@ interface IndexProps {
   workLoad: number | null;
   settings: ForceSettings;
   isRecording: boolean;
+  postGraphRef: React.Ref<PostGraphHandle>;
 }
 
 const customCrosshairPlugin = (isActive: boolean = true) => ({
@@ -87,6 +88,7 @@ const Index: React.FC<IndexProps> = ({
   settings,
   isRecording,
   workLoad,
+  postGraphRef,
 }) => {
   const {
     movingAverageWindow,
@@ -98,7 +100,6 @@ const Index: React.FC<IndexProps> = ({
     setCycles,
     setLiveCycles,
   } = useBluetooth();
-
   
   // Mapeamos los datos para adaptarlos a la función lttbDownsample
   //  Convertimos "time" a "x" y de microsegundos a milisegundos
@@ -453,6 +454,7 @@ const Index: React.FC<IndexProps> = ({
             }
           </section> ) : (
           <FullTestForceChart 
+            ref={postGraphRef}
             rawSensorData={rawSensorData} // para las curvas
             workLoad={workLoad}
             displayAnnotations={true} />
