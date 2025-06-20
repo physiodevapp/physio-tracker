@@ -783,7 +783,7 @@ const Index = forwardRef<PostGraphHandle, IndexProps>(({
       pluginOptions.annotations = {};
     }
 
-    const annotations = pluginOptions.annotations as Record<string, any>;
+    const annotations = pluginOptions.annotations as Record<string, AnnotationOptions>;
 
     if (!RFD) {
       delete annotations['rfdLine'];
