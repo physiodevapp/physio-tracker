@@ -1,18 +1,18 @@
 import {Chart as ChartJS} from 'chart.js';
 import { BoxLabelOptions } from 'chartjs-plugin-annotation';
 
-export interface DataPoint {
+export interface DataXYPoint {
   x: number;
   y: number;
 }
 
-export function lttbDownsample(data: DataPoint[], threshold: number): DataPoint[] {
+export function lttbDownsample(data: DataXYPoint[], threshold: number): DataXYPoint[] {
   const dataLength = data.length;
   if (threshold >= dataLength || threshold === 0) {
     return data;
   }
   
-  const sampled: DataPoint[] = [];
+  const sampled: DataXYPoint[] = [];
   // Siempre incluimos el primer punto
   sampled.push(data[0]);
 
@@ -48,7 +48,7 @@ export function lttbDownsample(data: DataPoint[], threshold: number): DataPoint[
     // Buscamos el punto en el bucket actual que forme el triángulo con mayor área
     let maxArea = -1;
     let nextA = rangeStart;
-    let chosenPoint: DataPoint = data[rangeStart];
+    let chosenPoint: DataXYPoint = data[rangeStart];
 
     for (let j = rangeStart; j < rangeEnd; j++) {
       const area = Math.abs(

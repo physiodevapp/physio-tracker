@@ -2,14 +2,14 @@
 
 import { useState, useRef, useEffect } from "react";
 import { ArrowPathIcon, Battery0Icon, CheckCircleIcon, Cog6ToothIcon, LinkIcon, LinkSlashIcon, PlayIcon, ScaleIcon, StopIcon, TrashIcon, XMarkIcon, Bars3Icon, BookmarkIcon as BookmarkIconSolid } from "@heroicons/react/24/solid";
-import { BookmarkIcon, DocumentArrowDownIcon } from "@heroicons/react/24/outline";
+import { ArrowTrendingUpIcon, BookmarkIcon, DocumentArrowDownIcon } from "@heroicons/react/24/outline";
 import ForceChart from "./Graph";
 import { useSettings } from "@/providers/Settings";
 import ForceSettings from "@/modals/ForceGraphSettings";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { useBluetooth } from "@/providers/Bluetooth";
-import { DataPoint } from "./PostGraph";
+import { DataForcePoint, PostGraphHandle } from "./PostGraph";
 // import { rawSensorData as rawSensorDataSample } from "@/data/rawSensorData_micro";
 
 // ----------------- Comandos y Códigos -----------------
@@ -166,6 +166,9 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
   };
 
+  // ----------------- Llamada a RFD -----------------
+  const postGraphRef = useRef<PostGraphHandle>(null);
+
   // ----------------- Funciones de Conexión y Control -----------------
   useEffect(() => {
     // Solo añade el listener si la característica está disponible
@@ -252,7 +255,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     }
   };
 
-  const transformRawData = (rawCsvLines: string[]): DataPoint[] => {
+  const transformRawData = (rawCsvLines: string[]): DataForcePoint[] => {
     return rawCsvLines
       .slice(1) // Ignora el encabezado "timestamp,force"
       .map((line) => {
@@ -462,6 +465,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               workLoad={updatedWorkLoad}
               settings={settings.force}
               isRecording={isRecording}
+              postGraphRef={postGraphRef}
               />
           </div>
         )}
@@ -580,12 +584,30 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               className="w-6 h-6 text-white"
               onClick={shutdown}
               />
-            <Cog6ToothIcon 
-              className={`w-6 h-6 ${
-                (isRecording || sensorData.length) ? "text-white/60" : "text-white"
-              }`}
-              onClick={() => !isRecording && !sensorData.length && toggleSettings()}
-              />
+            {(!isRecording && sensorData.length) ? (
+              <div 
+                className='relative'
+                onClick={() => {
+                    const postGraph = postGraphRef.current;
+                    if (postGraph && postGraph.adjustedCycles.length === 1 ) {
+                      postGraph.getRFD();
+                    }
+                  }} >
+                <ArrowTrendingUpIcon 
+                  className={`w-6 h-6 text-white ${postGraphRef.current?.adjustedCycles.length === 1
+                    ? 'text-white' 
+                    : 'text-white/40'
+                  }`} />
+                <div className={`absolute -bottom-[1.2rem] left-1/2 -translate-x-1/2 px-2 bg-black/40 rounded-md ${postGraphRef.current?.adjustedCycles.length === 1
+                    ? 'text-white' 
+                    : 'text-white/40'
+                  }`}>RFD</div> 
+              </div>
+              ) : (
+              <Cog6ToothIcon 
+                className={`w-6 h-6 text-white`}
+                onClick={() => !isRecording && !sensorData.length && toggleSettings()} />
+            )}
           </>
         )}
         {(!isConnected && (!isDeviceAvailable || device)) && (
