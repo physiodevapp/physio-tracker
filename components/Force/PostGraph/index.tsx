@@ -461,7 +461,11 @@ const Index = forwardRef<PostGraphHandle, IndexProps>(({
         plugins: [
           customDragger(
             100,
-            setTrimLimits,
+            (range) => {
+              setTrimLimits(range);
+
+              setRFD(null);
+            },
           ),
           customCrosshairPlugin(),
         ],
