@@ -32,6 +32,7 @@ export default function useCyclesDetector({
     durationChangeThreshold,
     velocityDropThreshold,
     variabilityThreshold,
+    includeFirstCycle,
   } = settings;
 
   const fatigueTipsMap: Record<string, string> = {
@@ -277,8 +278,9 @@ export default function useCyclesDetector({
       : 0;  
     // Calcular la velocidad inicial una sola vez
     if (initialAvgVelocityRef.current === null && cycleMetrics.length > cyclesToAverage) {
+      const sliceStart = includeFirstCycle ? 0 : 1;
       const initialVelocities = cycleMetrics
-        .slice(1, cyclesToAverage + 1)
+        .slice(sliceStart, cyclesToAverage + sliceStart)
         .map(cycle => (cycle.amplitude / (cycle.duration)) / (isWorkLoadConstant ? workLoad! : 1))
         .filter(velocity => !isNaN(velocity) && isFinite(velocity));
       

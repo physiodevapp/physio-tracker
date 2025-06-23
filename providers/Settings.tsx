@@ -48,6 +48,7 @@ export interface ForceSettings {
   velocityDropThreshold: number;
   variabilityThreshold: number;
   outlierSensitivity: number;
+  includeFirstCycle: boolean;
 }
 
 // Interfaz para BalanceSettings
@@ -108,6 +109,7 @@ interface SettingsContextProps {
   setVelocityDropThreshold: (value: number) => void;
   setVariabilityThreshold: (value: number) => void;
   setOutlierSensitivity: (value: number) => void;
+  setIncludeFirstCycle: (value: boolean) => void;
   // Setters para balance
   setCalibrationDelay: (value: number) => void;
   setCalibrationPoints: (value: number) => void;
@@ -173,6 +175,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       velocityDropThreshold: 0.75,
       variabilityThreshold: 0.04,
       outlierSensitivity: 2,
+      includeFirstCycle: false,
     },
     balance: {
       calibrationDelay: 6_000,          // en milisegundos
@@ -282,6 +285,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     setSettings(prev => ({ ...prev, force: { ...prev.force, variabilityThreshold: value } }));
   const setOutlierSensitivity = (value: number) =>
     setSettings(prev => ({ ...prev, force: { ...prev.force, outlierSensitivity: value } }));
+  const setIncludeFirstCycle = (value: boolean) => 
+    setSettings(prev => ({...prev, force: { ...prev.force, includeFirstCycle: value } }));
   const resetForceSettings = () => {
     setSettings(prev => ({ ...prev, force: defaultConfig.force }));
   };  
@@ -349,6 +354,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setVelocityDropThreshold,
         setVariabilityThreshold,
         setOutlierSensitivity,
+        setIncludeFirstCycle,
         resetForceSettings,
         setCalibrationDelay,
         setCalibrationPoints,

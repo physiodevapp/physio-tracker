@@ -369,7 +369,11 @@ const Index = forwardRef<PostGraphHandle, IndexProps>(({
   const { setCycles } = useBluetooth();
 
   const { settings } = useSettings();
-  const { cyclesToAverage, outlierSensitivity } = settings.force;
+  const { 
+    cyclesToAverage, 
+    outlierSensitivity, 
+    includeFirstCycle, 
+  } = settings.force;
 
   const [isZoomed, setIsZoomed] = useState(false);
   const [minRangeX, setMinRangeX] = useState(4_000);
@@ -895,12 +899,13 @@ const Index = forwardRef<PostGraphHandle, IndexProps>(({
       inputData: trimmedData,
       baseline: crossLine,            
       cyclesToAverage,   // ← cantidad de ciclos para calcular métricas luego
+      includeFirstCycle,
       trimLimits,
       workLoad,
     });
     setAdjustedCycles(adjustedCycles);
 
-  }, [downsampledData, mappedData, trimLimits]);
+  }, [downsampledData, mappedData, trimLimits, includeFirstCycle]);
 
   useEffect(() => {
     if (!adjustedCycles || !adjustedCycles?.length) return;
