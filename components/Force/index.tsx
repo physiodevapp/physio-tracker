@@ -584,6 +584,11 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
               className="w-6 h-6 text-white"
               onClick={shutdown}
               />
+            {!isRecording ? (
+              <Cog6ToothIcon 
+                className={`w-6 h-6 text-white`}
+                onClick={() => !isRecording && toggleSettings()} />
+            ) : null }
             {(!isRecording && sensorData.length) ? (
               <div 
                 className='relative'
@@ -594,20 +599,16 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                     }
                   }} >
                 <ArrowTrendingUpIcon 
-                  className={`w-6 h-6 text-white ${postGraphRef.current?.adjustedCycles.length === 1
+                  className={`w-7 h-7 -mt-2 text-white ${postGraphRef.current?.adjustedCycles.length === 1
                     ? 'text-white' 
                     : 'text-white/40'
                   }`} />
-                <div className={`absolute -bottom-[1.2rem] left-1/2 -translate-x-1/2 px-2 bg-black/40 rounded-md ${postGraphRef.current?.adjustedCycles.length === 1
+                <div className={`absolute top-[80%] left-1/2 -translate-x-1/2 px-2 text-[0.6rem] tracking-wider bg-black/40 rounded-md ${postGraphRef.current?.adjustedCycles.length === 1
                     ? 'text-white' 
                     : 'text-white/40'
                   }`}>RFD</div> 
               </div>
-              ) : (
-              <Cog6ToothIcon 
-                className={`w-6 h-6 text-white`}
-                onClick={() => !isRecording && !sensorData.length && toggleSettings()} />
-            )}
+              ) : null }
           </>
         )}
         {(!isConnected && (!isDeviceAvailable || device)) && (
@@ -615,7 +616,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
         )}
       </section>
       {(showSettings && isConnected) && (
-        <ForceSettings/>
+        <ForceSettings
+          isInPostRecordingMode={sensorData.length > 0} />
       )}
       {(showMassCalibration && isConnected) && (
          <section

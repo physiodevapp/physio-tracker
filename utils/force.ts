@@ -30,12 +30,18 @@ interface BaselineCrossSegment {
   isValley: boolean;
 }
 
-function addRelativeSpeedToCycles(
+function addRelativeSpeedToCycles({
+  cycles,
+  cyclesToAverage = 3,
+  includeFirstCycle = false,
+}: {
   cycles: Cycle[],
-  cyclesToAverage: number = 3
-): Cycle[] {
+  cyclesToAverage: number,
+  includeFirstCycle: boolean,
+}): Cycle[] {
+  const sliceStart = includeFirstCycle ? 0 : 1;
   const baseVelocities = cycles
-    .slice(1, cyclesToAverage + 1)
+    .slice(sliceStart, cyclesToAverage + sliceStart)
     .map(cycle =>
       (cycle.amplitude! / (cycle.duration! / 1000)) / (cycle.workLoad ?? 1)
     )
@@ -223,6 +229,7 @@ export function adjustCyclesByZeroCrossing({
   inputData,
   baseline = 0,
   cyclesToAverage = 3,
+  includeFirstCycle = false,
   trimLimits,
   minCycleAmplitude = 0.05, // kg
   minCycleDuration = 100, // ms
@@ -231,6 +238,7 @@ export function adjustCyclesByZeroCrossing({
   inputData: { x: number; y: number }[],
   baseline: number,
   cyclesToAverage: number,
+  includeFirstCycle: boolean,
   trimLimits?: { start: number; end: number } | null,
   minCycleAmplitude?: number, // kg
   minCycleDuration?: number, // ms
@@ -479,7 +487,11 @@ export function adjustCyclesByZeroCrossing({
     return cycle.amplitude! > minCycleAmplitude && duration > minCycleDuration;
   });
 
-  adjustedCycles = addRelativeSpeedToCycles(adjustedCycles, cyclesToAverage);
+  adjustedCycles = addRelativeSpeedToCycles({
+    cycles: adjustedCycles, 
+    cyclesToAverage,
+    includeFirstCycle,
+  });
 
   // console.log('baselineCrossSegments ', baselineCrossSegments)
   // console.log('adjustedCycles ', adjustedCycles)
