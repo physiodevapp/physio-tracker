@@ -901,7 +901,7 @@ const Index = forwardRef<PostGraphHandle, IndexProps>(({
       cyclesToAverage,   // ← cantidad de ciclos para calcular métricas luego
       includeFirstCycle,
       trimLimits,
-      workLoad,
+      workLoad: (workLoad ?? 0) > 0 ? workLoad : null,
     });
     setAdjustedCycles(adjustedCycles);
 
