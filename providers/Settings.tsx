@@ -148,7 +148,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       jump: {
         side: "right",
       },
-      poseOrientation: "front",
+      poseOrientation: "auto",
     },
     color: {
       redHueLower1: 0,

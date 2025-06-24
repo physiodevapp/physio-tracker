@@ -37,6 +37,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
     poseOrientation,
   } = settings.pose;
 
+  const [poseOrientationInferred, setPoseOrientationInferred] = useState<PoseOrientation | null>(null);
+
   const videoAnalysisRef = useRef<VideoAnalysisHandle>(null);
   const liveAnalysisRef = useRef<LiveAnalysisHandle>(null);
   const [isLiveRecording, setIsLiveRecording] = useState(false);
@@ -255,7 +257,8 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                 setRecordedVideoUrl(url);
               }} 
               showPoseOrientationModal={showPoseOrientationModal}
-              setShowPoseOrientationModal={setShowPoseOrientationModal}/>
+              setShowPoseOrientationModal={setShowPoseOrientationModal} 
+              onPoseOrientationInferredChange={setPoseOrientationInferred}/>
           )}
           {mode === "video" && (
             <VideoAnalysis
@@ -437,7 +440,7 @@ const Index = ({ handleMainMenu, isMainMenuOpen }: IndexProps) => {
                     }
                   }}
                 >{poseOrientation === "auto" 
-                  ? liveAnalysisRef.current?.poseOrientationInferredRef.current?.[0] ?? "?"
+                  ? poseOrientationInferred?.[0] ?? "?"
                   : poseOrientation ? poseOrientation[0]
                   : "?"
                 }</button>
