@@ -21,7 +21,7 @@ export type LiveAnalysisHandle = {
   stopRecording: () => void;
   isRecording: boolean;  
   setIsFrozen: React.Dispatch<React.SetStateAction<boolean>>;
-  poseOrientationInferredRef: React.RefObject<PoseOrientation | null>;
+  // poseOrientationInferredRef: React.RefObject<PoseOrientation | null>;
 };
 
 interface IndexProps {
@@ -43,6 +43,7 @@ interface IndexProps {
   onRecordingFinish?: (url: string) => void;
   showPoseOrientationModal: boolean;
   setShowPoseOrientationModal: React.Dispatch<React.SetStateAction<boolean>>;
+  onPoseOrientationInferredChange: (value: PoseOrientation | null) => void;
 }
 
 const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({ 
@@ -63,6 +64,7 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
   onRecordingFinish,
   showPoseOrientationModal,
   setShowPoseOrientationModal,
+  onPoseOrientationInferredChange,
 }, ref) => {
   const { settings } = useSettings();
   const {
@@ -75,6 +77,7 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
   const [isCameraReady, setIsCameraReady] = useState(false);
 
   const poseOrientationInferredRef = useRef<PoseOrientation>(null);
+  const prevPoseOrientationInferredRef = useRef<PoseOrientation>(null);
 
   const [isRecording, setIsRecording] = useState(false);
   const recordedChunksRef = useRef<Blob[]>([]);
@@ -367,7 +370,17 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
                 const inferred = inferPoseOrientation(keypoints);
                 orientationRaw = inferred;
                 orientationAdjusted = orientationRaw;
-                poseOrientationInferredRef.current = adjustOrientationForMirror(inferred, isMirrored);
+                const adjusted = adjustOrientationForMirror(inferred, isMirrored);
+
+                if (poseOrientationInferredRef.current !== adjusted) {
+                  poseOrientationInferredRef.current = adjusted;
+
+                  // Solo emitir si el valor cambió
+                  if (prevPoseOrientationInferredRef.current !== adjusted) {
+                    prevPoseOrientationInferredRef.current = adjusted;
+                    onPoseOrientationInferredChange?.(adjusted); // Emite al padre
+                  }
+                }
               } else {
                 orientationRaw = poseOrientation;
                 orientationAdjusted = adjustOrientationForMirror(poseOrientation, isMirrored);
@@ -439,7 +452,7 @@ const Index = forwardRef<LiveAnalysisHandle, IndexProps>(({
     stopRecording,
     isRecording,
     setIsFrozen,
-    poseOrientationInferredRef,
+    // poseOrientationInferredRef,
   }));
 
   return (
