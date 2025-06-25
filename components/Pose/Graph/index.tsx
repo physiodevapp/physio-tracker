@@ -354,7 +354,7 @@ const Index = ({
             },
             pan: {
               enabled: false,
-              mode: 'xy', // o 'xy'
+              mode: 'x', // o 'xy'
               threshold: 10_000,
               onPan: ({ chart }: { chart: ChartJS }) => {
                 setIsZoomed(true);
