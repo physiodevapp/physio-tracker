@@ -395,7 +395,7 @@ const Index = ({
               pinch: {
                 enabled: true, // zoom con gesto táctil
               },
-              mode: 'xy', // solo horizontal (tiempo)
+              mode: 'x', // solo horizontal (tiempo)
               onZoom: () => setIsZoomed(true),
             },
           },
